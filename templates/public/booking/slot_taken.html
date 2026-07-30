@@ -1,0 +1,19 @@
+{% extends "public/_wizard_base.html" %}
+
+{% block header_title %}Horário indisponível{% endblock %}
+{% block back_link %}
+<a aria-label="Voltar" class="w-10 h-10 flex items-center justify-center rounded-full bg-surface-container hover:bg-surface-container-high transition-colors text-on-surface" href="{% url 'public:booking_schedule' tenant.slug %}?service={{ service.pk }}&employee={{ employee.pk }}">
+  <span class="material-symbols-outlined">arrow_back</span>
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="px-6 py-16 flex flex-col items-center text-center gap-4">
+  <span class="material-symbols-outlined text-5xl text-outline">event_busy</span>
+  <p class="text-on-surface">Esse horário acabou de ser reservado por outra pessoa.</p>
+  <a class="mt-2 text-primary font-semibold hover:underline"
+     href="{% url 'public:booking_schedule' tenant.slug %}?service={{ service.pk }}&employee={{ employee.pk }}">
+    Escolher outro horário
+  </a>
+</div>
+{% endblock %}

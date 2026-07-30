@@ -1,0 +1,103 @@
+<div class="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6" id="movement-modal">
+  <div class="absolute inset-0 bg-inverse-surface/40 backdrop-blur-sm"
+       onclick="document.getElementById('modal-slot').innerHTML = ''"></div>
+  <div class="relative w-full max-w-md bg-surface-container-lowest rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto">
+    <div class="p-8">
+      <div class="flex justify-between items-start mb-8">
+        <div>
+          <h3 class="font-display text-display-mobile text-on-surface">Movimentar estoque</h3>
+          <p class="text-on-surface-variant mt-1">{{ product.name }} — atual: {{ product.current_stock }} {{ product.unit }}</p>
+        </div>
+        <button class="text-outline hover:text-on-surface transition-colors p-2 rounded-full hover:bg-surface-container"
+                onclick="document.getElementById('modal-slot').innerHTML = ''">
+          <span class="material-symbols-outlined">close</span>
+        </button>
+      </div>
+
+      {% if error %}
+      <div class="mb-6 rounded-lg bg-error-container text-on-error-container px-4 py-3 text-sm">{{ error }}</div>
+      {% endif %}
+      {% if form.non_field_errors %}
+      <div class="mb-6 rounded-lg bg-error-container text-on-error-container px-4 py-3 text-sm">{{ form.non_field_errors|join:" " }}</div>
+      {% endif %}
+
+      <form hx-post="{% url 'inventory:movement' product.pk %}" hx-target="#product-items" hx-swap="outerHTML"
+            class="space-y-6" x-data="{ type: '{{ form.type.value|default:'in' }}', reason: '{{ form.reason.value|default:'purchase' }}' }">
+        {% csrf_token %}
+        <div class="grid grid-cols-2 gap-3">
+          <label class="flex items-center justify-center gap-2 py-3 rounded-xl border cursor-pointer transition-colors"
+                 :class="type === 'in' ? 'border-primary bg-primary-container/20 text-primary font-semibold' : 'border-outline-variant text-on-surface-variant'">
+            <input class="hidden" name="type" type="radio" value="in" x-model="type"/>
+            <span class="material-symbols-outlined text-[18px]">add_circle</span> Entrada
+          </label>
+          <label class="flex items-center justify-center gap-2 py-3 rounded-xl border cursor-pointer transition-colors"
+                 :class="type === 'out' ? 'border-primary bg-primary-container/20 text-primary font-semibold' : 'border-outline-variant text-on-surface-variant'">
+            <input class="hidden" name="type" type="radio" value="out" x-model="type"/>
+            <span class="material-symbols-outlined text-[18px]">remove_circle</span> Saída
+          </label>
+        </div>
+
+        <div>
+          <label class="block text-label-caps uppercase text-outline mb-1" for="id_reason">Motivo</label>
+          <select class="block w-full px-0 py-2 bg-transparent border-0 border-b border-outline-variant focus:ring-0 focus:border-primary transition-colors" id="id_reason" name="reason" x-model="reason">
+            <option value="purchase" x-show="type === 'in'">Compra</option>
+            <option value="adjustment">Ajuste</option>
+            <option value="loss" x-show="type === 'out'">Perda</option>
+          </select>
+        </div>
+
+        {% if product.tracks_batches %}
+        <div x-show="type === 'in' && reason === 'purchase'" class="grid sm:grid-cols-2 gap-6 bg-secondary-container/20 p-4 rounded-xl">
+          <div class="col-span-2 text-sm text-on-surface-variant -mb-2">
+            <span class="material-symbols-outlined text-[16px] align-text-bottom">inventory_2</span>
+            Este produto controla lote — abre um novo lote nesta compra.
+          </div>
+          <div>
+            <label class="block text-label-caps uppercase text-outline mb-1" for="id_batch_number">Número do lote</label>
+            <input class="block w-full px-0 py-2 bg-transparent border-0 border-b border-outline-variant text-on-surface focus:ring-0 focus:border-primary transition-colors"
+                   id="id_batch_number" name="batch_number" type="text" maxlength="60" value="{{ form.batch_number.value|default:'' }}"/>
+          </div>
+          <div>
+            <label class="block text-label-caps uppercase text-outline mb-1" for="id_expiry_date">Validade</label>
+            <input class="block w-full px-0 py-2 bg-transparent border-0 border-b {% if form.expiry_date.errors %}border-error{% else %}border-outline-variant{% endif %} text-on-surface focus:ring-0 focus:border-primary transition-colors"
+                   id="id_expiry_date" name="expiry_date" type="date" value="{{ form.expiry_date.value|date:'Y-m-d'|default:'' }}"/>
+            {% if form.expiry_date.errors %}<p class="text-error text-sm mt-1">{{ form.expiry_date.errors|join:" " }}</p>{% endif %}
+          </div>
+        </div>
+        {% endif %}
+
+        <div class="grid sm:grid-cols-2 gap-6">
+          <div>
+            <label class="block text-label-caps uppercase text-outline mb-1" for="id_quantity">Quantidade</label>
+            <input class="block w-full px-0 py-2 bg-transparent border-0 border-b {% if form.quantity.errors %}border-error{% else %}border-outline-variant{% endif %} text-on-surface text-lg focus:ring-0 focus:border-primary transition-colors"
+                   id="id_quantity" name="quantity" type="text" inputmode="decimal" placeholder="0,00" value="{{ form.quantity.value|default:'' }}" required/>
+            {% if form.quantity.errors %}<p class="text-error text-sm mt-1">{{ form.quantity.errors|join:" " }}</p>{% endif %}
+          </div>
+          <div>
+            <label class="block text-label-caps uppercase text-outline mb-1" for="id_unit_price">Preço unitário (R$)</label>
+            <input class="block w-full px-0 py-2 bg-transparent border-0 border-b {% if form.unit_price.errors %}border-error{% else %}border-outline-variant{% endif %} text-on-surface text-lg focus:ring-0 focus:border-primary transition-colors"
+                   id="id_unit_price" name="unit_price" type="text" inputmode="decimal" placeholder="0,00" value="{{ form.unit_price.value|default:'' }}" required/>
+            {% if form.unit_price.errors %}<p class="text-error text-sm mt-1">{{ form.unit_price.errors|join:" " }}</p>{% endif %}
+          </div>
+        </div>
+
+        <div x-show="type === 'in'">
+          <label class="block text-label-caps uppercase text-outline mb-1" for="id_supplier">Fornecedor desta compra (opcional)</label>
+          <select class="block w-full px-0 py-2 bg-transparent border-0 border-b border-outline-variant text-on-surface focus:ring-0 focus:border-primary transition-colors"
+                  id="id_supplier" name="supplier">
+            <option value="">Nenhum</option>
+            {% for choice in form.fields.supplier.queryset %}
+            <option value="{{ choice.pk }}" {% if form.supplier.value|stringformat:"s" == choice.pk|stringformat:"s" %}selected{% endif %}>{{ choice.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="pt-4 flex justify-end gap-4">
+          <button class="px-6 py-3 rounded-full border border-outline text-on-surface-variant hover:bg-surface-container transition-colors" type="button"
+                  onclick="document.getElementById('modal-slot').innerHTML = ''">Cancelar</button>
+          <button class="px-8 py-3 rounded-full bg-primary text-on-primary font-semibold hover:opacity-90 transition-opacity active:scale-95" type="submit">Registrar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

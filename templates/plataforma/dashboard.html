@@ -1,0 +1,50 @@
+{% extends "plataforma/base.html" %}
+
+{% block title %}Zelo — Dashboard da Plataforma{% endblock %}
+
+{% block content %}
+<div class="mb-12">
+  <h2 class="font-display text-headline-md text-on-surface mb-2">Visão geral da plataforma</h2>
+  <p class="text-on-surface-variant max-w-2xl">Resumo de assinaturas de todos os salões cadastrados no Zelo.</p>
+</div>
+
+<div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+  <div class="bg-surface-container-lowest rounded-2xl border border-surface-variant p-6">
+    <p class="text-label-caps uppercase text-on-surface-variant mb-2">Salões cadastrados</p>
+    <p class="font-display text-headline-sm text-on-surface">{{ total_tenants }}</p>
+  </div>
+  <div class="bg-surface-container-lowest rounded-2xl border border-surface-variant p-6">
+    <p class="text-label-caps uppercase text-on-surface-variant mb-2">MRR (assinaturas ativas)</p>
+    <p class="font-display text-headline-sm text-on-surface">R$ {{ mrr|floatformat:2 }}</p>
+  </div>
+  <div class="bg-surface-container-lowest rounded-2xl border border-surface-variant p-6">
+    <p class="text-label-caps uppercase text-on-surface-variant mb-2">Ativas</p>
+    <p class="font-display text-headline-sm text-on-surface">{{ active_count }}</p>
+  </div>
+  <div class="bg-surface-container-lowest rounded-2xl border border-surface-variant p-6">
+    <p class="text-label-caps uppercase text-on-surface-variant mb-2">Inadimplentes</p>
+    <p class="font-display text-headline-sm {% if overdue_count %}text-error{% else %}text-on-surface{% endif %}">{{ overdue_count }}</p>
+  </div>
+  <div class="bg-surface-container-lowest rounded-2xl border border-surface-variant p-6">
+    <p class="text-label-caps uppercase text-on-surface-variant mb-2">Em teste</p>
+    <p class="font-display text-headline-sm text-on-surface">{{ trialing_count }}</p>
+  </div>
+  <div class="bg-surface-container-lowest rounded-2xl border border-surface-variant p-6">
+    <p class="text-label-caps uppercase text-on-surface-variant mb-2">Canceladas</p>
+    <p class="font-display text-headline-sm text-on-surface">{{ canceled_count }}</p>
+  </div>
+  <div class="bg-surface-container-lowest rounded-2xl border border-surface-variant p-6">
+    <p class="text-label-caps uppercase text-on-surface-variant mb-2">Novas este mês</p>
+    <p class="font-display text-headline-sm text-on-surface">{{ new_this_month }}</p>
+  </div>
+  <div class="bg-surface-container-lowest rounded-2xl border border-surface-variant p-6">
+    <p class="text-label-caps uppercase text-on-surface-variant mb-2">Canceladas este mês</p>
+    <p class="font-display text-headline-sm text-on-surface">{{ canceled_this_month }}</p>
+  </div>
+</div>
+
+<div class="flex gap-4">
+  <a class="px-6 py-3 rounded-full border border-outline text-on-surface-variant hover:bg-surface-container transition-colors font-semibold" href="{% url 'plataforma:subscriber_list' %}">Ver assinantes</a>
+  <a class="px-6 py-3 rounded-full border border-outline text-on-surface-variant hover:bg-surface-container transition-colors font-semibold" href="{% url 'plataforma:plan_list' %}">Gerenciar planos</a>
+</div>
+{% endblock %}

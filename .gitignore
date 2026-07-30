@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Django
+db.sqlite3
+/staticfiles/
+/media/
+
+# Celery
+celerybeat-schedule
+celerybeat.pid
+
+# Ambiente
+.env
+.env.prod
+.env.dev
+
+# IDE / SO
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store

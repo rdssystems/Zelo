@@ -1,0 +1,60 @@
+{% extends "painel/base.html" %}
+
+{% block title %}Zelo — {% if client %}{{ client.name }}{% else %}Novo Cliente{% endif %}{% endblock %}
+
+{% block content %}
+<div class="mb-10">
+  <a class="inline-flex items-center gap-1 text-on-surface-variant hover:text-primary transition-colors text-sm mb-4" href="{% url 'clients:list' %}">
+    <span class="material-symbols-outlined text-[18px]">arrow_back</span> Voltar para clientes
+  </a>
+  <h2 class="font-display text-headline-md text-on-surface">
+    {% if client %}{{ client.name }}{% else %}Novo Cliente{% endif %}
+  </h2>
+</div>
+
+{% if messages %}
+  {% for message in messages %}
+  <div class="mb-6 rounded-lg bg-secondary-container text-on-secondary-container px-4 py-3">{{ message }}</div>
+  {% endfor %}
+{% endif %}
+
+<div class="grid grid-cols-1 {% if client %}lg:grid-cols-2{% endif %} gap-8 items-start">
+
+  <div class="bg-surface-container-lowest rounded-2xl shadow-[0_4px_40px_-10px_rgba(125,86,45,0.08)] border border-surface-container p-8">
+    <h3 class="text-label-caps uppercase text-outline mb-6">Dados do cliente</h3>
+    {% if form.non_field_errors %}
+    <div class="mb-6 rounded-lg bg-error-container text-on-error-container px-4 py-3 text-sm">{{ form.non_field_errors|join:" " }}</div>
+    {% endif %}
+    <form method="post" class="space-y-6">
+      {% csrf_token %}
+      <div>
+        <label class="block text-label-caps uppercase text-outline mb-1" for="id_name">Nome</label>
+        <input class="block w-full px-0 py-2 bg-transparent border-0 border-b {% if form.name.errors %}border-error{% else %}border-outline-variant{% endif %} text-lg focus:ring-0 focus:border-primary" id="id_name" name="name" type="text" value="{{ form.name.value|default:'' }}" required maxlength="120"/>
+        {% if form.name.errors %}<p class="text-error text-sm mt-1">{{ form.name.errors|join:" " }}</p>{% endif %}
+      </div>
+      <div>
+        <label class="block text-label-caps uppercase text-outline mb-1" for="id_phone">Telefone</label>
+        <input class="block w-full px-0 py-2 bg-transparent border-0 border-b {% if form.phone.errors %}border-error{% else %}border-outline-variant{% endif %} text-lg focus:ring-0 focus:border-primary" id="id_phone" name="phone" type="text" value="{{ form.phone.value|default:'' }}" required maxlength="20"/>
+        {% if form.phone.errors %}<p class="text-error text-sm mt-1">{{ form.phone.errors|join:" " }}</p>{% endif %}
+      </div>
+      <div>
+        <label class="block text-label-caps uppercase text-outline mb-1" for="id_preferences">Preferências</label>
+        <textarea class="block w-full px-0 py-2 bg-transparent border-0 border-b border-outline-variant focus:ring-0 focus:border-primary resize-none" id="id_preferences" name="preferences" rows="3" placeholder="Alergias, produto preferido, observações...">{{ form.preferences.value|default:'' }}</textarea>
+      </div>
+      <div class="pt-4 flex justify-end">
+        <button class="px-8 py-3 rounded-full bg-primary text-on-primary font-semibold hover:opacity-90 transition-opacity active:scale-95" type="submit">
+          {% if client %}Salvar dados{% else %}Cadastrar cliente{% endif %}
+        </button>
+      </div>
+    </form>
+  </div>
+
+  {% if client %}
+  <div class="space-y-8">
+    {% include "painel/clients/_subscription.html" %}
+    {% include "painel/clients/_credit.html" %}
+    {% include "painel/clients/_history.html" %}
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

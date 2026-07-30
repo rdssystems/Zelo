@@ -1,0 +1,43 @@
+<div id="new-slots-container" x-data="{ selected: '{{ selected_time|time:'H:i'|default:'' }}' }">
+  <input type="hidden" name="time" x-model="selected"/>
+
+  {% if not slots_service or not slots_employee or not slots_date %}
+  <p class="text-sm text-on-surface-variant italic">Selecione serviço, profissional e data para ver os horários livres.</p>
+  {% elif not morning_times and not afternoon_times %}
+  <p class="text-sm text-on-surface-variant italic">Sem horários livres neste dia para este profissional. Escolha outra data.</p>
+  {% else %}
+  <div class="space-y-4">
+    {% if morning_times %}
+    <div>
+      <h4 class="text-xs uppercase tracking-wide text-on-surface-variant mb-2 flex items-center gap-1">
+        <span class="material-symbols-outlined text-[16px]">wb_twilight</span> Manhã
+      </h4>
+      <div class="grid grid-cols-4 gap-2">
+        {% for t in morning_times %}
+        <button type="button"
+                @click="selected = '{{ t|time:'H:i' }}'"
+                :class="selected === '{{ t|time:'H:i' }}' ? 'bg-primary text-on-primary border-primary' : 'bg-surface-container-low border-outline-variant/40 text-on-surface hover:bg-surface-container-high'"
+                class="py-2 rounded-xl border text-sm font-medium transition-colors">{{ t|time:"H:i" }}</button>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    {% if afternoon_times %}
+    <div>
+      <h4 class="text-xs uppercase tracking-wide text-on-surface-variant mb-2 flex items-center gap-1">
+        <span class="material-symbols-outlined text-[16px]">light_mode</span> Tarde
+      </h4>
+      <div class="grid grid-cols-4 gap-2">
+        {% for t in afternoon_times %}
+        <button type="button"
+                @click="selected = '{{ t|time:'H:i' }}'"
+                :class="selected === '{{ t|time:'H:i' }}' ? 'bg-primary text-on-primary border-primary' : 'bg-surface-container-low border-outline-variant/40 text-on-surface hover:bg-surface-container-high'"
+                class="py-2 rounded-xl border text-sm font-medium transition-colors">{{ t|time:"H:i" }}</button>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>

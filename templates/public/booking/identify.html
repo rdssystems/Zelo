@@ -1,0 +1,68 @@
+{% extends "public/_wizard_base.html" %}
+
+{% block header_title %}Seus dados{% endblock %}
+{% block back_link %}
+<a aria-label="Voltar" class="w-10 h-10 flex items-center justify-center rounded-full bg-surface-container hover:bg-surface-container-high transition-colors text-on-surface" href="{% url 'public:booking_schedule' tenant.slug %}?service={{ service.pk }}&employee={{ employee.pk }}&date={{ date|date:'Y-m-d' }}">
+  <span class="material-symbols-outlined">arrow_back</span>
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="px-6 flex flex-col gap-8">
+  <div class="bg-surface-container-lowest rounded-2xl p-5 border border-surface-variant flex items-center gap-4">
+    <div class="w-14 h-14 rounded-full overflow-hidden shrink-0">
+      {% if employee.photo %}
+      <img class="w-full h-full object-cover" src="{{ employee.photo.url }}" alt="Foto {{ employee.full_name }}" onerror="this.onerror=null; this.src='https://ui-avatars.com/api/?name={{ employee.full_name|urlencode }}&background=d4a373&color=ffffff';"/>
+      {% else %}
+      <div class="w-full h-full bg-primary-container text-on-primary-container flex items-center justify-center font-display">{{ employee.full_name|first|upper }}</div>
+      {% endif %}
+    </div>
+    <div class="flex-1">
+      <h3 class="font-semibold text-on-surface mb-1">{{ service.name }}</h3>
+      <div class="flex items-center gap-2 text-on-surface-variant text-sm">
+        <span class="material-symbols-outlined text-[16px]">calendar_today</span>
+        <span>{{ date|date:"d/m" }}, {{ start_time|time:"H:i" }}</span>
+      </div>
+      <div class="flex items-center gap-2 text-on-surface-variant text-sm mt-1">
+        <span class="material-symbols-outlined text-[16px]">person</span>
+        <span>com {{ employee.full_name }}</span>
+      </div>
+    </div>
+  </div>
+
+  {% if error %}
+  <div class="rounded-lg bg-error-container text-on-error-container px-4 py-3 text-sm">{{ error }}</div>
+  {% endif %}
+
+  <form method="post" class="flex flex-col gap-6">
+    {% csrf_token %}
+    <div class="flex flex-col gap-2">
+      <label class="text-xs uppercase tracking-wide text-on-surface-variant" for="id_phone">Seu telefone</label>
+      <div class="relative">
+        <span class="material-symbols-outlined absolute left-0 top-1/2 -translate-y-1/2 text-outline px-1">call</span>
+        <input class="w-full bg-transparent border-0 border-b border-outline-variant focus:border-primary focus:ring-0 pl-8 pr-3 py-3 text-on-surface transition-colors"
+               id="id_phone" name="phone" placeholder="(11) 90000-0000" required type="tel"
+               pattern="[\d\s\(\)\-\+]{10,16}" value="{{ phone_value }}"/>
+      </div>
+      <p class="text-xs text-on-surface-variant/70">Vamos usar para identificar seu agendamento — sem necessidade de senha.</p>
+    </div>
+
+    {% if show_name_field %}
+    <div class="flex flex-col gap-2">
+      <label class="text-xs uppercase tracking-wide text-on-surface-variant" for="id_name">Seu nome</label>
+      <div class="relative">
+        <span class="material-symbols-outlined absolute left-0 top-1/2 -translate-y-1/2 text-outline px-1">person</span>
+        <input class="w-full bg-transparent border-0 border-b border-outline-variant focus:border-primary focus:ring-0 pl-8 pr-3 py-3 text-on-surface transition-colors"
+               id="id_name" name="name" placeholder="Como gosta de ser chamada(o)?" required type="text" autofocus/>
+      </div>
+      <p class="text-xs text-on-surface-variant/70">Primeiro agendamento por aqui — só precisamos do seu nome.</p>
+    </div>
+    {% endif %}
+
+    <button class="mt-2 w-full bg-primary-container text-on-primary-container hover:bg-primary hover:text-on-primary font-semibold py-4 px-6 rounded-full transition-all flex items-center justify-center gap-2" type="submit">
+      Continuar
+      <span class="material-symbols-outlined text-[18px]">arrow_forward</span>
+    </button>
+  </form>
+</div>
+{% endblock %}

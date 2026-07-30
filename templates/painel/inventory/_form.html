@@ -1,0 +1,113 @@
+<div class="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6" id="product-modal">
+  <div class="absolute inset-0 bg-inverse-surface/40 backdrop-blur-sm"
+       onclick="document.getElementById('modal-slot').innerHTML = ''"></div>
+  <div class="relative w-full max-w-lg bg-surface-container-lowest rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto">
+    <div class="h-3 w-full bg-primary-container"></div>
+    <div class="p-8">
+      <div class="flex justify-between items-start mb-8">
+        <div>
+          <h3 class="font-display text-display-mobile text-on-surface">{{ title }}</h3>
+          <p class="text-on-surface-variant mt-1">Defina os detalhes do produto.</p>
+        </div>
+        <button class="text-outline hover:text-on-surface transition-colors p-2 rounded-full hover:bg-surface-container"
+                onclick="document.getElementById('modal-slot').innerHTML = ''">
+          <span class="material-symbols-outlined">close</span>
+        </button>
+      </div>
+
+      {% if form.non_field_errors %}
+      <div class="mb-6 rounded-lg bg-error-container text-on-error-container px-4 py-3 text-sm">{{ form.non_field_errors|join:" " }}</div>
+      {% endif %}
+
+      <form {% if product %}hx-post="{% url 'inventory:update' product.pk %}"{% else %}hx-post="{% url 'inventory:create' %}"{% endif %}
+            hx-target="#product-items" hx-swap="outerHTML" class="space-y-6">
+        {% csrf_token %}
+        <div>
+          <label class="block text-label-caps uppercase text-outline mb-1" for="id_name">Nome do Produto</label>
+          <input class="block w-full px-0 py-2 bg-transparent border-0 border-b {% if form.name.errors %}border-error{% else %}border-outline-variant{% endif %} text-on-surface text-lg focus:ring-0 focus:border-primary transition-colors"
+                 id="id_name" name="name" type="text" value="{{ form.name.value|default:'' }}" required maxlength="120"/>
+          {% if form.name.errors %}<p class="text-error text-sm mt-1">{{ form.name.errors|join:" " }}</p>{% endif %}
+        </div>
+        <div class="grid sm:grid-cols-2 gap-6">
+          <div>
+            <label class="block text-label-caps uppercase text-outline mb-1" for="id_sku">SKU (opcional)</label>
+            <input class="block w-full px-0 py-2 bg-transparent border-0 border-b border-outline-variant text-on-surface focus:ring-0 focus:border-primary transition-colors"
+                   id="id_sku" name="sku" type="text" value="{{ form.sku.value|default:'' }}" maxlength="40"/>
+          </div>
+          <div>
+            <label class="block text-label-caps uppercase text-outline mb-1" for="id_unit">Unidade</label>
+            <select class="block w-full px-0 py-2 bg-transparent border-0 border-b {% if form.unit.errors %}border-error{% else %}border-outline-variant{% endif %} text-on-surface focus:ring-0 focus:border-primary transition-colors"
+                    id="id_unit" name="unit" required>
+              {% for value, label in form.fields.unit.choices %}
+              <option value="{{ value }}" {% if form.unit.value == value %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+        <div>
+          <label class="block text-label-caps uppercase text-outline mb-1" for="id_category">Categoria</label>
+          <select class="block w-full px-0 py-2 bg-transparent border-0 border-b {% if form.category.errors %}border-error{% else %}border-outline-variant{% endif %} text-on-surface focus:ring-0 focus:border-primary transition-colors"
+                  id="id_category" name="category" required>
+            <option value="">Selecione</option>
+            {% for choice in form.fields.category.queryset %}
+            <option value="{{ choice.pk }}" {% if form.category.value|stringformat:"s" == choice.pk|stringformat:"s" %}selected{% endif %}>{{ choice.name }}</option>
+            {% endfor %}
+          </select>
+          {% if form.category.errors %}<p class="text-error text-sm mt-1">{{ form.category.errors|join:" " }}</p>{% endif %}
+          {% if not form.fields.category.queryset %}
+          <p class="text-sm text-on-surface-variant mt-1">
+            Nenhuma categoria cadastrada — <a class="text-primary hover:underline" href="{% url 'inventory:category_list' %}">crie uma primeiro</a>.
+          </p>
+          {% endif %}
+        </div>
+        <div>
+          <label class="block text-label-caps uppercase text-outline mb-1" for="id_supplier">Fornecedor preferido (opcional)</label>
+          <select class="block w-full px-0 py-2 bg-transparent border-0 border-b border-outline-variant text-on-surface focus:ring-0 focus:border-primary transition-colors"
+                  id="id_supplier" name="supplier">
+            <option value="">Nenhum</option>
+            {% for choice in form.fields.supplier.queryset %}
+            <option value="{{ choice.pk }}" {% if form.supplier.value|stringformat:"s" == choice.pk|stringformat:"s" %}selected{% endif %}>{{ choice.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="grid sm:grid-cols-2 gap-6">
+          <div>
+            <label class="block text-label-caps uppercase text-outline mb-1" for="id_cost_price">Preço de custo (R$)</label>
+            <input class="block w-full px-0 py-2 bg-transparent border-0 border-b {% if form.cost_price.errors %}border-error{% else %}border-outline-variant{% endif %} {% if form.fields.cost_price.disabled %}text-on-surface-variant{% else %}text-on-surface{% endif %} text-lg focus:ring-0 focus:border-primary transition-colors"
+                   id="id_cost_price" name="cost_price" type="text" inputmode="decimal" placeholder="0,00" value="{{ form.cost_price.value|default:'' }}"
+                   {% if form.fields.cost_price.disabled %}disabled{% else %}required{% endif %}/>
+            {% if form.fields.cost_price.disabled %}
+            <p class="text-sm text-on-surface-variant mt-1">Custo médio — recalculado automaticamente a cada compra.</p>
+            {% endif %}
+            {% if form.cost_price.errors %}<p class="text-error text-sm mt-1">{{ form.cost_price.errors|join:" " }}</p>{% endif %}
+          </div>
+          <div>
+            <label class="block text-label-caps uppercase text-outline mb-1" for="id_sale_price">Preço de venda (R$)</label>
+            <input class="block w-full px-0 py-2 bg-transparent border-0 border-b {% if form.sale_price.errors %}border-error{% else %}border-outline-variant{% endif %} text-on-surface text-lg focus:ring-0 focus:border-primary transition-colors"
+                   id="id_sale_price" name="sale_price" type="text" inputmode="decimal" placeholder="0,00" value="{{ form.sale_price.value|default:'' }}" required/>
+            {% if form.sale_price.errors %}<p class="text-error text-sm mt-1">{{ form.sale_price.errors|join:" " }}</p>{% endif %}
+          </div>
+        </div>
+        <div>
+          <label class="block text-label-caps uppercase text-outline mb-1" for="id_min_stock_alert">Estoque mínimo (alerta)</label>
+          <input class="block w-full px-0 py-2 bg-transparent border-0 border-b {% if form.min_stock_alert.errors %}border-error{% else %}border-outline-variant{% endif %} text-on-surface text-lg focus:ring-0 focus:border-primary transition-colors"
+                 id="id_min_stock_alert" name="min_stock_alert" type="text" inputmode="decimal" placeholder="0,00" value="{{ form.min_stock_alert.value|default:'' }}" required/>
+          {% if form.min_stock_alert.errors %}<p class="text-error text-sm mt-1">{{ form.min_stock_alert.errors|join:" " }}</p>{% endif %}
+        </div>
+        <div class="flex items-center gap-3">
+          <input class="h-5 w-5 rounded border-outline text-primary focus:ring-primary" id="id_tracks_batches" name="tracks_batches" type="checkbox"
+                 {% if form.tracks_batches.value %}checked{% endif %}/>
+          <label class="text-on-surface" for="id_tracks_batches">Controla lote/validade (produto vence)</label>
+        </div>
+        {% if not product %}
+        <p class="text-sm text-on-surface-variant">O estoque inicial começa em 0 — registre uma entrada depois de criar o produto.</p>
+        {% endif %}
+        <div class="pt-6 flex justify-end gap-4">
+          <button class="px-6 py-3 rounded-full border border-outline text-on-surface-variant hover:bg-surface-container transition-colors" type="button"
+                  onclick="document.getElementById('modal-slot').innerHTML = ''">Cancelar</button>
+          <button class="px-8 py-3 rounded-full bg-primary text-on-primary font-semibold hover:opacity-90 transition-opacity active:scale-95" type="submit">Salvar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

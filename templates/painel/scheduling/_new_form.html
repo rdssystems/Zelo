@@ -1,0 +1,83 @@
+<div class="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6" id="new-appointment-modal">
+  <div class="absolute inset-0 bg-inverse-surface/40 backdrop-blur-sm"
+       onclick="document.getElementById('modal-slot').innerHTML = ''"></div>
+  <div class="relative w-full max-w-lg bg-surface-container-lowest rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto">
+    <div class="h-3 w-full bg-primary-container"></div>
+    <div class="p-8">
+      <div class="flex justify-between items-start mb-8">
+        <div>
+          <h3 class="font-display text-display-mobile text-on-surface">Novo Agendamento</h3>
+          <p class="text-on-surface-variant mt-1">Encaixe manual — cliente por telefone ou balcão.</p>
+        </div>
+        <button class="text-outline hover:text-on-surface transition-colors p-2 rounded-full hover:bg-surface-container"
+                onclick="document.getElementById('modal-slot').innerHTML = ''">
+          <span class="material-symbols-outlined">close</span>
+        </button>
+      </div>
+
+      {% if form.non_field_errors %}
+      <div class="mb-6 rounded-lg bg-error-container text-on-error-container px-4 py-3 text-sm">{{ form.non_field_errors|join:" " }}</div>
+      {% endif %}
+
+      <form hx-post="{% url 'scheduling:new' %}" hx-target="#agenda-items" hx-swap="outerHTML" class="space-y-6">
+        {% csrf_token %}
+        <div class="grid sm:grid-cols-2 gap-6">
+          <div>
+            <label class="block text-label-caps uppercase text-outline mb-1" for="id_service">Serviço</label>
+            <select class="block w-full px-0 py-2 bg-transparent border-0 border-b {% if form.service.errors %}border-error{% else %}border-outline-variant{% endif %} focus:ring-0 focus:border-primary" id="id_service" name="service" required
+                    hx-get="{% url 'scheduling:new_slots' %}" hx-trigger="change" hx-target="#new-slots-container" hx-swap="outerHTML" hx-include="#id_service,#id_employee,#id_date">
+              <option value="">Selecione</option>
+              {% for choice in form.fields.service.queryset %}
+              <option value="{{ choice.pk }}" {% if form.service.value|stringformat:"s" == choice.pk|stringformat:"s" %}selected{% endif %}>{{ choice.name }}</option>
+              {% endfor %}
+            </select>
+            {% if form.service.errors %}<p class="text-error text-sm mt-1">{{ form.service.errors|join:" " }}</p>{% endif %}
+          </div>
+          <div>
+            <label class="block text-label-caps uppercase text-outline mb-1" for="id_employee">Profissional</label>
+            <select class="block w-full px-0 py-2 bg-transparent border-0 border-b {% if form.employee.errors %}border-error{% else %}border-outline-variant{% endif %} focus:ring-0 focus:border-primary" id="id_employee" name="employee" required
+                    hx-get="{% url 'scheduling:new_slots' %}" hx-trigger="change" hx-target="#new-slots-container" hx-swap="outerHTML" hx-include="#id_service,#id_employee,#id_date">
+              <option value="">Selecione</option>
+              {% for choice in form.fields.employee.queryset %}
+              <option value="{{ choice.pk }}" {% if form.employee.value|stringformat:"s" == choice.pk|stringformat:"s" %}selected{% endif %}>{{ choice.full_name }}</option>
+              {% endfor %}
+            </select>
+            {% if form.employee.errors %}<p class="text-error text-sm mt-1">{{ form.employee.errors|join:" " }}</p>{% endif %}
+          </div>
+        </div>
+        <div>
+          <label class="block text-label-caps uppercase text-outline mb-1" for="id_date">Data</label>
+          <input class="block w-full px-0 py-2 bg-transparent border-0 border-b {% if form.date.errors %}border-error{% else %}border-outline-variant{% endif %} focus:ring-0 focus:border-primary" id="id_date" name="date" type="date" value="{{ form.date.value|date:'Y-m-d'|default:'' }}" required
+                 hx-get="{% url 'scheduling:new_slots' %}" hx-trigger="change" hx-target="#new-slots-container" hx-swap="outerHTML" hx-include="#id_service,#id_employee,#id_date"/>
+          {% if form.date.errors %}<p class="text-error text-sm mt-1">{{ form.date.errors|join:" " }}</p>{% endif %}
+        </div>
+        <div class="pt-2 border-t border-surface-variant">
+          <label class="block text-label-caps uppercase text-outline mb-2 mt-4">Horário</label>
+          {% include "painel/scheduling/_new_slots.html" %}
+          {% if form.time.errors %}<p class="text-error text-sm mt-2">{{ form.time.errors|join:" " }}</p>{% endif %}
+        </div>
+        <div class="grid sm:grid-cols-2 gap-6">
+          <div>
+            <label class="block text-label-caps uppercase text-outline mb-1" for="id_phone">Telefone do cliente</label>
+            <input class="block w-full px-0 py-2 bg-transparent border-0 border-b {% if form.phone.errors %}border-error{% else %}border-outline-variant{% endif %} focus:ring-0 focus:border-primary" id="id_phone" name="phone" type="tel" value="{{ form.phone.value|default:'' }}" required/>
+            {% if form.phone.errors %}<p class="text-error text-sm mt-1">{{ form.phone.errors|join:" " }}</p>{% endif %}
+          </div>
+          <div>
+            <label class="block text-label-caps uppercase text-outline mb-1" for="id_name">Nome (se novo)</label>
+            <input class="block w-full px-0 py-2 bg-transparent border-0 border-b {% if form.name.errors %}border-error{% else %}border-outline-variant{% endif %} focus:ring-0 focus:border-primary" id="id_name" name="name" type="text" value="{{ form.name.value|default:'' }}"/>
+            {% if form.name.errors %}<p class="text-error text-sm mt-1">{{ form.name.errors|join:" " }}</p>{% endif %}
+          </div>
+        </div>
+        <div>
+          <label class="block text-label-caps uppercase text-outline mb-1" for="id_notes">Observações</label>
+          <textarea class="block w-full px-0 py-2 bg-transparent border-0 border-b border-outline-variant focus:ring-0 focus:border-primary resize-none" id="id_notes" name="notes" rows="2">{{ form.notes.value|default:'' }}</textarea>
+        </div>
+        <div class="pt-4 flex justify-end gap-4">
+          <button class="px-6 py-3 rounded-full border border-outline text-on-surface-variant hover:bg-surface-container transition-colors" type="button"
+                  onclick="document.getElementById('modal-slot').innerHTML = ''">Cancelar</button>
+          <button class="px-8 py-3 rounded-full bg-primary text-on-primary font-semibold hover:opacity-90 transition-opacity active:scale-95" type="submit">Agendar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

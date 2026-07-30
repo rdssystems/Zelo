@@ -1,0 +1,118 @@
+{% load static %}
+<!DOCTYPE html>
+<html class="light" lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>{% block title %}Zelo — Plataforma{% endblock %}</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Playfair+Display:wght@600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://unpkg.com/htmx.org@2.0.4"></script>
+<script defer src="https://unpkg.com/alpinejs@3.14.8/dist/cdn.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<style>
+  .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24; }
+  [x-cloak] { display: none !important; }
+</style>
+<script id="tailwind-config">
+  tailwind.config = {
+    darkMode: "class",
+    theme: { extend: {
+      colors: {
+        "surface": "#fff8f5", "surface-dim": "#e2d8d2", "background": "#fff8f5",
+        "surface-container-lowest": "#ffffff", "surface-container-low": "#fcf2eb",
+        "surface-container": "#f6ece6", "surface-container-high": "#f0e6e0",
+        "surface-container-highest": "#eae1db", "surface-variant": "#eae1db",
+        "on-surface": "#1f1b17", "on-surface-variant": "#50453b", "on-background": "#1f1b17",
+        "inverse-surface": "#342f2c", "inverse-on-surface": "#f9efe9",
+        "outline": "#82756a", "outline-variant": "#d4c4b7",
+        "primary": "#7d562d", "on-primary": "#ffffff",
+        "primary-container": "#d4a373", "on-primary-container": "#5b3912",
+        "secondary": "#72594d", "on-secondary": "#ffffff",
+        "secondary-container": "#fedbcc", "on-secondary-container": "#785f53",
+        "error": "#ba1a1a", "on-error": "#ffffff",
+        "error-container": "#ffdad6", "on-error-container": "#93000a"
+      },
+      borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "2xl": "1.5rem", "full": "9999px" },
+      spacing: { "container-padding": "32px", "section-gap": "64px", "unit": "8px", "gutter": "24px" },
+      fontFamily: { "display": ["Playfair Display", "serif"], "sans": ["Inter", "sans-serif"] },
+      fontSize: {
+        "display-lg": ["48px", { lineHeight: "1.2", letterSpacing: "-0.02em", fontWeight: "700" }],
+        "display-mobile": ["32px", { lineHeight: "1.2", fontWeight: "700" }],
+        "headline-md": ["32px", { lineHeight: "1.3", fontWeight: "600" }],
+        "headline-sm": ["24px", { lineHeight: "1.3", fontWeight: "600" }],
+        "title-lg": ["20px", { lineHeight: "28px", fontWeight: "600" }],
+        "label-caps": ["12px", { lineHeight: "16px", letterSpacing: "0.1em", fontWeight: "600" }]
+      }
+    } }
+  }
+</script>
+</head>
+<body class="bg-background text-on-background font-sans antialiased flex min-h-screen"
+      hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+
+<aside class="hidden md:flex flex-col h-screen w-64 fixed left-0 top-0 bg-surface-container-low shadow-md py-8 px-4 z-40">
+  <div class="mb-12 px-4">
+    <h1 class="font-display text-display-mobile text-primary tracking-tight">Zelo</h1>
+    <p class="text-label-caps uppercase text-on-surface-variant mt-1">Plataforma</p>
+  </div>
+  <nav class="flex-1 space-y-2">
+    {% with active=active_nav|default:"" %}
+    <a class="flex items-center gap-4 px-4 py-3 rounded-lg {% if active == 'dashboard' %}text-primary font-bold border-r-4 border-primary bg-primary-container/10{% else %}text-on-surface-variant font-medium hover:bg-surface-container-high group{% endif %} transition-colors" href="{% url 'plataforma:dashboard' %}">
+      <span class="material-symbols-outlined {% if active != 'dashboard' %}text-outline group-hover:text-primary{% endif %} transition-colors" {% if active == 'dashboard' %}style="font-variation-settings: 'FILL' 1;"{% endif %}>space_dashboard</span><span>Dashboard</span>
+    </a>
+    <a class="flex items-center gap-4 px-4 py-3 rounded-lg {% if active == 'plans' %}text-primary font-bold border-r-4 border-primary bg-primary-container/10{% else %}text-on-surface-variant font-medium hover:bg-surface-container-high group{% endif %} transition-colors" href="{% url 'plataforma:plan_list' %}">
+      <span class="material-symbols-outlined {% if active != 'plans' %}text-outline group-hover:text-primary{% endif %} transition-colors" {% if active == 'plans' %}style="font-variation-settings: 'FILL' 1;"{% endif %}>sell</span><span>Planos</span>
+    </a>
+    <a class="flex items-center gap-4 px-4 py-3 rounded-lg {% if active == 'subscribers' %}text-primary font-bold border-r-4 border-primary bg-primary-container/10{% else %}text-on-surface-variant font-medium hover:bg-surface-container-high group{% endif %} transition-colors" href="{% url 'plataforma:subscriber_list' %}">
+      <span class="material-symbols-outlined {% if active != 'subscribers' %}text-outline group-hover:text-primary{% endif %} transition-colors" {% if active == 'subscribers' %}style="font-variation-settings: 'FILL' 1;"{% endif %}>storefront</span><span>Assinantes</span>
+    </a>
+    <a class="flex items-center gap-4 px-4 py-3 rounded-lg {% if active == 'announcements' %}text-primary font-bold border-r-4 border-primary bg-primary-container/10{% else %}text-on-surface-variant font-medium hover:bg-surface-container-high group{% endif %} transition-colors" href="{% url 'announcements:list' %}">
+      <span class="material-symbols-outlined {% if active != 'announcements' %}text-outline group-hover:text-primary{% endif %} transition-colors" {% if active == 'announcements' %}style="font-variation-settings: 'FILL' 1;"{% endif %}>campaign</span><span>Avisos</span>
+    </a>
+    {% endwith %}
+    <div class="pt-4 mt-4 border-t border-surface-variant">
+      <a class="flex items-center gap-4 px-4 py-3 rounded-lg text-on-surface-variant font-medium hover:bg-surface-container-high transition-colors" href="/superadmin/" target="_blank" rel="noopener">
+        <span class="material-symbols-outlined text-outline">admin_panel_settings</span><span>Django Admin</span>
+        <span class="material-symbols-outlined text-outline text-[16px] ml-auto">open_in_new</span>
+      </a>
+    </div>
+  </nav>
+  <div class="mt-auto border-t border-surface-variant pt-4 px-4">
+    <p class="text-sm text-on-surface-variant truncate">{{ request.user.email }}</p>
+    <p class="text-label-caps uppercase text-outline mt-0.5">Superadmin</p>
+    <form action="{% url 'logout' %}" method="post" class="mt-3">
+      {% csrf_token %}
+      <button class="flex items-center gap-2 text-on-surface-variant hover:text-primary transition-colors text-sm" type="submit">
+        <span class="material-symbols-outlined text-[18px]">logout</span> Sair
+      </button>
+    </form>
+  </div>
+</aside>
+
+<main class="flex-1 md:ml-64 min-h-screen overflow-y-auto bg-background">
+  <header class="md:hidden flex items-center justify-between px-6 py-4 bg-surface/80 backdrop-blur-md sticky top-0 z-30 shadow-sm">
+    <h1 class="font-display text-display-mobile text-primary">Zelo</h1>
+    <form action="{% url 'logout' %}" method="post">
+      {% csrf_token %}
+      <button class="text-on-surface p-2" type="submit"><span class="material-symbols-outlined">logout</span></button>
+    </form>
+  </header>
+  <div class="px-6 md:px-container-padding py-10 md:py-section-gap max-w-6xl mx-auto">
+    {% if messages %}
+    <div class="mb-8 space-y-3">
+      {% for message in messages %}
+      <div class="rounded-lg px-4 py-3 text-sm {% if message.tags == 'error' %}bg-error-container text-on-error-container{% else %}bg-secondary-container text-on-secondary-container{% endif %}">{{ message }}</div>
+      {% endfor %}
+    </div>
+    {% endif %}
+    {% block content %}{% endblock %}
+  </div>
+</main>
+
+<div id="modal-slot"></div>
+</body>
+</html>

@@ -1,0 +1,161 @@
+{% extends "painel/base.html" %}
+
+{% block title %}Zelo — Configurações{% endblock %}
+
+{% block content %}
+<div class="mb-10">
+  <h2 class="font-display text-headline-md text-on-surface mb-2">Configurações</h2>
+  <p class="text-on-surface-variant max-w-2xl">Identidade visual, contato e a URL pública de agendamento do seu salão.</p>
+</div>
+
+{% if messages %}
+  {% for message in messages %}
+  <div class="mb-6 rounded-lg bg-secondary-container text-on-secondary-container px-4 py-3">{{ message }}</div>
+  {% endfor %}
+{% endif %}
+
+{% if form.non_field_errors %}
+<div class="mb-6 rounded-lg bg-error-container text-on-error-container px-4 py-3 text-sm">{{ form.non_field_errors|join:" " }}</div>
+{% endif %}
+
+<form method="post" enctype="multipart/form-data" class="space-y-8 max-w-4xl">
+  {% csrf_token %}
+
+  <div class="bg-surface-container-lowest rounded-2xl shadow-[0_4px_40px_-10px_rgba(125,86,45,0.08)] border border-surface-container p-8">
+    <h3 class="text-label-caps uppercase text-outline mb-6">Identidade visual</h3>
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-8">
+      <div x-data="{ fileName: '' }">
+        <label class="block text-label-caps uppercase text-outline mb-2">Logo</label>
+        {% if tenant.logo %}
+        <img class="w-20 h-20 rounded-full object-cover mb-3 border border-surface-variant" src="{{ tenant.logo.url }}" alt="Logo atual"/>
+        {% endif %}
+        <div>
+          <label class="cursor-pointer inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary-container text-on-primary-container text-sm font-medium hover:opacity-90 transition-opacity">
+            <span class="material-symbols-outlined text-[18px]">upload</span>
+            <span x-text="fileName ? 'Arquivo selecionado' : '{% if tenant.logo %}Alterar logo{% else %}Escolher logo{% endif %}'"></span>
+            <input class="hidden" name="logo" type="file" accept="image/*" @change="fileName = $event.target.files[0]?.name || ''"/>
+          </label>
+          <p x-show="fileName" class="text-xs text-primary font-medium mt-1 truncate" x-text="fileName"></p>
+        </div>
+        {% if form.logo.errors %}<p class="text-error text-sm mt-1">{{ form.logo.errors|join:" " }}</p>{% endif %}
+        <p class="text-xs text-on-surface-variant mt-1">Ícone redondo do salão.</p>
+      </div>
+      <div x-data="{ fileName: '' }">
+        <label class="block text-label-caps uppercase text-outline mb-2">Foto de capa</label>
+        {% if tenant.cover_image %}
+        <img class="w-full h-20 rounded-lg object-cover mb-3 border border-surface-variant" src="{{ tenant.cover_image.url }}" alt="Capa atual"/>
+        {% endif %}
+        <div>
+          <label class="cursor-pointer inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary-container text-on-primary-container text-sm font-medium hover:opacity-90 transition-opacity">
+            <span class="material-symbols-outlined text-[18px]">upload</span>
+            <span x-text="fileName ? 'Arquivo selecionado' : '{% if tenant.cover_image %}Alterar capa{% else %}Escolher capa{% endif %}'"></span>
+            <input class="hidden" name="cover_image" type="file" accept="image/*" @change="fileName = $event.target.files[0]?.name || ''"/>
+          </label>
+          <p x-show="fileName" class="text-xs text-primary font-medium mt-1 truncate" x-text="fileName"></p>
+        </div>
+        {% if form.cover_image.errors %}<p class="text-error text-sm mt-1">{{ form.cover_image.errors|join:" " }}</p>{% endif %}
+        <p class="text-xs text-on-surface-variant mt-1">Aparece no topo do card, atrás da logo, na página pública.</p>
+      </div>
+      <div x-data="{ fileName: '' }">
+        <label class="block text-label-caps uppercase text-outline mb-2">Imagem de fundo</label>
+        {% if tenant.background_image %}
+        <img class="w-full h-20 rounded-lg object-cover mb-3 border border-surface-variant" src="{{ tenant.background_image.url }}" alt="Fundo atual"/>
+        {% endif %}
+        <div>
+          <label class="cursor-pointer inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary-container text-on-primary-container text-sm font-medium hover:opacity-90 transition-opacity">
+            <span class="material-symbols-outlined text-[18px]">upload</span>
+            <span x-text="fileName ? 'Arquivo selecionado' : '{% if tenant.background_image %}Alterar fundo{% else %}Escolher fundo{% endif %}'"></span>
+            <input class="hidden" name="background_image" type="file" accept="image/*" @change="fileName = $event.target.files[0]?.name || ''"/>
+          </label>
+          <p x-show="fileName" class="text-xs text-primary font-medium mt-1 truncate" x-text="fileName"></p>
+        </div>
+        {% if form.background_image.errors %}<p class="text-error text-sm mt-1">{{ form.background_image.errors|join:" " }}</p>{% endif %}
+        <p class="text-xs text-on-surface-variant mt-1">Preenche o fundo inteiro da página pública.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="bg-surface-container-lowest rounded-2xl shadow-[0_4px_40px_-10px_rgba(125,86,45,0.08)] border border-surface-container p-8">
+    <h3 class="text-label-caps uppercase text-outline mb-6">Informações do salão</h3>
+    <div class="space-y-6">
+      <div>
+        <label class="block text-label-caps uppercase text-outline mb-1" for="id_name">Nome fantasia</label>
+        <input class="block w-full px-0 py-2 bg-transparent border-0 border-b {% if form.name.errors %}border-error{% else %}border-outline-variant{% endif %} text-on-surface text-lg focus:ring-0 focus:border-primary transition-colors"
+               id="id_name" name="name" type="text" value="{{ form.name.value|default:'' }}" required maxlength="120"/>
+        {% if form.name.errors %}<p class="text-error text-sm mt-1">{{ form.name.errors|join:" " }}</p>{% endif %}
+      </div>
+      <div>
+        <label class="block text-label-caps uppercase text-outline mb-1" for="id_whatsapp">WhatsApp</label>
+        <input class="block w-full px-0 py-2 bg-transparent border-0 border-b border-outline-variant text-on-surface focus:ring-0 focus:border-primary transition-colors"
+               id="id_whatsapp" name="whatsapp" type="text" placeholder="(11) 90000-0000" value="{{ form.whatsapp.value|default:'' }}" maxlength="20"/>
+      </div>
+      <div>
+        <label class="block text-label-caps uppercase text-outline mb-1" for="id_address">Endereço</label>
+        <input class="block w-full px-0 py-2 bg-transparent border-0 border-b border-outline-variant text-on-surface focus:ring-0 focus:border-primary transition-colors"
+               id="id_address" name="address" type="text" value="{{ form.address.value|default:'' }}" maxlength="255"/>
+      </div>
+      <div>
+        <label class="block text-label-caps uppercase text-outline mb-1" for="id_description">Descrição curta</label>
+        <textarea class="block w-full px-0 py-2 bg-transparent border-0 border-b border-outline-variant text-on-surface focus:ring-0 focus:border-primary transition-colors resize-none"
+                  id="id_description" name="description" rows="2">{{ form.description.value|default:'' }}</textarea>
+      </div>
+    </div>
+  </div>
+
+  <div class="bg-surface-container-lowest rounded-2xl shadow-[0_4px_40px_-10px_rgba(125,86,45,0.08)] border border-surface-container p-8">
+    <h3 class="text-label-caps uppercase text-outline mb-2">Horário de funcionamento</h3>
+    <p class="text-sm text-on-surface-variant mb-6">Configure cada dia da semana — aparece na sua página pública.</p>
+    {{ hours_formset.management_form }}
+    <div class="space-y-1">
+      {% for day_form, label in hours_rows %}
+      <div class="flex flex-wrap items-center gap-4 py-3 border-b border-surface-variant last:border-0"
+           x-data="{ closed: {{ day_form.is_closed.value|default_if_none:False|yesno:'true,false' }} }">
+        {{ day_form.weekday }}
+        <span class="w-36 shrink-0 font-medium text-on-surface text-sm">{{ label }}</span>
+        <label class="flex items-center gap-2 text-sm text-on-surface-variant shrink-0 w-24">
+          {{ day_form.is_closed }} Fechado
+        </label>
+        <div class="flex items-center gap-2 flex-1 min-w-[220px]">
+          {{ day_form.start_time }}
+          <span class="text-on-surface-variant text-sm">até</span>
+          {{ day_form.end_time }}
+        </div>
+        {% if day_form.non_field_errors %}
+        <p class="text-error text-sm w-full">{{ day_form.non_field_errors|join:" " }}</p>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="bg-surface-container-lowest rounded-2xl shadow-[0_4px_40px_-10px_rgba(125,86,45,0.08)] border border-surface-container p-8">
+    <h3 class="text-label-caps uppercase text-outline mb-2">URL pública</h3>
+    <p class="text-sm text-on-surface-variant mb-6">É o endereço que seus clientes usam para agendar.</p>
+    <div>
+      <label class="block text-label-caps uppercase text-outline mb-1" for="id_slug">Slug</label>
+      <input class="block w-full px-0 py-2 bg-transparent border-0 border-b {% if form.slug.errors %}border-error{% else %}border-outline-variant{% endif %} text-on-surface text-lg focus:ring-0 focus:border-primary transition-colors"
+             id="id_slug" name="slug" type="text" value="{{ form.slug.value|default:'' }}" required maxlength="60"/>
+      {% if form.slug.errors %}<p class="text-error text-sm mt-1">{{ form.slug.errors|join:" " }}</p>{% endif %}
+      <p class="text-sm text-on-surface-variant mt-2">
+        Sua página: <a class="text-primary hover:underline" href="/{{ tenant.slug }}/" target="_blank">{{ request.get_host }}/{{ tenant.slug }}/</a>
+      </p>
+    </div>
+  </div>
+
+  <div class="flex justify-end">
+    <button class="px-8 py-3 rounded-full bg-primary text-on-primary font-semibold hover:opacity-90 transition-opacity active:scale-95" type="submit">Salvar configurações</button>
+  </div>
+</form>
+
+<div class="bg-error-container/10 rounded-2xl border border-error/20 p-8 max-w-4xl mt-10">
+  <h3 class="text-label-caps uppercase text-error mb-2">Zona de risco</h3>
+  <p class="text-sm text-on-surface-variant mb-6">
+    Excluir sua conta apaga permanentemente todos os dados do salão — funcionários, serviços,
+    clientes, agendamentos, estoque e financeiro. Não é possível desfazer.
+  </p>
+  <button class="px-6 py-3 rounded-full border border-error text-error font-semibold hover:bg-error hover:text-on-error transition-colors"
+          hx-get="{% url 'tenants:delete_account_confirm' %}" hx-target="#modal-slot" hx-swap="innerHTML">
+    Excluir minha conta
+  </button>
+</div>
+{% endblock %}

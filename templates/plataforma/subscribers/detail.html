@@ -1,0 +1,113 @@
+{% extends "plataforma/base.html" %}
+
+{% block title %}Zelo — {{ tenant.name }}{% endblock %}
+
+{% block content %}
+<a class="inline-flex items-center gap-1 text-on-surface-variant hover:text-primary transition-colors text-sm mb-4" href="{% url 'plataforma:subscriber_list' %}">
+  <span class="material-symbols-outlined text-[18px]">arrow_back</span> Voltar para Assinantes
+</a>
+
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-10">
+  <div>
+    <h2 class="font-display text-headline-md text-on-surface mb-1">{{ tenant.name }}</h2>
+    <p class="text-on-surface-variant">/{{ tenant.slug }}/ · criado em {{ tenant.created_at|date:"d/m/Y" }}</p>
+  </div>
+  {% if tenant.is_active %}
+  <span class="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold bg-secondary-container text-on-secondary-container">
+    <span class="material-symbols-outlined text-[18px]">check_circle</span> Acesso liberado
+  </span>
+  {% else %}
+  <span class="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold bg-error-container text-on-error-container">
+    <span class="material-symbols-outlined text-[18px]">block</span> Acesso suspenso
+  </span>
+  {% endif %}
+</div>
+
+<div class="grid md:grid-cols-2 gap-8">
+  <div class="bg-surface-container-lowest rounded-2xl border border-surface-variant p-8">
+    <h3 class="font-display text-title-lg text-on-surface mb-6">Assinatura</h3>
+
+    <form method="post" action="{% url 'plataforma:subscriber_change_status' tenant.id %}" class="mb-6">
+      {% csrf_token %}
+      <label class="block text-label-caps uppercase text-outline mb-1" for="id_status">Status</label>
+      <div class="flex gap-3">
+        <select class="flex-1 px-4 py-2.5 rounded-lg border border-outline-variant bg-surface-container-lowest text-on-surface focus:ring-2 focus:ring-primary focus:border-primary transition-colors" id="id_status" name="status">
+          {% for value, label in status_choices %}
+          <option value="{{ value }}" {% if subscription.status == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+        <button class="px-5 py-2.5 rounded-full bg-primary text-on-primary font-semibold hover:opacity-90 transition-opacity" type="submit">Salvar</button>
+      </div>
+    </form>
+
+    <form method="post" action="{% url 'plataforma:subscriber_change_plan' tenant.id %}">
+      {% csrf_token %}
+      <label class="block text-label-caps uppercase text-outline mb-1" for="id_plan">Plano</label>
+      <div class="flex gap-3">
+        <select class="flex-1 px-4 py-2.5 rounded-lg border border-outline-variant bg-surface-container-lowest text-on-surface focus:ring-2 focus:ring-primary focus:border-primary transition-colors" id="id_plan" name="plan" {% if subscription.is_recurring %}disabled{% endif %}>
+          <option value="">— sem plano —</option>
+          {% for plan in plans %}
+          <option value="{{ plan.pk }}" {% if subscription.plan_id == plan.pk %}selected{% endif %}>{{ plan.name }} (R$ {{ plan.price|floatformat:2 }})</option>
+          {% endfor %}
+        </select>
+        <button class="px-5 py-2.5 rounded-full bg-primary text-on-primary font-semibold hover:opacity-90 transition-opacity disabled:opacity-40" type="submit" {% if subscription.is_recurring %}disabled{% endif %}>Salvar</button>
+      </div>
+      <p class="text-xs text-on-surface-variant mt-1">Trocar o plano reinicia o período para 30 dias corridos a partir de hoje.</p>
+    </form>
+
+    {% if subscription.is_recurring %}
+    <div class="mt-6 flex items-start gap-2 rounded-lg bg-primary-container/20 text-on-surface px-4 py-3 text-sm">
+      <span class="material-symbols-outlined text-[18px] text-primary">autorenew</span>
+      <span>Pagamento recorrente ativo — plano e datas do período são controlados automaticamente pela cobrança. Edição manual bloqueada para não desconfigurar o pagamento do cliente.</span>
+    </div>
+    {% endif %}
+
+    <form method="post" action="{% url 'plataforma:subscriber_change_period' tenant.id %}" class="mt-6">
+      {% csrf_token %}
+      <label class="block text-label-caps uppercase text-outline mb-1">Período da assinatura</label>
+      <div class="flex flex-wrap gap-3 items-end">
+        <div>
+          <label class="block text-xs text-on-surface-variant mb-1" for="{{ period_form.current_period_start.id_for_label }}">Início</label>
+          {{ period_form.current_period_start }}
+        </div>
+        <div>
+          <label class="block text-xs text-on-surface-variant mb-1" for="{{ period_form.current_period_end.id_for_label }}">Fim</label>
+          {{ period_form.current_period_end }}
+        </div>
+        <button class="px-5 py-2.5 rounded-full border border-outline-variant text-on-surface font-semibold hover:bg-surface-variant transition-colors disabled:opacity-40" type="submit" {% if subscription.is_recurring %}disabled{% endif %}>Ajustar</button>
+      </div>
+      {% if period_form.non_field_errors %}
+      <p class="text-xs text-error mt-1">{{ period_form.non_field_errors|join:" " }}</p>
+      {% endif %}
+    </form>
+
+    <dl class="mt-8 space-y-2 text-sm">
+      <div class="flex justify-between"><dt class="text-on-surface-variant">Última atualização</dt><dd class="text-on-surface">{{ subscription.updated_at|date:"d/m/Y H:i" }}</dd></div>
+    </dl>
+  </div>
+
+  <div class="bg-surface-container-lowest rounded-2xl border border-surface-variant p-8">
+    <h3 class="font-display text-title-lg text-on-surface mb-6">Ações da conta</h3>
+
+    <form method="post" action="{% url 'plataforma:subscriber_toggle_active' tenant.id %}" class="mb-4">
+      {% csrf_token %}
+      {% if tenant.is_active %}
+      <button class="w-full flex items-center justify-center gap-2 px-6 py-3 rounded-full border border-error text-error font-semibold hover:bg-error-container/30 transition-colors" type="submit">
+        <span class="material-symbols-outlined">block</span> Suspender acesso
+      </button>
+      {% else %}
+      <button class="w-full flex items-center justify-center gap-2 px-6 py-3 rounded-full bg-primary text-on-primary font-semibold hover:opacity-90 transition-opacity" type="submit">
+        <span class="material-symbols-outlined">check_circle</span> Reativar acesso
+      </button>
+      {% endif %}
+    </form>
+    <p class="text-xs text-on-surface-variant mb-8">Suspender bloqueia o login do salão sem apagar nenhum dado — reversível a qualquer momento.</p>
+
+    <button class="w-full flex items-center justify-center gap-2 px-6 py-3 rounded-full bg-error text-on-error font-semibold hover:opacity-90 transition-opacity active:scale-95"
+            hx-get="{% url 'plataforma:subscriber_delete_confirm' tenant.id %}" hx-target="#modal-slot" hx-swap="innerHTML">
+      <span class="material-symbols-outlined">delete_forever</span> Excluir conta definitivamente
+    </button>
+    <p class="text-xs text-on-surface-variant mt-2">Irreversível — apaga o salão inteiro (funcionários, clientes, agenda, caixa, estoque).</p>
+  </div>
+</div>
+{% endblock %}

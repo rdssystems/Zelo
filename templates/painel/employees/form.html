@@ -1,0 +1,107 @@
+{% extends "painel/base.html" %}
+
+{% block title %}Zelo — {% if employee %}{{ employee.full_name }}{% else %}Novo Funcionário{% endif %}{% endblock %}
+
+{% block content %}
+<div class="mb-10">
+  <a class="inline-flex items-center gap-1 text-on-surface-variant hover:text-primary transition-colors text-sm mb-4" href="{% url 'employees:list' %}">
+    <span class="material-symbols-outlined text-[18px]">arrow_back</span> Voltar para a equipe
+  </a>
+  <h2 class="font-display text-headline-md text-on-surface">
+    {% if employee %}{{ employee.full_name }}{% else %}Novo Funcionário{% endif %}
+  </h2>
+  {% if not employee %}
+  <p class="text-on-surface-variant mt-2 max-w-2xl">Defina o e-mail e a senha de acesso do profissional ao painel.</p>
+  {% endif %}
+</div>
+
+{% if messages %}
+  {% for message in messages %}
+  <div class="mb-6 rounded-lg bg-secondary-container text-on-secondary-container px-4 py-3">{{ message }}</div>
+  {% endfor %}
+{% endif %}
+
+<div class="grid grid-cols-1 {% if employee %}lg:grid-cols-2{% endif %} gap-8 items-start">
+
+  <!-- Dados pessoais + comissão padrão -->
+  <div class="bg-surface-container-lowest rounded-2xl shadow-[0_4px_40px_-10px_rgba(125,86,45,0.08)] border border-surface-container p-8">
+    <h3 class="text-label-caps uppercase text-outline mb-6">Dados do profissional</h3>
+    {% if form.non_field_errors %}
+    <div class="mb-6 rounded-lg bg-error-container text-on-error-container px-4 py-3 text-sm">{{ form.non_field_errors|join:" " }}</div>
+    {% endif %}
+    <form method="post" enctype="multipart/form-data" class="space-y-6">
+      {% csrf_token %}
+      <div>
+        <label class="block text-label-caps uppercase text-outline mb-1" for="id_full_name">Nome completo</label>
+        <input class="block w-full px-0 py-2 bg-transparent border-0 border-b {% if form.full_name.errors %}border-error{% else %}border-outline-variant{% endif %} text-lg focus:ring-0 focus:border-primary" id="id_full_name" name="full_name" type="text" value="{{ form.full_name.value|default:'' }}" required maxlength="120"/>
+        {% if form.full_name.errors %}<p class="text-error text-sm mt-1">{{ form.full_name.errors|join:" " }}</p>{% endif %}
+      </div>
+      <div class="grid md:grid-cols-2 gap-6">
+        <div>
+          <label class="block text-label-caps uppercase text-outline mb-1" for="id_email">E-mail de acesso</label>
+          <input class="block w-full px-0 py-2 bg-transparent border-0 border-b {% if form.email.errors %}border-error{% else %}border-outline-variant{% endif %} focus:ring-0 focus:border-primary {% if employee %}text-outline{% endif %}" id="id_email" name="email" type="email" value="{{ form.email.value|default:'' }}" {% if employee %}disabled{% else %}required{% endif %}/>
+          {% if form.email.errors %}<p class="text-error text-sm mt-1">{{ form.email.errors|join:" " }}</p>{% endif %}
+        </div>
+        <div>
+          <label class="block text-label-caps uppercase text-outline mb-1" for="id_phone">Telefone</label>
+          <input class="block w-full px-0 py-2 bg-transparent border-0 border-b border-outline-variant focus:ring-0 focus:border-primary" id="id_phone" name="phone" type="text" value="{{ form.phone.value|default:'' }}" maxlength="20"/>
+        </div>
+      </div>
+      <div class="grid md:grid-cols-2 gap-6">
+        <div>
+          <label class="block text-label-caps uppercase text-outline mb-1" for="id_password1">{{ form.password1.label }}</label>
+          <input class="block w-full px-0 py-2 bg-transparent border-0 border-b {% if form.password1.errors %}border-error{% else %}border-outline-variant{% endif %} focus:ring-0 focus:border-primary" id="id_password1" name="password1" type="password" autocomplete="new-password" {% if not employee %}required{% endif %}/>
+          {% if form.password1.help_text %}<p class="text-on-surface-variant text-sm mt-1">{{ form.password1.help_text }}</p>{% endif %}
+          {% if form.password1.errors %}<p class="text-error text-sm mt-1">{{ form.password1.errors|join:" " }}</p>{% endif %}
+        </div>
+        <div>
+          <label class="block text-label-caps uppercase text-outline mb-1" for="id_password2">Confirmar senha</label>
+          <input class="block w-full px-0 py-2 bg-transparent border-0 border-b {% if form.password2.errors %}border-error{% else %}border-outline-variant{% endif %} focus:ring-0 focus:border-primary" id="id_password2" name="password2" type="password" autocomplete="new-password" {% if not employee %}required{% endif %}/>
+          {% if form.password2.errors %}<p class="text-error text-sm mt-1">{{ form.password2.errors|join:" " }}</p>{% endif %}
+        </div>
+      </div>
+      <div>
+        <label class="block text-label-caps uppercase text-outline mb-1" for="id_bio">Bio (aparece na página pública)</label>
+        <textarea class="block w-full px-0 py-2 bg-transparent border-0 border-b border-outline-variant focus:ring-0 focus:border-primary resize-none" id="id_bio" name="bio" rows="2">{{ form.bio.value|default:'' }}</textarea>
+      </div>
+      <div>
+        <label class="block text-label-caps uppercase text-outline mb-1" for="id_photo">Foto</label>
+        {% if employee.photo %}<img class="w-16 h-16 rounded-full object-cover mb-2" src="{{ employee.photo.url }}" alt="Foto atual"/>{% endif %}
+        <input class="block w-full text-sm text-on-surface-variant file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:bg-primary-container file:text-on-primary-container hover:file:opacity-90" id="id_photo" name="photo" type="file" accept="image/*"/>
+      </div>
+      <div class="pt-4 border-t border-surface-variant" x-data="{ ctype: '{{ form.default_commission_type.value|default:'percentage' }}' }">
+        <h4 class="text-label-caps uppercase text-outline mb-4">Comissão padrão</h4>
+        <div class="grid md:grid-cols-2 gap-6">
+          <div>
+            <label class="block text-label-caps uppercase text-outline mb-1" for="id_default_commission_type">Tipo</label>
+            <select class="block w-full px-0 py-2 bg-transparent border-0 border-b border-outline-variant focus:ring-0 focus:border-primary" id="id_default_commission_type" name="default_commission_type" x-model="ctype">
+              <option value="percentage" {% if form.default_commission_type.value == "percentage" %}selected{% endif %}>Percentual (%)</option>
+              <option value="fixed" {% if form.default_commission_type.value == "fixed" %}selected{% endif %}>Valor fixo (R$)</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-label-caps uppercase text-outline mb-1" for="id_default_commission_value">
+              <span x-text="ctype === 'percentage' ? 'Valor (%)' : 'Valor (R$)'"></span>
+            </label>
+            <input class="block w-full px-0 py-2 bg-transparent border-0 border-b {% if form.default_commission_value.errors %}border-error{% else %}border-outline-variant{% endif %} text-lg focus:ring-0 focus:border-primary" id="id_default_commission_value" name="default_commission_value" type="text" inputmode="decimal" :placeholder="ctype === 'percentage' ? '0,00 %' : 'R$ 0,00'" value="{{ form.default_commission_value.value|default:'' }}" required/>
+            {% if form.default_commission_value.errors %}<p class="text-error text-sm mt-1">{{ form.default_commission_value.errors|join:" " }}</p>{% endif %}
+          </div>
+        </div>
+      </div>
+      <div class="pt-4 flex justify-end">
+        <button class="px-8 py-3 rounded-full bg-primary text-on-primary font-semibold hover:opacity-90 transition-opacity active:scale-95" type="submit">
+          {% if employee %}Salvar dados{% else %}Criar funcionário{% endif %}
+        </button>
+      </div>
+    </form>
+  </div>
+
+  {% if employee %}
+  <div class="space-y-8">
+    {% include "painel/employees/_hours.html" %}
+    {% include "painel/employees/_services.html" %}
+    {% include "painel/employees/_commissions.html" %}
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,33 @@
+{% load static %}
+<!DOCTYPE html>
+<html class="light" lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Conta excluída — Zelo</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Playfair+Display:wght@600;700&amp;display=swap" rel="stylesheet"/>
+<script>
+  tailwind.config = { theme: { extend: {
+    colors: {
+      "background": "#fff8f5", "surface-container-lowest": "#ffffff",
+      "on-surface": "#1f1b17", "on-surface-variant": "#50453b",
+      "primary": "#7d562d", "on-primary": "#ffffff"
+    },
+    fontFamily: { "display": ["Playfair Display", "serif"], "sans": ["Inter", "sans-serif"] }
+  } } }
+</script>
+</head>
+<body class="bg-background font-sans text-on-surface min-h-screen flex items-center justify-center p-6">
+  <div class="w-full max-w-md text-center">
+    <h1 class="font-display text-4xl font-bold text-primary tracking-tight mb-6">Zelo</h1>
+    <div class="bg-surface-container-lowest rounded-2xl shadow-[0_4px_40px_-10px_rgba(125,86,45,0.15)] p-8">
+      <span class="material-symbols-outlined text-5xl text-primary">check_circle</span>
+      <p class="text-on-surface mt-4">Sua conta e todos os dados do salão foram excluídos permanentemente.</p>
+      <a class="mt-6 inline-block text-primary font-semibold hover:underline" href="/">Voltar ao início</a>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,60 @@
+{% load static %}
+<!DOCTYPE html>
+<html class="light" lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Entrar — Zelo</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Playfair+Display:wght@600;700&amp;display=swap" rel="stylesheet"/>
+<script>
+  tailwind.config = { theme: { extend: {
+    colors: {
+      "background": "#fff8f5", "surface-container-lowest": "#ffffff",
+      "on-surface": "#1f1b17", "on-surface-variant": "#50453b",
+      "outline": "#82756a", "outline-variant": "#d4c4b7",
+      "primary": "#7d562d", "on-primary": "#ffffff",
+      "error": "#ba1a1a", "error-container": "#ffdad6", "on-error-container": "#93000a"
+    },
+    fontFamily: { "display": ["Playfair Display", "serif"], "sans": ["Inter", "sans-serif"] }
+  } } }
+</script>
+</head>
+<body class="bg-background font-sans text-on-surface min-h-screen flex items-center justify-center p-6">
+  <div class="w-full max-w-md">
+    <div class="text-center mb-10">
+      <h1 class="font-display text-5xl font-bold text-primary tracking-tight">Zelo</h1>
+      <p class="text-on-surface-variant mt-2">O zelo que seu salão merece</p>
+    </div>
+    <div class="bg-surface-container-lowest rounded-2xl shadow-[0_4px_40px_-10px_rgba(125,86,45,0.15)] p-8">
+      {% if form.errors %}
+        <div class="mb-6 rounded-lg bg-error-container text-on-error-container px-4 py-3 text-sm">
+          E-mail ou senha inválidos. Verifique e tente novamente.
+        </div>
+      {% endif %}
+      <form method="post">
+        {% csrf_token %}
+        <div class="space-y-6">
+          <div class="relative">
+            <label class="block text-xs font-semibold uppercase tracking-widest text-outline mb-1" for="id_username">E-mail</label>
+            <input class="block w-full px-0 py-2 bg-transparent border-0 border-b border-outline-variant focus:ring-0 focus:border-primary text-lg" id="id_username" name="username" type="email" autocomplete="email" autofocus required/>
+          </div>
+          <div class="relative">
+            <label class="block text-xs font-semibold uppercase tracking-widest text-outline mb-1" for="id_password">Senha</label>
+            <input class="block w-full px-0 py-2 bg-transparent border-0 border-b border-outline-variant focus:ring-0 focus:border-primary text-lg" id="id_password" name="password" type="password" autocomplete="current-password" required/>
+          </div>
+        </div>
+        <input name="next" type="hidden" value="{{ next }}"/>
+        <button class="mt-8 w-full bg-primary text-on-primary font-semibold text-lg py-3 rounded-full hover:opacity-90 transition-opacity active:scale-95" type="submit">Entrar</button>
+      </form>
+      {% include "painel/_google_button.html" %}
+    </div>
+    <p class="text-center text-sm text-on-surface-variant mt-6">
+      Ainda não tem um salão cadastrado?
+      <a class="text-primary font-semibold hover:underline" href="{% url 'signup' %}">Cadastre-se</a>
+    </p>
+  </div>
+</body>
+</html>

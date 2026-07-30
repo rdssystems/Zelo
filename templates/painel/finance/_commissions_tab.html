@@ -1,0 +1,47 @@
+{% if not commissions_by_employee %}
+<p class="text-sm text-on-surface-variant italic py-12 text-center">Nenhuma comissão neste período.</p>
+{% else %}
+<div class="space-y-6">
+  {% for row in commissions_by_employee %}
+  <div class="bg-surface-container-lowest rounded-2xl border border-surface-variant shadow-sm overflow-hidden">
+    <div class="px-6 py-4 border-b border-surface-variant bg-surface-container-low/50">
+      <h3 class="font-semibold text-on-surface">{{ row.employee.full_name }}</h3>
+    </div>
+    <div class="divide-y divide-surface-variant">
+      {% for commission in row.commissions %}
+      <div class="px-6 py-3 flex items-center justify-between gap-4">
+        <div>
+          <p class="text-sm text-on-surface">{{ commission.appointment.service.name }} — {{ commission.appointment.date|date:"d/m/Y" }}</p>
+          {% if commission.status == "paid" %}
+          <p class="text-xs text-on-surface-variant">Paga em {{ commission.paid_at|date:"d/m/Y H:i" }}</p>
+          {% endif %}
+        </div>
+        <div class="flex items-center gap-4">
+          <span class="font-semibold text-on-surface">R$ {{ commission.calculated_amount }}</span>
+          {% if commission.status == "paid" %}
+          <span class="inline-flex items-center px-3 py-1 rounded-full bg-[#e8f5e9] text-[#2e7d32] text-label-caps uppercase">Paga</span>
+          {% else %}
+          <button class="px-4 py-2 rounded-full bg-primary text-on-primary text-sm font-semibold hover:opacity-90 transition-opacity"
+                  hx-get="{% url 'finance:commission_pay_confirm' commission.pk %}?start={{ start|date:'Y-m-d' }}&end={{ end|date:'Y-m-d' }}"
+                  hx-target="#modal-slot" hx-swap="innerHTML">
+            Pagar
+          </button>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% if row.has_pending %}
+    <div class="px-6 py-4 bg-surface-container-low/30 flex items-center justify-end gap-4">
+      <span class="text-sm font-medium text-on-surface-variant">Total a pagar: <span class="font-bold text-on-surface text-base ml-1">R$ {{ row.pending_total }}</span></span>
+      <button class="px-6 py-2.5 rounded-full border border-primary text-primary text-sm font-semibold hover:bg-primary-container/20 transition-colors"
+              hx-get="{% url 'finance:commission_pay_all_confirm' row.employee.pk %}?start={{ start|date:'Y-m-d' }}&end={{ end|date:'Y-m-d' }}"
+              hx-target="#modal-slot" hx-swap="innerHTML">
+        Pagar tudo
+      </button>
+    </div>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% endif %}

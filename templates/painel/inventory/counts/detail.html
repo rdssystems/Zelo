@@ -1,0 +1,13 @@
+{% extends "painel/base.html" %}
+
+{% block title %}Zelo — Contagem #{{ count.pk }}{% endblock %}
+
+{% block content %}
+<div class="mb-8">
+  <a class="inline-flex items-center gap-1 text-on-surface-variant hover:text-primary transition-colors text-sm mb-4" href="{% url 'inventory:count_list' %}">
+    <span class="material-symbols-outlined text-[18px]">arrow_back</span> Voltar para o Inventário
+  </a>
+</div>
+
+{% include "painel/inventory/counts/_detail_body.html" %}
+{% endblock %}

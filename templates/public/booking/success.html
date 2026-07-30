@@ -1,0 +1,96 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Agendamento confirmado — {{ tenant.name }}</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Playfair+Display:wght@600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+  .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24; }
+  .glass-panel { background: linear-gradient(135deg, rgba(255,255,255,0.7) 0%, rgba(255,248,245,0.4) 100%); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(212,196,183,0.4); }
+  .animate-float { animation: float 6s ease-in-out infinite; }
+  @keyframes float { 0% { transform: translateY(0px);} 50% { transform: translateY(-10px);} 100% { transform: translateY(0px);} }
+</style>
+<script>
+  tailwind.config = { theme: { extend: {
+    colors: {
+      "surface": "#fff8f5", "on-surface": "#1f1b17", "on-surface-variant": "#50453b",
+      "surface-container-low": "#fcf2eb", "surface-container-high": "#f0e6e0",
+      "primary": "#7d562d", "on-primary": "#ffffff", "primary-container": "#d4a373",
+      "outline-variant": "#d4c4b7", "secondary-fixed": "#fedbcc", "primary-fixed": "#ffdcbd"
+    },
+    fontFamily: { "display": ["Playfair Display", "serif"], "sans": ["Inter", "sans-serif"] }
+  } } }
+</script>
+</head>
+<body class="bg-surface text-on-surface min-h-screen flex items-center justify-center relative overflow-hidden font-sans antialiased p-4 sm:p-8">
+<div class="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-primary-fixed/30 blur-[120px] pointer-events-none"></div>
+<div class="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-secondary-fixed/30 blur-[100px] pointer-events-none"></div>
+
+<main class="w-full max-w-[800px] relative z-10">
+  <div class="glass-panel rounded-3xl shadow-[0_30px_60px_-15px_rgba(125,86,45,0.08)] p-6 sm:p-10 md:p-12">
+    <div class="flex flex-col items-center text-center mb-10">
+      <div class="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-primary-container/20 flex items-center justify-center mb-6 animate-float border border-primary-container/30">
+        <span class="material-symbols-outlined text-primary" style="font-size: 48px; font-variation-settings: 'FILL' 1;">check_circle</span>
+      </div>
+      <h1 class="font-display text-3xl sm:text-4xl text-primary mb-2">Agendamento Confirmado</h1>
+      <p class="text-on-surface-variant max-w-md mx-auto">Tudo certo! Seu momento de autocuidado está reservado. Confira os detalhes abaixo.</p>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-10">
+      <div class="bg-surface-container-low rounded-lg p-6 border border-outline-variant/20">
+        <span class="text-xs uppercase tracking-wide text-on-surface-variant flex items-center gap-2 mb-2">
+          <span class="material-symbols-outlined text-[16px]">content_cut</span> Serviço
+        </span>
+        <h2 class="text-lg font-semibold text-on-surface">{{ appointment.service.name }}</h2>
+        <p class="text-sm text-on-surface-variant mt-1">{{ appointment.service.duration_minutes }} min • R$ {{ appointment.price_at_booking }}</p>
+      </div>
+      <div class="bg-surface-container-low rounded-lg p-6 border border-outline-variant/20">
+        <span class="text-xs uppercase tracking-wide text-on-surface-variant flex items-center gap-2 mb-2">
+          <span class="material-symbols-outlined text-[16px]">calendar_month</span> Data e horário
+        </span>
+        <h2 class="text-xl font-display text-primary mt-1">{{ appointment.date|date:"d/m" }}, {{ appointment.start_time|time:"H:i" }}</h2>
+        <p class="text-sm text-on-surface-variant mt-1">{{ appointment.date|date:"l" }}</p>
+      </div>
+      <div class="bg-surface-container-low rounded-lg p-6 border border-outline-variant/20 flex items-center gap-4">
+        <div class="w-16 h-16 rounded-full overflow-hidden border-2 border-surface shrink-0">
+          {% if appointment.employee.photo %}
+          <img alt="{{ appointment.employee.full_name }}" class="w-full h-full object-cover" src="{{ appointment.employee.photo.url }}" onerror="this.onerror=null; this.src='https://ui-avatars.com/api/?name={{ appointment.employee.full_name|urlencode }}&background=d4a373&color=ffffff';"/>
+          {% else %}
+          <div class="w-full h-full bg-primary-container text-on-primary-container flex items-center justify-center font-display">{{ appointment.employee.full_name|first|upper }}</div>
+          {% endif %}
+        </div>
+        <div>
+          <span class="text-xs uppercase tracking-wide text-on-surface-variant mb-1 block">Profissional</span>
+          <h3 class="text-lg font-semibold text-on-surface">{{ appointment.employee.full_name }}</h3>
+        </div>
+      </div>
+      <div class="bg-surface-container-low rounded-lg p-6 border border-outline-variant/20 flex flex-col justify-center">
+        <span class="text-xs uppercase tracking-wide text-on-surface-variant flex items-center gap-2 mb-2">
+          <span class="material-symbols-outlined text-[16px]">location_on</span> Local
+        </span>
+        <p class="text-on-surface">{{ tenant.name }}</p>
+        {% if tenant.address %}<p class="text-sm text-on-surface-variant mt-1">{{ tenant.address }}</p>{% endif %}
+      </div>
+    </div>
+
+    <div class="flex flex-col sm:flex-row gap-4 justify-center">
+      <a class="bg-transparent border border-outline-variant text-on-surface font-medium py-4 px-8 rounded-full flex items-center justify-center gap-2 hover:bg-surface-container-high transition-all active:scale-[0.98] w-full sm:w-auto"
+         href="{% url 'public:my_appointments' tenant.slug %}">
+        <span class="material-symbols-outlined" style="font-size: 18px;">event_note</span>
+        Ver ou cancelar meus agendamentos
+      </a>
+      <a class="bg-primary text-on-primary font-medium py-4 px-8 rounded-full flex items-center justify-center gap-2 hover:opacity-90 transition-all active:scale-[0.98] w-full sm:w-auto"
+         href="{% url 'public:home' tenant.slug %}">
+        Voltar ao início
+      </a>
+    </div>
+  </div>
+</main>
+</body>
+</html>

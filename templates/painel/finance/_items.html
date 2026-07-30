@@ -1,0 +1,42 @@
+<div id="cash-items" x-data="{ tab: 'comandas' }">
+  <section class="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
+    <div class="bg-surface-container-lowest p-6 rounded-xl border border-surface-variant shadow-sm">
+      <span class="text-label-caps uppercase text-on-surface-variant block mb-2">Entradas</span>
+      <div class="font-display text-2xl text-on-surface">R$ {{ total_in }}</div>
+    </div>
+    <div class="bg-surface-container-lowest p-6 rounded-xl border border-surface-variant shadow-sm">
+      <span class="text-label-caps uppercase text-on-surface-variant block mb-2">Saídas</span>
+      <div class="font-display text-2xl text-on-surface">R$ {{ total_out }}</div>
+    </div>
+    <div class="bg-primary-container/20 p-6 rounded-xl border border-primary/20 shadow-sm">
+      <span class="text-label-caps uppercase text-primary block mb-2">Saldo do período</span>
+      <div class="font-display text-2xl text-primary">R$ {{ balance }}</div>
+    </div>
+  </section>
+
+  {% if by_category %}
+  <div class="flex flex-wrap gap-3 mb-8">
+    {% for row in by_category %}
+    <span class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-surface-container-low border border-surface-variant text-sm text-on-surface-variant">
+      {{ row.category }}: <strong class="text-on-surface">R$ {{ row.total }}</strong>
+    </span>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <div class="flex gap-1 mb-6 border-b border-surface-variant">
+    <button type="button" @click="tab = 'comandas'"
+            :class="tab === 'comandas' ? 'border-primary text-primary' : 'border-transparent text-on-surface-variant hover:text-on-surface'"
+            class="px-4 py-3 border-b-2 font-semibold text-sm transition-colors">Comandas</button>
+    <button type="button" @click="tab = 'comissoes'"
+            :class="tab === 'comissoes' ? 'border-primary text-primary' : 'border-transparent text-on-surface-variant hover:text-on-surface'"
+            class="px-4 py-3 border-b-2 font-semibold text-sm transition-colors">Comissões</button>
+    <button type="button" @click="tab = 'lancamentos'"
+            :class="tab === 'lancamentos' ? 'border-primary text-primary' : 'border-transparent text-on-surface-variant hover:text-on-surface'"
+            class="px-4 py-3 border-b-2 font-semibold text-sm transition-colors">Lançamentos</button>
+  </div>
+
+  <div x-show="tab === 'comandas'" x-cloak>{% include "painel/finance/_comandas.html" %}</div>
+  <div x-show="tab === 'comissoes'" x-cloak>{% include "painel/finance/_commissions_tab.html" %}</div>
+  <div x-show="tab === 'lancamentos'" x-cloak>{% include "painel/finance/_lancamentos.html" %}</div>
+</div>

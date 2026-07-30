@@ -1,0 +1,12 @@
+{% extends "public/_wizard_base.html" %}
+
+{% block header_title %}Dados removidos{% endblock %}
+{% block back_link %}<div class="w-10 h-10"></div>{% endblock %}
+
+{% block content %}
+<div class="px-6 py-16 flex flex-col items-center text-center gap-4">
+  <span class="material-symbols-outlined text-5xl text-primary">check_circle</span>
+  <p class="text-on-surface">Seus dados pessoais foram removidos deste salão.</p>
+  <a class="mt-2 text-primary font-semibold hover:underline" href="{% url 'public:home' tenant.slug %}">Voltar ao início</a>
+</div>
+{% endblock %}

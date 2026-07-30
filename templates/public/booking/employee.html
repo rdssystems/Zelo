@@ -1,0 +1,41 @@
+{% extends "public/_wizard_base.html" %}
+
+{% block header_title %}Escolha o profissional{% endblock %}
+{% block back_link %}
+<a aria-label="Voltar" class="w-10 h-10 flex items-center justify-center rounded-full bg-surface-container hover:bg-surface-container-high transition-colors text-on-surface" href="{% url 'public:booking_service' tenant.slug %}">
+  <span class="material-symbols-outlined">arrow_back</span>
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="px-6 mb-6">
+  <div class="flex items-center gap-2 bg-surface-container-low px-4 py-2 rounded-full inline-flex text-sm text-on-surface-variant">
+    <span class="material-symbols-outlined text-[16px] text-primary">content_cut</span>
+    {{ service.name }}
+  </div>
+</div>
+<div class="px-6 grid grid-cols-2 gap-4">
+  {% for employee in employees %}
+  <a class="bg-surface-container-lowest rounded-2xl p-5 shadow-sm border border-surface-variant/40 hover:border-primary/40 hover:shadow-md transition-all flex flex-col items-center text-center gap-2"
+     href="{% url 'public:booking_schedule' tenant.slug %}?service={{ service.pk }}&employee={{ employee.pk }}">
+    <div class="w-16 h-16 rounded-full overflow-hidden border-2 border-surface-container-high">
+      {% if employee.photo %}
+      <img class="w-full h-full object-cover" src="{{ employee.photo.url }}" alt="Foto {{ employee.full_name }}" onerror="this.onerror=null; this.src='https://ui-avatars.com/api/?name={{ employee.full_name|urlencode }}&background=d4a373&color=ffffff';"/>
+      {% else %}
+      <div class="w-full h-full bg-primary-container text-on-primary-container flex items-center justify-center font-display text-xl">
+        {{ employee.full_name|first|upper }}
+      </div>
+      {% endif %}
+    </div>
+    <h3 class="font-semibold text-on-surface">{{ employee.full_name }}</h3>
+    {% if employee.bio %}
+    <p class="text-xs text-on-surface-variant line-clamp-2">{{ employee.bio }}</p>
+    {% endif %}
+  </a>
+  {% empty %}
+  <div class="col-span-2 text-center py-16">
+    <p class="text-on-surface-variant">Nenhum profissional disponível para este serviço no momento.</p>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}

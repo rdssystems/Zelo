@@ -1,0 +1,61 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>{% block title %}Agendar — {{ tenant.name }}{% endblock %}</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Playfair+Display:wght@600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://unpkg.com/htmx.org@2.0.4"></script>
+<style>
+  .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24; }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+</style>
+<script id="tailwind-config">
+  tailwind.config = {
+    theme: { extend: {
+      colors: {
+        "surface": "#fff8f5", "surface-dim": "#e2d8d2", "background": "#fff8f5",
+        "surface-container-lowest": "#ffffff", "surface-container-low": "#fcf2eb",
+        "surface-container": "#f6ece6", "surface-container-high": "#f0e6e0",
+        "surface-variant": "#eae1db",
+        "on-surface": "#1f1b17", "on-surface-variant": "#50453b", "on-background": "#1f1b17",
+        "inverse-surface": "#342f2c",
+        "outline": "#82756a", "outline-variant": "#d4c4b7",
+        "primary": "#7d562d", "on-primary": "#ffffff",
+        "primary-container": "#d4a373", "on-primary-container": "#5b3912",
+        "secondary": "#72594d", "on-secondary": "#ffffff",
+        "secondary-container": "#fedbcc", "on-secondary-container": "#785f53",
+        "error": "#ba1a1a", "on-error": "#ffffff",
+        "error-container": "#ffdad6", "on-error-container": "#93000a"
+      },
+      fontFamily: { "display": ["Playfair Display", "serif"], "sans": ["Inter", "sans-serif"] }
+    } }
+  }
+</script>
+</head>
+<body class="bg-surface-variant/30 min-h-screen font-sans text-on-background flex justify-center md:items-center"
+      hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+<main class="w-full max-w-[428px] min-h-[100dvh] md:min-h-0 md:h-[850px] bg-background md:rounded-[32px] md:shadow-2xl shadow-surface-tint/5 flex flex-col relative overflow-hidden">
+  <header class="flex items-center justify-between px-6 py-6 z-10 bg-background/90 backdrop-blur-md sticky top-0">
+    {% block back_link %}
+    <a aria-label="Voltar" class="w-10 h-10 flex items-center justify-center rounded-full bg-surface-container hover:bg-surface-container-high transition-colors text-on-surface" href="{{ back_url|default:'#' }}">
+      <span class="material-symbols-outlined">arrow_back</span>
+    </a>
+    {% endblock %}
+    <h1 class="font-semibold text-lg text-on-background absolute left-1/2 -translate-x-1/2 whitespace-nowrap">{% block header_title %}Agendamento{% endblock %}</h1>
+    <div class="w-10"></div>
+  </header>
+  <div class="flex-1 overflow-y-auto no-scrollbar {% block content_padding %}pb-8{% endblock %}">
+    {% block content %}{% endblock %}
+  </div>
+  {% block sticky_action %}{% endblock %}
+</main>
+<div id="modal-slot"></div>
+</body>
+</html>

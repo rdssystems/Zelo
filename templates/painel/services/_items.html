@@ -1,0 +1,58 @@
+<div id="service-items" class="bg-surface-container-lowest rounded-xl shadow-[0_4px_40px_-10px_rgba(125,86,45,0.08)] border border-surface-container overflow-hidden">
+  <div class="hidden md:grid grid-cols-12 gap-4 px-gutter py-4 border-b border-surface-variant bg-surface-container-low/50">
+    <div class="col-span-5 text-label-caps uppercase text-outline">Nome do Serviço</div>
+    <div class="col-span-2 text-label-caps uppercase text-outline">Duração</div>
+    <div class="col-span-2 text-label-caps uppercase text-outline">Preço base</div>
+    <div class="col-span-2 text-label-caps uppercase text-outline">Status</div>
+    <div class="col-span-1 text-right text-label-caps uppercase text-outline">Ações</div>
+  </div>
+  <div class="divide-y divide-surface-variant">
+    {% for service in services %}
+    <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-center px-gutter py-6 hover:bg-surface-container-low transition-colors group {% if not service.is_active %}opacity-60{% endif %}">
+      <div class="col-span-1 md:col-span-5">
+        <h3 class="font-display text-headline-sm text-on-surface group-hover:text-primary transition-colors">{{ service.name }}</h3>
+        {% if service.description %}
+        <p class="text-sm text-on-surface-variant mt-1 hidden md:block">{{ service.description|truncatechars:90 }}</p>
+        {% endif %}
+      </div>
+      <div class="col-span-1 md:col-span-2 flex items-center gap-2 text-on-surface-variant">
+        <span class="material-symbols-outlined text-outline text-[18px]">schedule</span>
+        {{ service.duration_minutes }} min
+      </div>
+      <div class="col-span-1 md:col-span-2 font-semibold text-lg text-on-surface">
+        R$ {{ service.price }}
+      </div>
+      <div class="col-span-1 md:col-span-2">
+        {% if service.is_active %}
+        <span class="inline-flex items-center px-3 py-1 rounded-full bg-[#e8f5e9] text-[#2e7d32] text-label-caps uppercase">Ativo</span>
+        {% else %}
+        <span class="inline-flex items-center px-3 py-1 rounded-full bg-error-container text-on-error-container text-label-caps uppercase">Inativo</span>
+        {% endif %}
+      </div>
+      <div class="col-span-1 md:col-span-1 flex md:justify-end gap-1">
+        <button class="p-2 text-outline hover:text-primary transition-colors rounded-full hover:bg-surface-variant" title="Editar"
+                hx-get="{% url 'services:update' service.pk %}" hx-target="#modal-slot" hx-swap="innerHTML">
+          <span class="material-symbols-outlined">edit</span>
+        </button>
+        <button class="p-2 transition-colors rounded-full hover:bg-surface-variant {% if service.is_active %}text-[#2e7d32] hover:text-[#1b5e20]{% else %}text-error hover:text-error{% endif %}"
+                title="{% if service.is_active %}Ativo — clique para desativar{% else %}Inativo — clique para ativar{% endif %}"
+                hx-get="{% url 'services:toggle_confirm' service.pk %}" hx-target="#modal-slot" hx-swap="innerHTML">
+          <span class="material-symbols-outlined" {% if service.is_active %}style="font-variation-settings: 'FILL' 1;"{% endif %}>{% if service.is_active %}toggle_on{% else %}toggle_off{% endif %}</span>
+        </button>
+        <button class="p-2 text-outline hover:text-error transition-colors rounded-full hover:bg-error-container/40" title="Excluir"
+                hx-get="{% url 'services:delete_confirm' service.pk %}" hx-target="#modal-slot" hx-swap="innerHTML">
+          <span class="material-symbols-outlined">delete</span>
+        </button>
+      </div>
+    </div>
+    {% empty %}
+    <div class="px-gutter py-16 text-center">
+      <p class="text-on-surface-variant">Nenhum serviço cadastrado ainda.</p>
+      <button class="mt-2 text-primary font-semibold hover:underline"
+              hx-get="{% url 'services:create' %}" hx-target="#modal-slot" hx-swap="innerHTML">
+        Cadastrar o primeiro serviço
+      </button>
+    </div>
+    {% endfor %}
+  </div>
+</div>

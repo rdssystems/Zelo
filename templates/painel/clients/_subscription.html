@@ -1,0 +1,52 @@
+<div id="subscription-section" class="bg-surface-container-lowest rounded-2xl shadow-[0_4px_40px_-10px_rgba(125,86,45,0.08)] border border-surface-container p-8">
+  <h3 class="text-label-caps uppercase text-outline mb-2">Mensalista</h3>
+  <p class="text-sm text-on-surface-variant mb-6">Marque o cliente como mensalista e defina o vencimento da mensalidade.</p>
+
+  {% if subscription_error %}
+  <div class="mb-4 rounded-lg bg-error-container text-on-error-container px-4 py-3 text-sm">{{ subscription_error }}</div>
+  {% elif subscription_saved %}
+  <div class="mb-4 rounded-lg bg-secondary-container text-on-secondary-container px-4 py-3 text-sm">Salvo.</div>
+  {% endif %}
+
+  {% if client.is_subscriber %}
+    {% if client.subscription_is_overdue %}
+    <div class="mb-4 rounded-lg bg-error-container text-on-error-container px-4 py-3 text-sm flex items-center gap-2">
+      <span class="material-symbols-outlined text-[18px]">warning</span>
+      Mensalidade vencida em {{ client.subscription_due_date|date:"d/m/Y" }}.
+    </div>
+    {% elif client.subscription_is_due_soon %}
+    <div class="mb-4 rounded-lg bg-secondary-container text-on-secondary-container px-4 py-3 text-sm flex items-center gap-2">
+      <span class="material-symbols-outlined text-[18px]">schedule</span>
+      Mensalidade vence em {{ client.subscription_due_date|date:"d/m/Y" }}.
+    </div>
+    {% endif %}
+  {% endif %}
+
+  <form hx-post="{% url 'clients:subscription' client.pk %}" hx-target="#subscription-section" hx-swap="outerHTML"
+        class="space-y-4" x-data="{ on: {% if client.is_subscriber %}true{% else %}false{% endif %} }">
+    {% csrf_token %}
+    <label class="flex items-center gap-3 cursor-pointer">
+      <input class="rounded border-outline-variant text-primary focus:ring-primary" type="checkbox" name="is_subscriber" x-model="on"/>
+      <span class="text-on-surface" :class="on ? 'font-semibold' : 'text-on-surface-variant'">Cliente mensalista</span>
+    </label>
+    <div x-show="on" x-cloak>
+      <label class="block text-label-caps uppercase text-outline mb-1" for="id_subscription_due_date">Vencimento da mensalidade</label>
+      <input class="block w-full px-0 py-2 bg-transparent border-0 border-b {% if subscription_form.subscription_due_date.errors %}border-error{% else %}border-outline-variant{% endif %} focus:ring-0 focus:border-primary"
+             id="id_subscription_due_date" name="subscription_due_date" type="date"
+             value="{{ subscription_form.subscription_due_date.value|date:'Y-m-d'|default:'' }}"/>
+      {% if subscription_form.subscription_due_date.errors %}<p class="text-error text-sm mt-1">{{ subscription_form.subscription_due_date.errors|join:" " }}</p>{% endif %}
+    </div>
+    <div class="pt-2 flex justify-end">
+      <button class="px-6 py-2.5 rounded-full bg-primary text-on-primary font-semibold text-sm hover:opacity-90 transition-opacity active:scale-95" type="submit">Salvar</button>
+    </div>
+  </form>
+
+  {% if client.is_subscriber %}
+  <div class="pt-4 mt-4 border-t border-surface-variant flex justify-end">
+    <button class="px-6 py-2.5 rounded-full border border-primary text-primary font-semibold text-sm hover:bg-primary-container/20 transition-colors"
+            hx-post="{% url 'clients:renew_subscription' client.pk %}" hx-target="#subscription-section" hx-swap="outerHTML">
+      Renovar (+1 mês)
+    </button>
+  </div>
+  {% endif %}
+</div>

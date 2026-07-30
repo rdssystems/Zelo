@@ -1,0 +1,32 @@
+{% extends "painel/base.html" %}
+
+{% block title %}Zelo — Equipe{% endblock %}
+
+{% block content %}
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
+  <div>
+    <h2 class="font-display text-headline-md text-on-surface mb-2">Equipe</h2>
+    <p class="text-on-surface-variant">Gerencie os profissionais, horários e serviços oferecidos.</p>
+  </div>
+  <a class="shrink-0 flex items-center gap-2 bg-primary text-on-primary font-semibold text-lg px-8 py-3 rounded-full hover:opacity-90 transition-opacity shadow-sm active:scale-95"
+     href="{% url 'employees:create' %}">
+    <span class="material-symbols-outlined">add</span>
+    Novo Funcionário
+  </a>
+</div>
+
+{% if messages %}
+  {% for message in messages %}
+  <div class="mb-6 rounded-lg bg-secondary-container text-on-secondary-container px-4 py-3">{{ message }}</div>
+  {% endfor %}
+{% endif %}
+
+<div class="hidden md:grid grid-cols-12 gap-4 px-6 pb-4 border-b border-surface-variant/50 text-label-caps uppercase text-outline mb-4">
+  <div class="col-span-4">Profissional</div>
+  <div class="col-span-5">Serviços vinculados</div>
+  <div class="col-span-2 text-center">Status</div>
+  <div class="col-span-1 text-right">Ações</div>
+</div>
+
+{% include "painel/employees/_items.html" %}
+{% endblock %}

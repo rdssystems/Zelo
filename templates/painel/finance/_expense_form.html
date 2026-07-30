@@ -1,0 +1,51 @@
+<div class="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6" id="expense-modal">
+  <div class="absolute inset-0 bg-inverse-surface/40 backdrop-blur-sm"
+       onclick="document.getElementById('modal-slot').innerHTML = ''"></div>
+  <div class="relative w-full max-w-md bg-surface-container-lowest rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto">
+    <div class="p-8">
+      <div class="flex justify-between items-start mb-8">
+        <div>
+          <h3 class="font-display text-display-mobile text-on-surface">Nova Despesa</h3>
+          <p class="text-on-surface-variant mt-1">Aluguel, contas, e outras saídas avulsas.</p>
+        </div>
+        <button class="text-outline hover:text-on-surface transition-colors p-2 rounded-full hover:bg-surface-container"
+                onclick="document.getElementById('modal-slot').innerHTML = ''">
+          <span class="material-symbols-outlined">close</span>
+        </button>
+      </div>
+
+      {% if form.non_field_errors %}
+      <div class="mb-6 rounded-lg bg-error-container text-on-error-container px-4 py-3 text-sm">{{ form.non_field_errors|join:" " }}</div>
+      {% endif %}
+
+      <form hx-post="{% url 'finance:expense_create' %}?{{ query }}" hx-target="#cash-items" hx-swap="outerHTML" class="space-y-6">
+        {% csrf_token %}
+        <div>
+          <label class="block text-label-caps uppercase text-outline mb-1" for="id_description">Descrição</label>
+          <input class="block w-full px-0 py-2 bg-transparent border-0 border-b {% if form.description.errors %}border-error{% else %}border-outline-variant{% endif %} text-on-surface focus:ring-0 focus:border-primary" id="id_description" name="description" type="text" value="{{ form.description.value|default:'' }}" required maxlength="255"/>
+          {% if form.description.errors %}<p class="text-error text-sm mt-1">{{ form.description.errors|join:" " }}</p>{% endif %}
+        </div>
+        <div class="grid sm:grid-cols-2 gap-6">
+          <div>
+            <label class="block text-label-caps uppercase text-outline mb-1" for="id_amount">Valor (R$)</label>
+            <input class="block w-full px-0 py-2 bg-transparent border-0 border-b {% if form.amount.errors %}border-error{% else %}border-outline-variant{% endif %} text-on-surface text-lg focus:ring-0 focus:border-primary" id="id_amount" name="amount" type="text" inputmode="decimal" placeholder="0,00" value="{{ form.amount.value|default:'' }}" required/>
+            {% if form.amount.errors %}<p class="text-error text-sm mt-1">{{ form.amount.errors|join:" " }}</p>{% endif %}
+          </div>
+          <div>
+            <label class="block text-label-caps uppercase text-outline mb-1" for="id_payment_method">Forma de pagamento</label>
+            <select class="block w-full px-0 py-2 bg-transparent border-0 border-b border-outline-variant focus:ring-0 focus:border-primary" id="id_payment_method" name="payment_method">
+              {% for value, label in form.fields.payment_method.choices %}
+              <option value="{{ value }}">{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+        <div class="pt-4 flex justify-end gap-4">
+          <button class="px-6 py-3 rounded-full border border-outline text-on-surface-variant hover:bg-surface-container transition-colors" type="button"
+                  onclick="document.getElementById('modal-slot').innerHTML = ''">Cancelar</button>
+          <button class="px-8 py-3 rounded-full bg-primary text-on-primary font-semibold hover:opacity-90 transition-opacity active:scale-95" type="submit">Registrar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

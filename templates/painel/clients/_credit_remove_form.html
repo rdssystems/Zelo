@@ -1,0 +1,42 @@
+<div class="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6" id="credit-remove-modal">
+  <div class="absolute inset-0 bg-inverse-surface/40 backdrop-blur-sm"
+       onclick="document.getElementById('modal-slot').innerHTML = ''"></div>
+  <div class="relative w-full max-w-sm bg-surface-container-lowest rounded-2xl shadow-2xl overflow-hidden">
+    <div class="p-8">
+      <div class="flex items-center gap-3 mb-6">
+        <div class="w-10 h-10 rounded-full bg-error-container/40 flex items-center justify-center shrink-0">
+          <span class="material-symbols-outlined text-error">remove_circle</span>
+        </div>
+        <h3 class="font-display text-headline-sm text-on-surface">Remover saldo</h3>
+      </div>
+      <p class="text-sm text-on-surface-variant mb-6">
+        Ajuste manual pra <strong class="text-on-surface">{{ client.name }}</strong> (saldo atual: R$ {{ client.credit_balance }}).
+        Não gera lançamento no Caixa — se devolveu dinheiro físico, lance a despesa avulsa separadamente.
+      </p>
+      {% if form.non_field_errors %}
+      <div class="mb-4 rounded-lg bg-error-container text-on-error-container px-4 py-3 text-sm">{{ form.non_field_errors|join:" " }}</div>
+      {% endif %}
+      <form hx-post="{% url 'clients:credit_remove' client.pk %}" hx-target="#credit-section" hx-swap="outerHTML" class="space-y-6">
+        {% csrf_token %}
+        <div>
+          <label class="block text-label-caps uppercase text-outline mb-1" for="id_amount">Valor</label>
+          <input class="block w-full px-0 py-2 bg-transparent border-0 border-b {% if form.amount.errors %}border-error{% else %}border-outline-variant{% endif %} text-lg focus:ring-0 focus:border-primary"
+                 id="id_amount" name="amount" type="text" inputmode="decimal" placeholder="0,00" value="{{ form.amount.value|default:'' }}" required/>
+          {% if form.amount.errors %}<p class="text-error text-sm mt-1">{{ form.amount.errors|join:" " }}</p>{% endif %}
+        </div>
+        <div>
+          <label class="block text-label-caps uppercase text-outline mb-1" for="id_reason">Motivo (opcional)</label>
+          <input class="block w-full px-0 py-2 bg-transparent border-0 border-b border-outline-variant focus:ring-0 focus:border-primary"
+                 id="id_reason" name="reason" type="text" value="{{ form.reason.value|default:'' }}" maxlength="255"/>
+        </div>
+        <div class="flex justify-end gap-3">
+          <button class="px-5 py-2.5 rounded-full border border-outline text-on-surface-variant hover:bg-surface-container transition-colors text-sm" type="button"
+                  onclick="document.getElementById('modal-slot').innerHTML = ''">Cancelar</button>
+          <button class="px-6 py-2.5 rounded-full bg-error text-on-error font-semibold hover:opacity-90 transition-opacity active:scale-95 text-sm" type="submit">
+            Remover
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

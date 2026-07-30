@@ -1,0 +1,23 @@
+<div class="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6" id="confirm-action-modal">
+  <div class="absolute inset-0 bg-inverse-surface/40 backdrop-blur-sm"
+       onclick="document.getElementById('modal-slot').innerHTML = ''"></div>
+  <div class="relative w-full max-w-md bg-surface-container-lowest rounded-2xl shadow-2xl overflow-hidden">
+    <div class="p-8">
+      <div class="flex items-center gap-3 mb-6">
+        <div class="w-10 h-10 rounded-full bg-primary-container/40 flex items-center justify-center shrink-0">
+          <span class="material-symbols-outlined text-primary">{{ icon|default:"help" }}</span>
+        </div>
+        <h3 class="font-display text-headline-sm text-on-surface">{{ title }}</h3>
+      </div>
+      <p class="text-on-surface-variant mb-8">{{ message }}</p>
+      <div class="flex justify-end gap-4">
+        <button class="px-6 py-3 rounded-full border border-outline text-on-surface-variant hover:bg-surface-container transition-colors" type="button"
+                onclick="document.getElementById('modal-slot').innerHTML = ''">Cancelar</button>
+        <button class="px-8 py-3 rounded-full bg-primary text-on-primary font-semibold hover:opacity-90 transition-opacity active:scale-95"
+                hx-post="{{ action_url }}" hx-target="{{ target }}" hx-swap="outerHTML">
+          {{ confirm_label|default:"Confirmar" }}
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

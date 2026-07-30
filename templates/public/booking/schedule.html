@@ -1,0 +1,46 @@
+{% extends "public/_wizard_base.html" %}
+
+{% block header_title %}Escolha o horário{% endblock %}
+{% block back_link %}
+<a aria-label="Voltar" class="w-10 h-10 flex items-center justify-center rounded-full bg-surface-container hover:bg-surface-container-high transition-colors text-on-surface" href="{% url 'public:booking_employee' tenant.slug %}?service={{ service.pk }}">
+  <span class="material-symbols-outlined">arrow_back</span>
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="px-6 mb-6">
+  <div class="flex items-center gap-4 bg-surface-container-low p-4 rounded-2xl border border-surface-container-high">
+    <div class="w-12 h-12 rounded-full overflow-hidden shrink-0">
+      {% if employee.photo %}
+      <img class="w-full h-full object-cover" src="{{ employee.photo.url }}" alt="Foto {{ employee.full_name }}" onerror="this.onerror=null; this.src='https://ui-avatars.com/api/?name={{ employee.full_name|urlencode }}&background=d4a373&color=ffffff';"/>
+      {% else %}
+      <div class="w-full h-full bg-primary-container text-on-primary-container flex items-center justify-center font-display">{{ employee.full_name|first|upper }}</div>
+      {% endif %}
+    </div>
+    <div>
+      <p class="text-sm text-on-surface-variant">Com <span class="font-semibold text-on-surface">{{ employee.full_name }}</span></p>
+      <p class="text-xs text-primary mt-0.5">{{ service.name }}</p>
+    </div>
+  </div>
+</div>
+
+<div class="px-6 mb-4">
+  <div class="flex gap-3 overflow-x-auto no-scrollbar pb-2 snap-x">
+    {% for d in dates %}
+    <a class="snap-start flex-shrink-0 flex flex-col items-center justify-center w-[64px] h-[80px] rounded-[20px] border transition-all
+              {% if d.date == selected_date %}bg-primary-container border-2 border-primary-container text-on-primary-container shadow-md
+              {% elif d.has_slots %}bg-surface-container-lowest border-outline-variant hover:bg-surface-container text-on-surface
+              {% else %}bg-transparent border-transparent text-outline/40{% endif %}"
+       hx-get="{% url 'public:booking_schedule_slots' tenant.slug %}?service={{ service.pk }}&employee={{ employee.pk }}&date={{ d.date|date:'Y-m-d' }}"
+       hx-target="#time-slots" hx-swap="outerHTML"
+       hx-push-url="{% url 'public:booking_schedule' tenant.slug %}?service={{ service.pk }}&employee={{ employee.pk }}&date={{ d.date|date:'Y-m-d' }}"
+       href="{% url 'public:booking_schedule' tenant.slug %}?service={{ service.pk }}&employee={{ employee.pk }}&date={{ d.date|date:'Y-m-d' }}">
+      <span class="text-[11px] uppercase font-semibold {% if d.date == selected_date %}text-on-primary-container{% else %}text-on-surface-variant{% endif %}">{{ d.date|date:"D" }}</span>
+      <span class="font-display text-xl">{{ d.date|date:"d" }}</span>
+    </a>
+    {% endfor %}
+  </div>
+</div>
+
+{% include "public/booking/_time_slots.html" %}
+{% endblock %}

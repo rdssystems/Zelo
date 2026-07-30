@@ -1,0 +1,89 @@
+{% extends "legal/_base.html" %}
+
+{% block title %}Política de Privacidade — Zelo{% endblock %}
+
+{% block legal_content %}
+<h1>Política de Privacidade</h1>
+<p><em>Última atualização: {% now "d/m/Y" %}</em></p>
+
+<p>
+  Esta política explica como o Zelo ("Plataforma") trata dados pessoais, em conformidade
+  com a Lei Geral de Proteção de Dados (Lei nº 13.709/2018 — LGPD).
+</p>
+
+<h2>1. Quem trata seus dados</h2>
+<p>
+  Para os dados da sua conta (nome, e-mail, dados do Salão), a Plataforma atua como
+  <strong>controladora</strong>. Para os dados dos clientes finais do seu Salão, coletados na
+  página pública de agendamento (nome e telefone), o <strong>seu Salão é o controlador</strong> —
+  a Plataforma atua como operadora, armazenando e processando esses dados em seu nome.
+</p>
+
+<h2>2. Quais dados coletamos</h2>
+<ul>
+  <li><strong>Dados de conta:</strong> nome, e-mail, senha (armazenada com hash, nunca em texto puro).</li>
+  <li><strong>Dados do Salão:</strong> nome fantasia, endereço, WhatsApp, logo, imagem de fundo.</li>
+  <li><strong>Dados operacionais:</strong> serviços, funcionários, produtos, movimentações de estoque, lançamentos financeiros.</li>
+  <li><strong>Dados de clientes finais (do seu Salão):</strong> nome e telefone informados no agendamento.</li>
+  <li><strong>Dados técnicos:</strong> endereço IP e registros de acesso, para segurança e prevenção de abuso.</li>
+</ul>
+
+<h2>3. Para que usamos esses dados</h2>
+<ul>
+  <li>Viabilizar o funcionamento do painel, da página pública e do agendamento;</li>
+  <li>Autenticação e segurança da conta;</li>
+  <li>Comunicação sobre a assinatura e sobre o serviço;</li>
+  <li>Cumprimento de obrigações legais e fiscais.</li>
+</ul>
+
+<h2>4. Com quem compartilhamos</h2>
+<p>
+  Compartilhamos dados apenas com fornecedores estritamente necessários para operar o serviço,
+  como o provedor de processamento de pagamento da assinatura e o provedor de infraestrutura
+  (hospedagem). Não vendemos dados pessoais a terceiros.
+</p>
+
+<h2>5. Seus direitos (art. 18 da LGPD)</h2>
+<p>Você (ou o cliente final do Salão, junto ao Salão responsável) pode solicitar:</p>
+<ul>
+  <li>Confirmação de que tratamos seus dados e acesso a eles;</li>
+  <li>Correção de dados incompletos, inexatos ou desatualizados;</li>
+  <li>Exclusão dos dados, quando não houver obrigação legal de retenção;</li>
+  <li>Portabilidade dos dados a outro fornecedor.</li>
+</ul>
+<p>
+  <strong>Cliente final:</strong> na página "Meus agendamentos" do Salão, após confirmar seu
+  telefone, há a opção "Excluir meus dados", que remove seu nome e telefone do sistema (o
+  histórico de atendimentos já concluídos é mantido de forma anônima, sem seus dados pessoais,
+  para fins de auditoria financeira).
+</p>
+<p>
+  <strong>Dono do Salão:</strong> em Configurações → Zona de risco, é possível excluir a conta
+  inteira do estabelecimento permanentemente.
+</p>
+
+<h2>6. Retenção e exclusão</h2>
+<p>
+  Mantemos os dados enquanto a conta estiver ativa e pelo período adicional exigido por
+  obrigações legais/fiscais (ex.: registros financeiros). Após esse prazo, os dados são
+  excluídos ou anonimizados.
+</p>
+
+<h2>7. Segurança</h2>
+<p>
+  Adotamos medidas técnicas razoáveis de segurança — senhas com hash, isolamento de dados entre
+  Salões (cada Salão só acessa seus próprios dados), conexão criptografada (HTTPS) em produção.
+</p>
+
+<h2>8. Cookies</h2>
+<p>
+  Usamos cookies essenciais de sessão para manter você autenticado. Não usamos cookies de
+  rastreamento publicitário.
+</p>
+
+<h2>9. Alterações desta política</h2>
+<p>Podemos atualizar esta política periodicamente, com a data de revisão sempre indicada no topo.</p>
+
+<h2>10. Contato do encarregado (DPO)</h2>
+<p>Para exercer seus direitos ou tirar dúvidas: <em>[preencher e-mail/canal de contato do encarregado]</em>.</p>
+{% endblock %}

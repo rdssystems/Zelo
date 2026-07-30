@@ -1,0 +1,61 @@
+<div id="employee-items" class="flex flex-col gap-4">
+  {% for employee in employees %}
+  <div class="group bg-surface-container-lowest rounded-2xl p-4 md:px-6 md:py-4 flex flex-col md:grid md:grid-cols-12 gap-4 md:items-center shadow-[0_4px_12px_rgba(125,86,45,0.04)] hover:shadow-[0_8px_24px_rgba(125,86,45,0.08)] transition-all border border-transparent hover:border-surface-variant/30 {% if not employee.is_active %}opacity-70{% endif %}">
+    <div class="md:col-span-4 flex items-center gap-4">
+      {% if employee.photo %}
+      <img alt="Foto {{ employee.full_name }}" class="w-12 h-12 rounded-full object-cover border-2 border-surface-container {% if not employee.is_active %}grayscale{% endif %}" src="{{ employee.photo.url }}" onerror="this.onerror=null; this.src='https://ui-avatars.com/api/?name={{ employee.full_name|urlencode }}&background=d4a373&color=ffffff';"/>
+      {% else %}
+      <div class="w-12 h-12 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center font-display text-xl border-2 border-surface-container">
+        {{ employee.full_name|first|upper }}
+      </div>
+      {% endif %}
+      <div>
+        <h3 class="font-semibold text-lg text-on-surface mb-0.5">{{ employee.full_name }}</h3>
+        <p class="text-sm text-on-surface-variant">{{ employee.user.email }}</p>
+      </div>
+    </div>
+    <div class="md:col-span-5 flex flex-wrap gap-2">
+      {% for link in employee.service_links.all %}
+      <span class="bg-secondary-container text-on-secondary-container px-3 py-1 rounded-full text-label-caps uppercase tracking-wider flex items-center gap-1">
+        <span class="material-symbols-outlined text-[14px]">content_cut</span>
+        {{ link.service.name }}
+      </span>
+      {% empty %}
+      <span class="text-sm text-outline italic">Nenhum serviço vinculado</span>
+      {% endfor %}
+    </div>
+    <div class="md:col-span-2 flex md:justify-center items-center">
+      {% if employee.is_active %}
+      <div class="bg-[#e8f5e9] text-[#2e7d32] px-3 py-1 rounded-full text-label-caps uppercase flex items-center gap-1.5 border border-[#c8e6c9]">
+        <span class="w-1.5 h-1.5 rounded-full bg-[#2e7d32]"></span> Ativo
+      </div>
+      {% else %}
+      <div class="bg-surface-container text-on-surface-variant px-3 py-1 rounded-full text-label-caps uppercase flex items-center gap-1.5 border border-surface-variant">
+        <span class="w-1.5 h-1.5 rounded-full bg-outline"></span> Inativo
+      </div>
+      {% endif %}
+    </div>
+    <div class="md:col-span-1 flex justify-end gap-1">
+      <a aria-label="Editar" class="p-2 text-outline hover:text-primary hover:bg-surface-container transition-colors rounded-full" href="{% url 'employees:update' employee.pk %}">
+        <span class="material-symbols-outlined text-[20px]">edit</span>
+      </a>
+      <button class="p-2 transition-colors rounded-full hover:bg-surface-container {% if employee.is_active %}text-[#2e7d32] hover:text-[#1b5e20]{% else %}text-error hover:text-error{% endif %}"
+              title="{% if employee.is_active %}Ativo — clique para desativar{% else %}Inativo — clique para ativar{% endif %}"
+              hx-get="{% url 'employees:toggle_confirm' employee.pk %}" hx-target="#modal-slot" hx-swap="innerHTML">
+        <span class="material-symbols-outlined text-[20px]" {% if employee.is_active %}style="font-variation-settings: 'FILL' 1;"{% endif %}>{% if employee.is_active %}toggle_on{% else %}toggle_off{% endif %}</span>
+      </button>
+      {% if not employee.is_active %}
+      <button aria-label="Excluir" class="p-2 text-outline hover:text-error hover:bg-error-container/40 transition-colors rounded-full"
+              hx-get="{% url 'employees:delete_confirm' employee.pk %}" hx-target="#modal-slot" hx-swap="innerHTML">
+        <span class="material-symbols-outlined text-[20px]">delete</span>
+      </button>
+      {% endif %}
+    </div>
+  </div>
+  {% empty %}
+  <div class="bg-surface-container-lowest rounded-2xl py-16 text-center">
+    <p class="text-on-surface-variant">Nenhum profissional cadastrado ainda.</p>
+    <a class="mt-2 inline-block text-primary font-semibold hover:underline" href="{% url 'employees:create' %}">Cadastrar o primeiro funcionário</a>
+  </div>
+  {% endfor %}
+</div>

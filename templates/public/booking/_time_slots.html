@@ -1,0 +1,47 @@
+<div id="time-slots" class="px-6 flex flex-col gap-8 pb-12">
+  {% if not selected_date %}
+  <div class="text-center py-12">
+    <p class="text-on-surface-variant">Nenhum horário disponível nos próximos dias. Tente outro profissional.</p>
+  </div>
+  {% else %}
+  <p class="text-sm text-on-surface-variant -mb-4">{{ selected_date|date:"l, d \d\e F" }}</p>
+
+  {% if not morning_times and not afternoon_times %}
+  <div class="text-center py-8">
+    <p class="text-on-surface-variant">Sem horários livres neste dia. Escolha outra data acima.</p>
+  </div>
+  {% endif %}
+
+  {% if morning_times %}
+  <div>
+    <h3 class="text-xs uppercase tracking-wide text-on-surface-variant mb-3 flex items-center gap-2">
+      <span class="material-symbols-outlined text-[18px]">wb_twilight</span> Manhã
+    </h3>
+    <div class="grid grid-cols-3 gap-3">
+      {% for t in morning_times %}
+      <a class="text-center bg-surface-container-low border border-outline-variant/30 text-on-surface py-3 rounded-xl hover:bg-surface-container-high transition-colors"
+         href="{% url 'public:booking_identify' tenant.slug %}?service={{ service.pk }}&employee={{ employee.pk }}&date={{ selected_date|date:'Y-m-d' }}&time={{ t|time:'H:i' }}">
+        {{ t|time:"H:i" }}
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% if afternoon_times %}
+  <div>
+    <h3 class="text-xs uppercase tracking-wide text-on-surface-variant mb-3 flex items-center gap-2">
+      <span class="material-symbols-outlined text-[18px]">light_mode</span> Tarde
+    </h3>
+    <div class="grid grid-cols-3 gap-3">
+      {% for t in afternoon_times %}
+      <a class="text-center bg-surface-container-low border border-outline-variant/30 text-on-surface py-3 rounded-xl hover:bg-surface-container-high transition-colors"
+         href="{% url 'public:booking_identify' tenant.slug %}?service={{ service.pk }}&employee={{ employee.pk }}&date={{ selected_date|date:'Y-m-d' }}&time={{ t|time:'H:i' }}">
+        {{ t|time:"H:i" }}
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+  {% endif %}
+</div>

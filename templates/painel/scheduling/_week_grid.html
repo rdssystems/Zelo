@@ -1,0 +1,46 @@
+<div id="agenda-week-grid" class="bg-surface-container-lowest rounded-2xl border border-surface-variant shadow-[0_4px_40px_-10px_rgba(125,86,45,0.08)] overflow-hidden">
+  <div class="overflow-x-auto">
+    <div class="min-w-[900px]">
+      <div class="grid sticky top-0 z-10 bg-surface-container-lowest" style="grid-template-columns: 56px repeat(7, 1fr);">
+        <div class="border-b border-surface-variant"></div>
+        {% for day in days %}
+        <a class="block px-2 py-3 text-center border-b border-l border-surface-variant hover:bg-surface-container-low transition-colors {% if day.is_today %}bg-primary-container/10{% endif %}"
+           href="{% url 'scheduling:list' %}?date={{ day.date|date:'Y-m-d' }}{% if selected_employee_id %}&employee={{ selected_employee_id }}{% endif %}">
+          <p class="text-label-caps uppercase text-outline">{{ day.label }}</p>
+          <p class="font-display text-lg {% if day.is_today %}text-primary font-bold{% else %}text-on-surface{% endif %}">{{ day.date|date:"d/m" }}</p>
+        </a>
+        {% endfor %}
+      </div>
+      <div class="grid pt-3" style="grid-template-columns: 56px repeat(7, 1fr);">
+        <div class="relative" style="height: {{ grid_height_px }}px;">
+          {% for hour in hours %}
+          <span class="absolute right-2 text-xs text-outline -translate-y-1/2" style="top: {{ hour.top_px }}px;">{{ hour.label }}</span>
+          {% endfor %}
+        </div>
+        {% for day in days %}
+        <div class="relative border-l border-surface-variant {% if day.is_today %}bg-primary-container/5{% endif %}" style="height: {{ grid_height_px }}px;">
+          {% for hour in hours %}
+          <div class="absolute left-0 right-0 border-t border-surface-variant/60" style="top: {{ hour.top_px }}px;"></div>
+          {% endfor %}
+          {% if day.now_offset_px is not None %}
+          <div class="absolute left-0 right-0 z-10 flex items-center gap-1" style="top: {{ day.now_offset_px }}px;">
+            <span class="w-2 h-2 rounded-full bg-error -ml-1"></span>
+            <span class="flex-1 border-t-2 border-error"></span>
+          </div>
+          {% endif %}
+          {% for event in day.events %}
+          <button type="button"
+                  class="absolute rounded-lg border px-2 py-1 text-left overflow-hidden hover:z-20 hover:shadow-md transition-shadow {{ event.chip_class }}"
+                  style="top: {{ event.top_px }}px; height: {{ event.height_px }}px; left: calc({{ event.left_pct }}% + 2px); width: calc({{ event.width_pct }}% - 4px);"
+                  hx-get="{% url 'scheduling:detail' event.appointment.pk %}?view=week&week={{ week_start|date:'Y-m-d' }}&employee={{ selected_employee_id|default:'' }}"
+                  hx-target="#modal-slot" hx-swap="innerHTML">
+            <p class="text-xs font-semibold truncate">{{ event.appointment.start_time|time:"H:i" }} {{ event.appointment.service.name }}</p>
+            <p class="text-xs truncate">{{ event.appointment.client.name }}{% if show_employee_name %} · {{ event.appointment.employee.full_name }}{% endif %}</p>
+          </button>
+          {% endfor %}
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>

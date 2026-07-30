@@ -1,0 +1,105 @@
+{% extends "plataforma/base.html" %}
+
+{% block title %}Zelo — Assinantes{% endblock %}
+
+{% block content %}
+<div class="mb-12">
+  <h2 class="font-display text-headline-md text-on-surface mb-2">Assinantes</h2>
+  <p class="text-on-surface-variant max-w-2xl">Todos os salões cadastrados na plataforma e o status da assinatura de cada um.</p>
+</div>
+
+<form method="get" class="flex flex-wrap gap-4 mb-8 items-end">
+  <div class="flex-1 min-w-[200px]">
+    <label class="block text-label-caps uppercase text-outline mb-1" for="id_q">Buscar salão</label>
+    <input class="block w-full px-4 py-2.5 rounded-lg border border-outline-variant bg-surface-container-lowest text-on-surface focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
+           id="id_q" name="q" type="text" value="{{ q }}" placeholder="Nome do salão"/>
+  </div>
+  <div>
+    <label class="block text-label-caps uppercase text-outline mb-1" for="id_status">Status</label>
+    <select class="px-4 py-2.5 rounded-lg border border-outline-variant bg-surface-container-lowest text-on-surface focus:ring-2 focus:ring-primary focus:border-primary transition-colors" id="id_status" name="status">
+      <option value="">Todos</option>
+      {% for value, label in status_choices %}
+      <option value="{{ value }}" {% if selected_status == value %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div>
+    <label class="block text-label-caps uppercase text-outline mb-1" for="id_plan">Plano</label>
+    <select class="px-4 py-2.5 rounded-lg border border-outline-variant bg-surface-container-lowest text-on-surface focus:ring-2 focus:ring-primary focus:border-primary transition-colors" id="id_plan" name="plan">
+      <option value="">Todos</option>
+      {% for plan in plans %}
+      <option value="{{ plan.pk }}" {% if selected_plan == plan.pk|stringformat:"s" %}selected{% endif %}>{{ plan.name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <button class="px-6 py-2.5 rounded-full bg-primary text-on-primary font-semibold hover:opacity-90 transition-opacity" type="submit">Filtrar</button>
+</form>
+
+<div class="bg-surface-container-lowest rounded-2xl border border-surface-variant shadow-[0_4px_40px_-10px_rgba(125,86,45,0.08)] overflow-hidden">
+  <div class="overflow-x-auto">
+    <table class="w-full text-left border-collapse">
+      <thead>
+        <tr class="border-b border-surface-variant bg-surface-container-low/50">
+          <th class="py-4 px-6 text-label-caps uppercase text-on-surface-variant">Salão</th>
+          <th class="py-4 px-6 text-label-caps uppercase text-on-surface-variant">E-mail</th>
+          <th class="py-4 px-6 text-label-caps uppercase text-on-surface-variant">Plano</th>
+          <th class="py-4 px-6 text-label-caps uppercase text-on-surface-variant">Início</th>
+          <th class="py-4 px-6 text-label-caps uppercase text-on-surface-variant">Fim</th>
+          <th class="py-4 px-6 text-label-caps uppercase text-on-surface-variant text-center">Status</th>
+          <th class="py-4 px-6 text-label-caps uppercase text-on-surface-variant text-center">Acesso</th>
+          <th class="py-4 px-6 text-label-caps uppercase text-on-surface-variant">Desde</th>
+          <th class="py-4 px-6 text-label-caps uppercase text-on-surface-variant text-right">Ações</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-surface-variant">
+        {% for sub in subscriptions %}
+        <tr class="hover:bg-surface-container-low/50 transition-colors">
+          <td class="py-4 px-6 font-semibold text-on-surface">{{ sub.tenant.name }}</td>
+          <td class="py-4 px-6 text-on-surface-variant">{{ sub.tenant.admin_users.0.email|default:"—" }}</td>
+          <td class="py-4 px-6 text-on-surface-variant">{{ sub.plan.name|default:"— sem plano —" }}</td>
+          <td class="py-4 px-6 text-on-surface-variant text-sm">{{ sub.current_period_start|date:"d/m/Y"|default:"—" }}</td>
+          <td class="py-4 px-6 text-sm">
+            {% if sub.is_recurring %}
+            <span class="inline-flex items-center gap-1 text-on-surface-variant" title="Pagamento recorrente ativo — datas controladas automaticamente">
+              <span class="material-symbols-outlined text-[16px]">autorenew</span>{{ sub.current_period_end|date:"d/m/Y"|default:"—" }}
+            </span>
+            {% elif sub.current_period_end and sub.current_period_end < today %}
+            <span class="text-error font-semibold">{{ sub.current_period_end|date:"d/m/Y" }} · vencida</span>
+            {% else %}
+            <span class="text-on-surface-variant">{{ sub.current_period_end|date:"d/m/Y"|default:"—" }}</span>
+            {% endif %}
+          </td>
+          <td class="py-4 px-6 text-center">
+            <span class="inline-block px-3 py-1 rounded-full text-xs font-semibold
+              {% if sub.status == 'active' %}bg-secondary-container text-on-secondary-container
+              {% elif sub.status == 'overdue' %}bg-error-container text-on-error-container
+              {% elif sub.status == 'canceled' %}bg-surface-variant text-on-surface-variant
+              {% else %}bg-primary-container/40 text-on-primary-container{% endif %}">
+              {{ sub.get_status_display }}
+            </span>
+          </td>
+          <td class="py-4 px-6 text-center">
+            {% if sub.tenant.is_active %}
+            <span class="text-on-surface-variant text-sm">Liberado</span>
+            {% else %}
+            <span class="text-error text-sm font-semibold">Suspenso</span>
+            {% endif %}
+          </td>
+          <td class="py-4 px-6 text-on-surface-variant text-sm">{{ sub.created_at|date:"d/m/Y" }}</td>
+          <td class="py-4 px-6 text-right">
+            <a class="p-2 inline-flex text-outline hover:text-primary transition-colors rounded-full hover:bg-surface-variant" title="Ver ficha"
+               href="{% url 'plataforma:subscriber_detail' sub.tenant_id %}">
+              <span class="material-symbols-outlined">chevron_right</span>
+            </a>
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td class="py-16 text-center text-on-surface-variant" colspan="9">Nenhum assinante encontrado.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

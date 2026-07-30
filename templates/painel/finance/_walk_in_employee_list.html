@@ -1,0 +1,20 @@
+<div class="pt-4 mt-4 border-t border-surface-variant">
+  <p class="text-label-caps uppercase text-outline mb-3">{{ service.name }} — escolha o profissional</p>
+  {% if not employees %}
+  <p class="text-sm text-on-surface-variant italic py-4 text-center">Nenhum profissional ativo vinculado a este serviço.</p>
+  {% endif %}
+  <div class="space-y-1">
+    {% for employee in employees %}
+    <form hx-post="{% url 'finance:walk_in_service_add' client.pk %}" hx-target="#cash-items" hx-swap="outerHTML">
+      {% csrf_token %}
+      <input type="hidden" name="service_id" value="{{ service.pk }}"/>
+      <input type="hidden" name="employee_id" value="{{ employee.pk }}"/>
+      <button type="submit"
+              class="w-full text-left px-3 py-2 rounded-lg hover:bg-surface-container-low transition-colors flex items-center justify-between gap-4">
+        <span class="text-on-surface text-sm">{{ employee.full_name }}</span>
+        <span class="material-symbols-outlined text-outline text-[18px]">add_circle</span>
+      </button>
+    </form>
+    {% endfor %}
+  </div>
+</div>

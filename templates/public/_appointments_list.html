@@ -1,0 +1,16 @@
+<div id="appointments-list" class="flex flex-col gap-3">
+  {% for appointment in appointments %}
+  <div class="bg-surface-container-lowest rounded-2xl p-4 border border-surface-variant flex items-center justify-between gap-3">
+    <div>
+      <p class="font-semibold text-on-surface">{{ appointment.service.name }}</p>
+      <p class="text-sm text-on-surface-variant">{{ appointment.date|date:"d/m/Y" }} às {{ appointment.start_time|time:"H:i" }} — com {{ appointment.employee.full_name }}</p>
+    </div>
+    <button class="p-2 text-outline hover:text-error hover:bg-error-container/40 rounded-full transition-colors shrink-0" title="Cancelar"
+            hx-get="{% url 'public:cancel_appointment_confirm' tenant.slug appointment.pk %}" hx-target="#modal-slot" hx-swap="innerHTML">
+      <span class="material-symbols-outlined">cancel</span>
+    </button>
+  </div>
+  {% empty %}
+  <p class="text-on-surface-variant text-sm text-center py-8">Você não tem agendamentos futuros.</p>
+  {% endfor %}
+</div>

@@ -1,0 +1,36 @@
+<div class="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6" id="pay-commission-modal">
+  <div class="absolute inset-0 bg-inverse-surface/40 backdrop-blur-sm"
+       onclick="document.getElementById('modal-slot').innerHTML = ''"></div>
+  <div class="relative w-full max-w-sm bg-surface-container-lowest rounded-2xl shadow-2xl overflow-hidden">
+    <div class="p-8">
+      <div class="flex items-center gap-3 mb-6">
+        <div class="w-10 h-10 rounded-full bg-primary-container/40 flex items-center justify-center shrink-0">
+          <span class="material-symbols-outlined text-primary">payments</span>
+        </div>
+        <h3 class="font-display text-headline-sm text-on-surface">Pagar comissão</h3>
+      </div>
+      <p class="text-on-surface-variant mb-6 text-sm">
+        Pagar R$ {{ commission.calculated_amount }} para <strong class="text-on-surface">{{ commission.employee.full_name }}</strong>?
+        Isso gera uma saída de caixa vinculada.
+      </p>
+      <form hx-post="{{ action_url }}" hx-target="#cash-items" hx-swap="outerHTML" class="space-y-6">
+        {% csrf_token %}
+        <div>
+          <label class="block text-label-caps uppercase text-outline mb-1" for="id_payment_method">Forma de pagamento</label>
+          <select class="block w-full px-0 py-2 bg-transparent border-0 border-b border-outline-variant focus:ring-0 focus:border-primary" id="id_payment_method" name="payment_method">
+            {% for value, label in form.fields.payment_method.choices %}
+            <option value="{{ value }}">{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="flex justify-end gap-3">
+          <button class="px-5 py-2.5 rounded-full border border-outline text-on-surface-variant hover:bg-surface-container transition-colors text-sm" type="button"
+                  onclick="document.getElementById('modal-slot').innerHTML = ''">Cancelar</button>
+          <button class="px-6 py-2.5 rounded-full bg-primary text-on-primary font-semibold hover:opacity-90 transition-opacity active:scale-95 text-sm" type="submit">
+            Confirmar pagamento
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

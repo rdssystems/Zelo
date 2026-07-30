@@ -1,0 +1,39 @@
+<div class="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6" id="notifications-modal">
+  <div class="absolute inset-0 bg-inverse-surface/40 backdrop-blur-sm"
+       onclick="document.getElementById('modal-slot').innerHTML = ''"></div>
+  <div class="relative w-full max-w-md bg-surface-container-lowest rounded-2xl shadow-2xl overflow-hidden max-h-[80vh] flex flex-col">
+    <div class="p-8 pb-4 flex justify-between items-start shrink-0">
+      <h3 class="font-display text-headline-sm text-on-surface">Novidades</h3>
+      <button class="text-outline hover:text-on-surface transition-colors p-2 rounded-full hover:bg-surface-container"
+              onclick="document.getElementById('modal-slot').innerHTML = ''">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+
+    <div class="px-8 pb-8 overflow-y-auto space-y-4">
+      {% if announcements %}
+      <div class="flex justify-end">
+        <button class="text-sm text-primary font-semibold hover:underline"
+                hx-post="{% url 'notifications:mark_all_read' %}" hx-target="#notifications-modal" hx-swap="outerHTML">
+          Marcar todas como lidas
+        </button>
+      </div>
+      {% for announcement in announcements %}
+      <div class="rounded-xl border border-surface-variant p-5">
+        <p class="font-semibold text-on-surface mb-1">{{ announcement.title }}</p>
+        <p class="text-sm text-on-surface-variant mb-3 whitespace-pre-line">{{ announcement.message }}</p>
+        <div class="flex items-center justify-between">
+          <p class="text-xs text-outline">{{ announcement.created_at|date:"d/m/Y" }}</p>
+          <button class="text-sm text-primary font-semibold hover:underline"
+                  hx-post="{% url 'notifications:mark_read' announcement.pk %}" hx-target="#notifications-modal" hx-swap="outerHTML">
+            Marcar como lida
+          </button>
+        </div>
+      </div>
+      {% endfor %}
+      {% else %}
+      <p class="text-on-surface-variant text-center py-8">Nenhuma novidade por enquanto.</p>
+      {% endif %}
+    </div>
+  </div>
+</div>

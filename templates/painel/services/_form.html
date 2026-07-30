@@ -1,0 +1,60 @@
+<div class="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6" id="service-modal">
+  <div class="absolute inset-0 bg-inverse-surface/40 backdrop-blur-sm"
+       onclick="document.getElementById('modal-slot').innerHTML = ''"></div>
+  <div class="relative w-full max-w-lg bg-surface-container-lowest rounded-2xl shadow-2xl overflow-hidden">
+    <div class="h-3 w-full bg-primary-container"></div>
+    <div class="p-8">
+      <div class="flex justify-between items-start mb-8">
+        <div>
+          <h3 class="font-display text-display-mobile text-on-surface">{{ title }}</h3>
+          <p class="text-on-surface-variant mt-1">Defina os detalhes da oferta.</p>
+        </div>
+        <button class="text-outline hover:text-on-surface transition-colors p-2 rounded-full hover:bg-surface-container"
+                onclick="document.getElementById('modal-slot').innerHTML = ''">
+          <span class="material-symbols-outlined">close</span>
+        </button>
+      </div>
+
+      {% if form.non_field_errors %}
+      <div class="mb-6 rounded-lg bg-error-container text-on-error-container px-4 py-3 text-sm">
+        {{ form.non_field_errors|join:" " }}
+      </div>
+      {% endif %}
+
+      <form {% if service %}hx-post="{% url 'services:update' service.pk %}"{% else %}hx-post="{% url 'services:create' %}"{% endif %}
+            hx-target="#service-items" hx-swap="outerHTML" class="space-y-6">
+        {% csrf_token %}
+        <div>
+          <label class="block text-label-caps uppercase text-outline mb-1" for="id_name">Nome do Serviço</label>
+          <input class="block w-full px-0 py-2 bg-transparent border-0 border-b {% if form.name.errors %}border-error{% else %}border-outline-variant{% endif %} text-on-surface text-lg focus:ring-0 focus:border-primary transition-colors"
+                 id="id_name" name="name" type="text" value="{{ form.name.value|default:'' }}" required maxlength="120"/>
+          {% if form.name.errors %}<p class="text-error text-sm mt-1">{{ form.name.errors|join:" " }}</p>{% endif %}
+        </div>
+        <div>
+          <label class="block text-label-caps uppercase text-outline mb-1" for="id_description">Descrição (opcional)</label>
+          <textarea class="block w-full px-0 py-2 bg-transparent border-0 border-b border-outline-variant text-on-surface focus:ring-0 focus:border-primary transition-colors resize-none"
+                    id="id_description" name="description" rows="2">{{ form.description.value|default:'' }}</textarea>
+        </div>
+        <div class="grid grid-cols-2 gap-6">
+          <div>
+            <label class="block text-label-caps uppercase text-outline mb-1" for="id_duration_minutes">Duração (minutos)</label>
+            <input class="block w-full px-0 py-2 bg-transparent border-0 border-b {% if form.duration_minutes.errors %}border-error{% else %}border-outline-variant{% endif %} text-on-surface text-lg focus:ring-0 focus:border-primary transition-colors"
+                   id="id_duration_minutes" name="duration_minutes" type="number" min="1" value="{{ form.duration_minutes.value|default:'' }}" required/>
+            {% if form.duration_minutes.errors %}<p class="text-error text-sm mt-1">{{ form.duration_minutes.errors|join:" " }}</p>{% endif %}
+          </div>
+          <div class="relative">
+            <label class="block text-label-caps uppercase text-outline mb-1" for="id_price">Preço base (R$)</label>
+            <input class="block w-full px-0 py-2 bg-transparent border-0 border-b {% if form.price.errors %}border-error{% else %}border-outline-variant{% endif %} text-on-surface text-lg focus:ring-0 focus:border-primary transition-colors"
+                   id="id_price" name="price" type="text" inputmode="decimal" placeholder="0,00" value="{{ form.price.value|default:'' }}" required/>
+            {% if form.price.errors %}<p class="text-error text-sm mt-1">{{ form.price.errors|join:" " }}</p>{% endif %}
+          </div>
+        </div>
+        <div class="pt-6 flex justify-end gap-4">
+          <button class="px-6 py-3 rounded-full border border-outline text-on-surface-variant hover:bg-surface-container transition-colors" type="button"
+                  onclick="document.getElementById('modal-slot').innerHTML = ''">Cancelar</button>
+          <button class="px-8 py-3 rounded-full bg-primary text-on-primary font-semibold hover:opacity-90 transition-opacity active:scale-95" type="submit">Salvar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

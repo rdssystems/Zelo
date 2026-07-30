@@ -1,0 +1,20 @@
+<div class="bg-surface-container-lowest rounded-2xl border border-surface-variant shadow-sm overflow-hidden">
+  <div class="px-6 py-4 border-b border-surface-variant bg-surface-container-low/50">
+    <h3 class="font-semibold text-on-surface">Lançamentos</h3>
+  </div>
+  <div class="divide-y divide-surface-variant">
+    {% for txn in transactions %}
+    <div class="px-6 py-3 flex items-center justify-between gap-4">
+      <div>
+        <p class="text-sm text-on-surface">{{ txn.get_category_display }}{% if txn.description %} — {{ txn.description }}{% endif %}</p>
+        <p class="text-xs text-on-surface-variant">{{ txn.created_at|date:"d/m/Y H:i" }} · {{ txn.get_payment_method_display }}</p>
+      </div>
+      <span class="font-semibold {% if txn.type == 'in' %}text-[#2e7d32]{% else %}text-error{% endif %}">
+        {% if txn.type == 'in' %}+{% else %}-{% endif %} R$ {{ txn.amount }}
+      </span>
+    </div>
+    {% empty %}
+    <p class="px-6 py-12 text-center text-on-surface-variant">Nenhum lançamento neste período.</p>
+    {% endfor %}
+  </div>
+</div>

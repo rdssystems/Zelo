@@ -1,0 +1,59 @@
+<div id="agenda-items" class="flex flex-col gap-3">
+  {% for appointment in appointments %}
+  <div class="bg-surface-container-lowest rounded-2xl p-5 border border-surface-variant shadow-sm flex flex-col md:flex-row md:items-center gap-4">
+    <div class="md:w-24 shrink-0">
+      <span class="font-display text-2xl text-primary">{{ appointment.start_time|time:"H:i" }}</span>
+      <p class="text-xs text-on-surface-variant">{{ appointment.end_time|time:"H:i" }}</p>
+    </div>
+    <div class="flex-1">
+      <p class="font-semibold text-on-surface">{{ appointment.service.name }}</p>
+      <p class="text-sm text-on-surface-variant">{{ appointment.client.name }} · com {{ appointment.employee.full_name }}</p>
+    </div>
+    <div>
+      {% if appointment.status == "pending" %}
+      <span class="inline-flex items-center px-3 py-1 rounded-full bg-surface-variant text-on-surface-variant text-label-caps uppercase">Pendente</span>
+      {% elif appointment.status == "confirmed" %}
+      <span class="inline-flex items-center px-3 py-1 rounded-full bg-secondary-container text-on-secondary-container text-label-caps uppercase">Confirmado</span>
+      {% elif appointment.status == "in_progress" %}
+      <span class="inline-flex items-center px-3 py-1 rounded-full bg-primary-container text-on-primary-container text-label-caps uppercase">Em Atendimento</span>
+      {% elif appointment.status == "completed" %}
+      <span class="inline-flex items-center px-3 py-1 rounded-full bg-[#e8f5e9] text-[#2e7d32] text-label-caps uppercase">Concluído</span>
+      {% elif appointment.status == "canceled" %}
+      <span class="inline-flex items-center px-3 py-1 rounded-full bg-error-container text-on-error-container text-label-caps uppercase">Cancelado</span>
+      {% elif appointment.status == "no_show" %}
+      <span class="inline-flex items-center px-3 py-1 rounded-full bg-error-container text-on-error-container text-label-caps uppercase">Não compareceu</span>
+      {% endif %}
+    </div>
+    {% if appointment.status == "pending" or appointment.status == "confirmed" %}
+    <div class="flex flex-wrap gap-2 md:justify-end">
+      {% if appointment.status == "pending" %}
+      <button class="px-4 py-2 rounded-full border border-outline text-on-surface-variant hover:bg-surface-container transition-colors text-sm"
+              hx-post="{% url 'scheduling:confirm' appointment.pk %}?date={{ selected_date|date:'Y-m-d' }}{% if selected_employee_id %}&employee={{ selected_employee_id }}{% endif %}" hx-target="#agenda-items" hx-swap="outerHTML">
+        Confirmar
+      </button>
+      {% endif %}
+      <button class="px-4 py-2 rounded-full bg-primary text-on-primary font-semibold hover:opacity-90 transition-opacity text-sm"
+              hx-post="{% url 'scheduling:start' appointment.pk %}?date={{ selected_date|date:'Y-m-d' }}{% if selected_employee_id %}&employee={{ selected_employee_id }}{% endif %}" hx-target="#agenda-items" hx-swap="outerHTML">
+        Iniciar Atendimento
+      </button>
+      <button class="p-2 rounded-full text-outline hover:text-on-surface hover:bg-surface-container transition-colors" title="Não compareceu"
+              hx-get="{% url 'scheduling:no_show_confirm' appointment.pk %}?date={{ selected_date|date:'Y-m-d' }}{% if selected_employee_id %}&employee={{ selected_employee_id }}{% endif %}" hx-target="#modal-slot" hx-swap="innerHTML">
+        <span class="material-symbols-outlined">person_off</span>
+      </button>
+      <button class="p-2 rounded-full text-outline hover:text-error hover:bg-error-container/40 transition-colors" title="Cancelar"
+              hx-get="{% url 'scheduling:cancel_confirm' appointment.pk %}?date={{ selected_date|date:'Y-m-d' }}{% if selected_employee_id %}&employee={{ selected_employee_id }}{% endif %}" hx-target="#modal-slot" hx-swap="innerHTML">
+        <span class="material-symbols-outlined">cancel</span>
+      </button>
+    </div>
+    {% elif appointment.status == "in_progress" %}
+    <div class="flex flex-wrap gap-2 md:justify-end">
+      <span class="text-sm text-on-surface-variant italic">Finalize a comanda no Caixa</span>
+    </div>
+    {% endif %}
+  </div>
+  {% empty %}
+  <div class="bg-surface-container-lowest rounded-2xl py-16 text-center border border-surface-variant">
+    <p class="text-on-surface-variant">Nenhum agendamento para este dia.</p>
+  </div>
+  {% endfor %}
+</div>

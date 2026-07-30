@@ -1,0 +1,70 @@
+{% load l10n %}
+<div class="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6" id="product-picker-modal"
+     x-data="{ query: '' }">
+  <div class="absolute inset-0 bg-inverse-surface/40 backdrop-blur-sm"
+       onclick="document.getElementById('modal-slot').innerHTML = ''"></div>
+  <div class="relative w-full max-w-lg bg-surface-container-lowest rounded-2xl shadow-2xl overflow-hidden max-h-[85vh] flex flex-col">
+    <div class="p-8 pb-4">
+      <div class="flex justify-between items-start mb-6">
+        <h3 class="font-display text-headline-sm text-on-surface">Vender produto</h3>
+        <button class="text-outline hover:text-on-surface transition-colors p-2 rounded-full hover:bg-surface-container"
+                onclick="document.getElementById('modal-slot').innerHTML = ''">
+          <span class="material-symbols-outlined">close</span>
+        </button>
+      </div>
+      <div class="relative">
+        <span class="material-symbols-outlined absolute left-0 top-1/2 -translate-y-1/2 text-outline">search</span>
+        <input type="text" x-model="query" placeholder="Buscar produto..." autofocus
+               class="block w-full pl-8 pr-0 py-2 bg-transparent border-0 border-b border-outline-variant text-on-surface focus:ring-0 focus:border-primary"/>
+      </div>
+    </div>
+
+    <div class="px-8 pb-8 overflow-y-auto">
+      {% if not categories_with_products and not uncategorized_products %}
+      <p class="text-sm text-on-surface-variant italic py-8 text-center">Nenhum produto ativo cadastrado em Estoque.</p>
+      {% endif %}
+
+      {% for row in categories_with_products %}
+      <div x-data="{ open: true }" class="border-b border-surface-variant/50 py-2 last:border-0">
+        <button type="button" @click="open = !open" class="flex items-center justify-between w-full py-2 text-left">
+          <span class="font-semibold text-on-surface">{{ row.category.name }}</span>
+          <span class="material-symbols-outlined text-outline transition-transform" :class="open ? '' : '-rotate-90'">expand_more</span>
+        </button>
+        <div x-show="open || query.length > 0" x-cloak class="space-y-1 pl-2 pb-2">
+          {% for p in row.products %}
+          <button type="button"
+                  x-show="'{{ p.name|escapejs|lower }}'.includes(query.toLowerCase())"
+                  hx-post="{% url 'finance:comanda_item_add' client.pk %}" hx-vals='{"product_id": "{{ p.pk }}"}'
+                  hx-target="#cash-items" hx-swap="outerHTML"
+                  class="w-full text-left px-3 py-2 rounded-lg hover:bg-surface-container-low transition-colors flex items-center justify-between gap-4">
+            <span class="text-on-surface text-sm">{{ p.name }}</span>
+            <span class="text-outline text-sm shrink-0">R$ {{ p.sale_price }}</span>
+          </button>
+          {% endfor %}
+        </div>
+      </div>
+      {% endfor %}
+
+      {% if uncategorized_products %}
+      <div x-data="{ open: true }" class="border-b border-surface-variant/50 py-2 last:border-0">
+        <button type="button" @click="open = !open" class="flex items-center justify-between w-full py-2 text-left">
+          <span class="font-semibold text-on-surface">Sem categoria</span>
+          <span class="material-symbols-outlined text-outline transition-transform" :class="open ? '' : '-rotate-90'">expand_more</span>
+        </button>
+        <div x-show="open || query.length > 0" x-cloak class="space-y-1 pl-2 pb-2">
+          {% for p in uncategorized_products %}
+          <button type="button"
+                  x-show="'{{ p.name|escapejs|lower }}'.includes(query.toLowerCase())"
+                  hx-post="{% url 'finance:comanda_item_add' client.pk %}" hx-vals='{"product_id": "{{ p.pk }}"}'
+                  hx-target="#cash-items" hx-swap="outerHTML"
+                  class="w-full text-left px-3 py-2 rounded-lg hover:bg-surface-container-low transition-colors flex items-center justify-between gap-4">
+            <span class="text-on-surface text-sm">{{ p.name }}</span>
+            <span class="text-outline text-sm shrink-0">R$ {{ p.sale_price }}</span>
+          </button>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>

@@ -1,0 +1,19 @@
+{% extends "plataforma/base.html" %}
+
+{% block title %}Zelo — Planos{% endblock %}
+
+{% block content %}
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
+  <div>
+    <h2 class="font-display text-headline-md text-on-surface mb-2">Planos</h2>
+    <p class="text-on-surface-variant max-w-2xl">Planos de assinatura oferecidos aos salões — preço, descrição e disponibilidade.</p>
+  </div>
+  <button class="shrink-0 flex items-center gap-2 bg-primary text-on-primary font-semibold text-lg px-8 py-3 rounded-full hover:opacity-90 transition-opacity shadow-sm active:scale-95"
+          hx-get="{% url 'plataforma:plan_create' %}" hx-target="#modal-slot" hx-swap="innerHTML">
+    <span class="material-symbols-outlined">add</span>
+    Novo Plano
+  </button>
+</div>
+
+{% include "plataforma/plans/_items.html" %}
+{% endblock %}

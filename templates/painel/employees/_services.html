@@ -1,0 +1,48 @@
+<div id="services-section" class="bg-surface-container-lowest rounded-2xl shadow-[0_4px_40px_-10px_rgba(125,86,45,0.08)] border border-surface-container p-8">
+  <h3 class="text-label-caps uppercase text-outline mb-2">Serviços que executa</h3>
+  <p class="text-sm text-on-surface-variant mb-6">Vincule os serviços e, se quiser, defina uma comissão específica por serviço (senão vale a comissão padrão).</p>
+
+  {% if services_error %}
+  <div class="mb-4 rounded-lg bg-error-container text-on-error-container px-4 py-3 text-sm">{{ services_error }}</div>
+  {% elif services_saved %}
+  <div class="mb-4 rounded-lg bg-secondary-container text-on-secondary-container px-4 py-3 text-sm">Vínculos salvos.</div>
+  {% endif %}
+
+  {% if services_ctx %}
+  <form hx-post="{% url 'employees:services' employee.pk %}" hx-target="#services-section" hx-swap="outerHTML" class="space-y-3">
+    {% csrf_token %}
+    {% for row in services_ctx %}
+    <div class="py-3 border-b border-surface-variant/50 last:border-0" x-data="{ linked: {% if row.link %}true{% else %}false{% endif %}, ctype: '{{ row.link.commission_type|default:'' }}' }">
+      <div class="flex items-center justify-between gap-4">
+        <label class="flex items-center gap-3 cursor-pointer">
+          <input class="rounded border-outline-variant text-primary focus:ring-primary" type="checkbox" name="service_{{ row.service.pk }}_linked" x-model="linked"/>
+          <span class="text-on-surface" :class="linked ? 'font-semibold' : 'text-on-surface-variant'">{{ row.service.name }}</span>
+        </label>
+        <span class="text-sm text-outline">{{ row.service.duration_minutes }} min · R$ {{ row.service.price }}</span>
+      </div>
+      <div class="mt-3 ml-7 grid sm:grid-cols-2 gap-4" x-show="linked" x-cloak>
+        <div>
+          <label class="block text-label-caps uppercase text-outline mb-1">Comissão específica (opcional)</label>
+          <select class="block w-full rounded-lg border-outline-variant bg-transparent focus:border-primary focus:ring-primary py-1.5 text-sm" name="service_{{ row.service.pk }}_ctype" x-model="ctype">
+            <option value="" {% if not row.link.commission_type %}selected{% endif %}>Usar padrão do profissional</option>
+            <option value="percentage" {% if row.link.commission_type == "percentage" %}selected{% endif %}>Percentual (%)</option>
+            <option value="fixed" {% if row.link.commission_type == "fixed" %}selected{% endif %}>Valor fixo (R$)</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-label-caps uppercase text-outline mb-1">
+            <span x-text="ctype === 'percentage' ? 'Valor (%)' : (ctype === 'fixed' ? 'Valor (R$)' : 'Valor')"></span>
+          </label>
+          <input class="block w-full rounded-lg border-outline-variant bg-transparent focus:border-primary focus:ring-primary py-1.5 text-sm" type="text" inputmode="decimal" :placeholder="ctype === 'percentage' ? '0,00 %' : (ctype === 'fixed' ? 'R$ 0,00' : '0,00')" name="service_{{ row.service.pk }}_cvalue" value="{% if row.link.commission_value is not None %}{{ row.link.commission_value }}{% endif %}"/>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+    <div class="pt-4 flex justify-end">
+      <button class="px-6 py-2.5 rounded-full bg-primary text-on-primary font-semibold hover:opacity-90 transition-opacity active:scale-95" type="submit">Salvar vínculos</button>
+    </div>
+  </form>
+  {% else %}
+  <p class="text-on-surface-variant italic">Cadastre serviços primeiro em <a class="text-primary hover:underline" href="{% url 'services:list' %}">Serviços</a>.</p>
+  {% endif %}
+</div>

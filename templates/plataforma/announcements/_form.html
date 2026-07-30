@@ -1,0 +1,42 @@
+<div class="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6" id="announcement-modal">
+  <div class="absolute inset-0 bg-inverse-surface/40 backdrop-blur-sm"
+       onclick="document.getElementById('modal-slot').innerHTML = ''"></div>
+  <div class="relative w-full max-w-md bg-surface-container-lowest rounded-2xl shadow-2xl overflow-hidden">
+    <div class="p-8">
+      <div class="flex justify-between items-start mb-8">
+        <h3 class="font-display text-headline-sm text-on-surface">{{ title }}</h3>
+        <button class="text-outline hover:text-on-surface transition-colors p-2 rounded-full hover:bg-surface-container"
+                onclick="document.getElementById('modal-slot').innerHTML = ''">
+          <span class="material-symbols-outlined">close</span>
+        </button>
+      </div>
+
+      {% if form.non_field_errors %}
+      <div class="mb-6 rounded-lg bg-error-container text-on-error-container px-4 py-3 text-sm">{{ form.non_field_errors|join:" " }}</div>
+      {% endif %}
+
+      <form {% if announcement %}hx-post="{% url 'announcements:update' announcement.pk %}"{% else %}hx-post="{% url 'announcements:create' %}"{% endif %}
+            hx-target="#announcement-items" hx-swap="outerHTML" class="space-y-6">
+        {% csrf_token %}
+        <div>
+          <label class="block text-label-caps uppercase text-outline mb-1" for="id_title">Título</label>
+          <input class="block w-full px-0 py-2 bg-transparent border-0 border-b {% if form.title.errors %}border-error{% else %}border-outline-variant{% endif %} text-on-surface text-lg focus:ring-0 focus:border-primary transition-colors"
+                 id="id_title" name="title" type="text" value="{{ form.title.value|default:'' }}" required maxlength="200"/>
+          {% if form.title.errors %}<p class="text-error text-sm mt-1">{{ form.title.errors|join:" " }}</p>{% endif %}
+        </div>
+        <div>
+          <label class="block text-label-caps uppercase text-outline mb-1" for="id_message">Mensagem</label>
+          <textarea class="block w-full px-0 py-2 bg-transparent border-0 border-b {% if form.message.errors %}border-error{% else %}border-outline-variant{% endif %} text-on-surface focus:ring-0 focus:border-primary transition-colors" id="id_message" name="message" rows="4" required>{{ form.message.value|default:'' }}</textarea>
+          {% if form.message.errors %}<p class="text-error text-sm mt-1">{{ form.message.errors|join:" " }}</p>{% endif %}
+        </div>
+        <div class="pt-4 flex justify-end gap-4">
+          <button class="px-6 py-3 rounded-full border border-outline text-on-surface-variant hover:bg-surface-container transition-colors" type="button"
+                  onclick="document.getElementById('modal-slot').innerHTML = ''">Cancelar</button>
+          <button class="px-8 py-3 rounded-full bg-primary text-on-primary font-semibold hover:opacity-90 transition-opacity active:scale-95" type="submit">
+            {% if announcement %}Salvar{% else %}Enviar aviso{% endif %}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

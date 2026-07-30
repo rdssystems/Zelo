@@ -1,0 +1,59 @@
+<div class="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6" id="batches-modal">
+  <div class="absolute inset-0 bg-inverse-surface/40 backdrop-blur-sm"
+       onclick="document.getElementById('modal-slot').innerHTML = ''"></div>
+  <div class="relative w-full max-w-2xl bg-surface-container-lowest rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto">
+    <div class="p-8">
+      <div class="flex justify-between items-start mb-8">
+        <div>
+          <h3 class="font-display text-display-mobile text-on-surface">Lotes — {{ product.name }}</h3>
+          <p class="text-on-surface-variant mt-1">Mais próximos do vencimento primeiro (FEFO).</p>
+        </div>
+        <button class="text-outline hover:text-on-surface transition-colors p-2 rounded-full hover:bg-surface-container"
+                onclick="document.getElementById('modal-slot').innerHTML = ''">
+          <span class="material-symbols-outlined">close</span>
+        </button>
+      </div>
+
+      <div class="overflow-x-auto max-h-[60vh] overflow-y-auto">
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="border-b border-surface-variant bg-surface-container-low/50">
+              <th class="py-3 px-4 text-label-caps uppercase text-on-surface-variant">Lote</th>
+              <th class="py-3 px-4 text-label-caps uppercase text-on-surface-variant">Validade</th>
+              <th class="py-3 px-4 text-label-caps uppercase text-on-surface-variant text-center">Recebido</th>
+              <th class="py-3 px-4 text-label-caps uppercase text-on-surface-variant text-center">Restante</th>
+              <th class="py-3 px-4 text-label-caps uppercase text-on-surface-variant">Fornecedor</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-surface-variant">
+            {% for batch in batches %}
+            <tr class="{% if batch.is_depleted %}opacity-50{% elif batch.expiry_date <= today %}bg-error-container/10{% endif %}">
+              <td class="py-3 px-4 text-on-surface">{{ batch.batch_number|default:"—" }}</td>
+              <td class="py-3 px-4 {% if batch.expiry_date <= today %}text-error font-semibold{% else %}text-on-surface{% endif %}">
+                {{ batch.expiry_date|date:"d/m/Y" }}
+              </td>
+              <td class="py-3 px-4 text-center text-on-surface-variant">{{ batch.quantity_received }}</td>
+              <td class="py-3 px-4 text-center">
+                <span class="inline-flex items-center justify-center px-3 py-1 rounded-full text-label-caps
+                             {% if batch.is_depleted %}bg-surface-variant text-on-surface-variant{% else %}bg-secondary-container/50 text-on-secondary-container{% endif %}">
+                  {{ batch.quantity_remaining }}
+                </span>
+              </td>
+              <td class="py-3 px-4 text-sm text-on-surface-variant">{{ batch.supplier.name|default:"—" }}</td>
+            </tr>
+            {% empty %}
+            <tr>
+              <td class="py-10 text-center text-on-surface-variant" colspan="5">Nenhum lote registrado ainda — registre uma entrada de compra.</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="pt-6 flex justify-end">
+        <button class="px-6 py-3 rounded-full border border-outline text-on-surface-variant hover:bg-surface-container transition-colors" type="button"
+                onclick="document.getElementById('modal-slot').innerHTML = ''">Fechar</button>
+      </div>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,38 @@
+<div id="history-section" class="bg-surface-container-lowest rounded-2xl shadow-[0_4px_40px_-10px_rgba(125,86,45,0.08)] border border-surface-container p-8">
+  <h3 class="text-label-caps uppercase text-outline mb-2">Histórico de atendimentos</h3>
+  <p class="text-sm text-on-surface-variant mb-6">Serviços agendados por este cliente, mais recentes primeiro.</p>
+
+  {% if history %}
+  <div class="divide-y divide-surface-variant">
+    {% for appointment in history %}
+    <div class="py-3">
+      <div class="flex items-center justify-between gap-4">
+        <div>
+          <p class="text-sm font-medium text-on-surface">{{ appointment.service.name }}</p>
+          <p class="text-xs text-on-surface-variant">{{ appointment.date|date:"d/m/Y" }} · com {{ appointment.employee.full_name }}</p>
+        </div>
+        <div class="text-right">
+          <p class="text-sm text-on-surface font-medium">R$ {{ appointment.price_at_booking }}</p>
+          {% if appointment.status == "completed" %}
+          <span class="inline-flex items-center px-2 py-0.5 rounded-full bg-[#e8f5e9] text-[#2e7d32] text-[10px] uppercase font-semibold">Concluído</span>
+          {% elif appointment.status == "canceled" %}
+          <span class="inline-flex items-center px-2 py-0.5 rounded-full bg-error-container text-on-error-container text-[10px] uppercase font-semibold">Cancelado</span>
+          {% elif appointment.status == "no_show" %}
+          <span class="inline-flex items-center px-2 py-0.5 rounded-full bg-error-container text-on-error-container text-[10px] uppercase font-semibold">Não compareceu</span>
+          {% else %}
+          <span class="inline-flex items-center px-2 py-0.5 rounded-full bg-surface-variant text-on-surface-variant text-[10px] uppercase font-semibold">{{ appointment.get_status_display }}</span>
+          {% endif %}
+        </div>
+      </div>
+      {% if appointment.stock_movements.all %}
+      <p class="text-xs text-on-surface-variant mt-1 pl-1">
+        Produtos: {% for m in appointment.stock_movements.all %}{{ m.product.name }} ({{ m.quantity }}){% if not forloop.last %}, {% endif %}{% endfor %}
+      </p>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="text-sm text-on-surface-variant italic">Nenhum atendimento ainda.</p>
+  {% endif %}
+</div>

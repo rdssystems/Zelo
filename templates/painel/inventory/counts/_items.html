@@ -1,0 +1,52 @@
+<div id="count-items" class="bg-surface-container-lowest rounded-2xl border border-surface-variant shadow-[0_4px_40px_-10px_rgba(125,86,45,0.08)] overflow-hidden">
+  <div class="overflow-x-auto">
+    <table class="w-full text-left border-collapse">
+      <thead>
+        <tr class="border-b border-surface-variant bg-surface-container-low/50">
+          <th class="py-4 px-6 text-label-caps uppercase text-on-surface-variant">Produto</th>
+          <th class="py-4 px-6 text-label-caps uppercase text-on-surface-variant text-center">Esperado</th>
+          <th class="py-4 px-6 text-label-caps uppercase text-on-surface-variant text-center">Contado</th>
+          <th class="py-4 px-6 text-label-caps uppercase text-on-surface-variant text-center">Diferença</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-surface-variant">
+        {% for item in items %}
+        <tr class="hover:bg-surface-container-low/50 transition-colors">
+          <td class="py-4 px-6">
+            <p class="font-semibold text-on-surface">{{ item.product.name }}</p>
+            <p class="text-sm text-on-surface-variant">{{ item.product.unit }}</p>
+          </td>
+          <td class="py-4 px-6 text-center text-on-surface-variant">{{ item.expected_quantity }}</td>
+          <td class="py-4 px-6 text-center">
+            {% if count.status == "in_progress" %}
+            <input class="w-24 text-center px-2 py-1 rounded-lg border border-outline-variant bg-transparent text-on-surface focus:ring-0 focus:border-primary transition-colors"
+                   type="text" inputmode="decimal" placeholder="—"
+                   value="{{ item.counted_quantity|default_if_none:'' }}"
+                   hx-post="{% url 'inventory:count_item_update' count.pk item.pk %}"
+                   hx-trigger="change" hx-target="#count-items" hx-swap="outerHTML"
+                   name="counted_quantity"/>
+            {% else %}
+            <span class="text-on-surface">{{ item.counted_quantity|default_if_none:"—" }}</span>
+            {% endif %}
+          </td>
+          <td class="py-4 px-6 text-center">
+            {% if item.difference == None %}
+            <span class="text-on-surface-variant">—</span>
+            {% elif item.difference == 0 %}
+            <span class="inline-flex items-center justify-center px-3 py-1 rounded-full text-label-caps bg-secondary-container/50 text-on-secondary-container">OK</span>
+            {% elif item.difference > 0 %}
+            <span class="inline-flex items-center justify-center px-3 py-1 rounded-full text-label-caps bg-secondary-container text-on-secondary-container">+{{ item.difference }}</span>
+            {% else %}
+            <span class="inline-flex items-center justify-center px-3 py-1 rounded-full text-label-caps bg-error-container text-on-error-container">{{ item.difference }}</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td class="py-16 text-center text-on-surface-variant" colspan="4">Nenhum produto ativo para contar.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>

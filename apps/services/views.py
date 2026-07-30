@@ -1,0 +1,219 @@
+from django.core.exceptions import ValidationError
+from django.http import HttpResponse
+from django.shortcuts import get_object_or_404, render
+from django.template.loader import render_to_string
+from django.urls import reverse
+from rest_framework import viewsets
+from rest_framework.exceptions import ValidationError as DRFValidationError
+
+from apps.accounts.decorators import tenant_admin_required
+from apps.accounts.permissions import IsTenantAdminOrReadOnly, IsTenantMember
+
+from . import services as service_ops
+from .forms import ServiceForm
+from .models import Service
+from .serializers import ServiceSerializer
+
+# ---------------------------------------------------------------------------
+# API REST (DRF) — /api/v1/services/  (espelha o painel; futura app mobile)
+# ---------------------------------------------------------------------------
+
+
+class ServiceViewSet(viewsets.ModelViewSet):
+    # Na API usamos request.user.tenant (e não request.tenant): a autenticação
+    # DRF (sessão hoje, token/JWT no futuro) acontece DEPOIS do middleware de
+    # tenant, então request.tenant não é confiável neste contexto.
+    serializer_class = ServiceSerializer
+    permission_classes = [IsTenantMember, IsTenantAdminOrReadOnly]
+
+    def get_queryset(self):
+        return Service.objects.for_tenant(self.request.user.tenant)
+
+    def perform_create(self, serializer):
+        data = dict(serializer.validated_data)
+        is_active = data.pop("is_active", True)
+        service = service_ops.create_service(
+            tenant=self.request.user.tenant, **data
+        )
+        if not is_active:
+            service_ops.set_service_active(service, False)
+        serializer.instance = service
+
+    def perform_update(self, serializer):
+        data = {
+            "name": serializer.validated_data.get("name", serializer.instance.name),
+            "description": serializer.validated_data.get(
+                "description", serializer.instance.description
+            ),
+            "duration_minutes": serializer.validated_data.get(
+                "duration_minutes", serializer.instance.duration_minutes
+            ),
+            "price": serializer.validated_data.get(
+                "price", serializer.instance.price
+            ),
+        }
+        service_ops.update_service(serializer.instance, **data)
+        if "is_active" in serializer.validated_data:
+            service_ops.set_service_active(
+                serializer.instance, serializer.validated_data["is_active"]
+            )
+
+    def perform_destroy(self, instance):
+        try:
+            service_ops.delete_service(instance)
+        except ValidationError as exc:
+            raise DRFValidationError(exc.messages)
+
+
+# ---------------------------------------------------------------------------
+# Painel (HTMX) — /painel/servicos/
+# ---------------------------------------------------------------------------
+
+
+def _get_service(request, pk):
+    return get_object_or_404(
+        Service.objects.for_tenant(request.tenant), pk=pk
+    )
+
+
+def _items_response(request, extra_html=""):
+    """Lista atualizada + limpeza do modal (swap out-of-band do HTMX)."""
+    items = render_to_string(
+        "painel/services/_items.html",
+        {"services": Service.objects.for_tenant(request.tenant)},
+        request=request,
+    )
+    modal_reset = '<div id="modal-slot" hx-swap-oob="true"></div>'
+    return HttpResponse(items + modal_reset + extra_html)
+
+
+@tenant_admin_required
+def service_list(request):
+    services = Service.objects.for_tenant(request.tenant)
+    return render(
+        request,
+        "painel/services/list.html",
+        {"services": services, "active_nav": "services"},
+    )
+
+
+@tenant_admin_required
+def service_create(request):
+    if request.method == "POST":
+        form = ServiceForm(request.POST)
+        if form.is_valid():
+            service_ops.create_service(
+                tenant=request.tenant, **form.cleaned_data
+            )
+            return _items_response(request)
+    else:
+        form = ServiceForm()
+    response = render(
+        request,
+        "painel/services/_form.html",
+        {"form": form, "title": "Novo Serviço", "post_url_name": "create"},
+    )
+    if request.method == "POST":
+        # formulário inválido: reabre o modal em vez de trocar a lista
+        response.headers["HX-Retarget"] = "#modal-slot"
+        response.headers["HX-Reswap"] = "innerHTML"
+    return response
+
+
+@tenant_admin_required
+def service_update(request, pk):
+    service = _get_service(request, pk)
+    if request.method == "POST":
+        form = ServiceForm(request.POST, instance=service)
+        if form.is_valid():
+            service_ops.update_service(service, **form.cleaned_data)
+            return _items_response(request)
+    else:
+        form = ServiceForm(instance=service)
+    response = render(
+        request,
+        "painel/services/_form.html",
+        {
+            "form": form,
+            "title": "Editar Serviço",
+            "post_url_name": "update",
+            "service": service,
+        },
+    )
+    if request.method == "POST":
+        response.headers["HX-Retarget"] = "#modal-slot"
+        response.headers["HX-Reswap"] = "innerHTML"
+    return response
+
+
+@tenant_admin_required
+def service_toggle_confirm(request, pk):
+    service = _get_service(request, pk)
+    if service.is_active:
+        context = {
+            "title": "Desativar serviço",
+            "message": (
+                f"Desativar '{service.name}'? Ele deixa de aparecer na página "
+                f"pública de agendamento."
+            ),
+            "icon": "toggle_off",
+            "confirm_label": "Desativar",
+        }
+    else:
+        context = {
+            "title": "Reativar serviço",
+            "message": f"Reativar '{service.name}'? Ele volta a aparecer na página pública.",
+            "icon": "toggle_on",
+            "confirm_label": "Reativar",
+        }
+    context.update(
+        {
+            "action_url": reverse("services:toggle", args=[service.pk]),
+            "target": "#service-items",
+        }
+    )
+    return render(request, "painel/_confirm_action.html", context)
+
+
+@tenant_admin_required
+def service_toggle(request, pk):
+    if request.method != "POST":
+        return HttpResponse(status=405)
+    service = _get_service(request, pk)
+    service_ops.set_service_active(service, not service.is_active)
+    return _items_response(request)
+
+
+@tenant_admin_required
+def service_delete_confirm(request, pk):
+    service = _get_service(request, pk)
+    return render(
+        request,
+        "painel/_confirm_delete.html",
+        {
+            "title": "Excluir serviço",
+            "item_label": service.name,
+            "warning": "Ele deixará de existir no catálogo do salão.",
+            "delete_url": reverse("services:delete", args=[service.pk]),
+            "target": "#service-items",
+        },
+    )
+
+
+@tenant_admin_required
+def service_delete(request, pk):
+    if request.method != "POST":
+        return HttpResponse(status=405)
+    service = _get_service(request, pk)
+    try:
+        service_ops.delete_service(service)
+    except ValidationError as exc:
+        response = render(
+            request,
+            "painel/_modal_error.html",
+            {"title": "Não foi possível excluir", "message": " ".join(exc.messages)},
+        )
+        response.headers["HX-Retarget"] = "#modal-slot"
+        response.headers["HX-Reswap"] = "innerHTML"
+        return response
+    return _items_response(request)

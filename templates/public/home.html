@@ -1,0 +1,106 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>{{ tenant.name }}</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Playfair+Display:wght@600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+  .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24; }
+  .glass-panel { background: rgba(255, 248, 245, 0.75); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid rgba(212, 196, 183, 0.4); }
+  .elegant-shadow { box-shadow: 0 20px 40px -10px rgba(125, 86, 45, 0.15); }
+  @keyframes fadeInUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+</style>
+<script>
+  tailwind.config = { theme: { extend: {
+    colors: {
+      "surface": "#fff8f5", "on-surface": "#1f1b17", "on-surface-variant": "#50453b",
+      "surface-container-high": "#f0e6e0", "surface-container-lowest": "#ffffff",
+      "primary": "#7d562d", "on-primary": "#ffffff", "primary-container": "#d4a373",
+      "surface-tint": "#7d562d"
+    },
+    fontFamily: { "display": ["Playfair Display", "serif"], "sans": ["Inter", "sans-serif"] }
+  } } }
+</script>
+</head>
+<body class="bg-surface text-on-surface font-sans antialiased min-h-screen flex flex-col relative">
+<main class="flex-grow relative flex items-center justify-center min-h-screen w-full overflow-hidden p-4 md:p-8">
+  <div class="absolute inset-0 z-0">
+    {% if tenant.background_image %}
+    <div class="w-full h-full bg-cover bg-center bg-no-repeat" style="background-image: url('{{ tenant.background_image.url }}')"></div>
+    {% else %}
+    <div class="w-full h-full bg-gradient-to-br from-primary-container to-surface"></div>
+    {% endif %}
+    <div class="absolute inset-0 bg-gradient-to-t from-surface/70 via-surface/25 to-transparent"></div>
+  </div>
+
+  <div class="relative z-10 glass-panel elegant-shadow rounded-[32px] w-full max-w-2xl flex flex-col items-center text-center overflow-hidden" style="animation: fadeInUp 0.6s ease-out">
+    {% if tenant.cover_image %}
+    <div class="w-full h-28 md:h-36 bg-cover bg-center" style="background-image: url('{{ tenant.cover_image.url }}')"></div>
+    {% endif %}
+    <div class="w-full flex flex-col items-center text-center p-8 md:p-16 {% if tenant.cover_image %}pt-0{% endif %}">
+    <div class="w-16 h-16 rounded-full bg-primary-container/20 flex items-center justify-center mb-6 text-primary overflow-hidden {% if tenant.cover_image %}-mt-8 ring-4 ring-surface-container-lowest{% endif %}">
+      {% if tenant.logo %}
+      <img class="w-full h-full object-cover" src="{{ tenant.logo.url }}" alt="Logo {{ tenant.name }}"/>
+      {% else %}
+      <span class="material-symbols-outlined text-4xl">spa</span>
+      {% endif %}
+    </div>
+    <h1 class="font-display text-4xl md:text-5xl font-bold text-primary mb-2">{{ tenant.name }}</h1>
+    {% if tenant.description %}
+    <p class="text-lg text-on-surface-variant/80 font-light mb-8 italic">{{ tenant.description }}</p>
+    {% endif %}
+    {% if tenant.address %}
+    <div class="flex items-center gap-2 text-on-surface-variant mb-6 bg-surface-container-high/50 px-6 py-3 rounded-full">
+      <span class="material-symbols-outlined text-xl text-primary">location_on</span>
+      <span class="text-sm tracking-wide">{{ tenant.address }}</span>
+    </div>
+    {% endif %}
+    {% if business_hours %}
+    <details class="w-full mb-10 text-sm text-on-surface-variant">
+      <summary class="flex items-center justify-center gap-2 cursor-pointer marker:hidden [&::-webkit-details-marker]:hidden">
+        <span class="material-symbols-outlined text-lg text-primary">schedule</span>
+        <span>{{ today_hours_label }}</span>
+        <span class="material-symbols-outlined text-base">expand_more</span>
+      </summary>
+      <div class="mt-3 space-y-1 max-w-xs mx-auto text-left">
+        {% for day in business_hours %}
+        <div class="flex justify-between gap-6 {% if day.is_today %}font-semibold text-on-surface{% endif %}">
+          <span>{{ day.label }}</span>
+          <span>{% if day.is_closed %}Fechado{% else %}{{ day.start_time|time:"H:i" }} – {{ day.end_time|time:"H:i" }}{% endif %}</span>
+        </div>
+        {% endfor %}
+      </div>
+    </details>
+    {% endif %}
+    <a class="w-full md:w-auto min-w-[280px] bg-primary text-on-primary uppercase tracking-wide font-semibold py-5 px-8 rounded-full shadow-[0_8px_24px_rgba(125,86,45,0.2)] hover:bg-surface-tint hover:shadow-[0_12px_32px_rgba(125,86,45,0.3)] transition-all duration-300 active:scale-95 flex items-center justify-center gap-3"
+       href="{% url 'public:booking_service' tenant.slug %}">
+      <span class="material-symbols-outlined">calendar_month</span>
+      Agendar horário
+    </a>
+    <a class="mt-4 text-sm text-on-surface-variant hover:text-primary transition-colors underline" href="{% url 'public:my_appointments' tenant.slug %}">
+      Já agendei — ver meus horários
+    </a>
+    </div>
+  </div>
+</main>
+
+{% if tenant.whatsapp %}
+<a class="fixed bottom-8 right-8 z-50 flex items-center justify-center gap-3 bg-surface-container-lowest text-primary shadow-[0_12px_40px_-8px_rgba(125,86,45,0.15)] border border-primary/10 rounded-full pl-6 pr-4 py-3 hover:scale-105 transition-transform"
+   href="https://wa.me/{{ tenant.whatsapp|cut:'+'|cut:' '|cut:'-'|cut:'('|cut:')' }}" target="_blank" rel="noopener">
+  <span class="text-sm font-medium hidden sm:inline">Fale conosco</span>
+  <div class="bg-[#25D366] text-white p-3 rounded-full flex items-center justify-center shadow-md">
+    <svg class="w-6 h-6" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
+      <path d="M20.52 3.449C12.831-3.984.106 1.407.101 11.892c0 2.096.549 4.14 1.595 5.945L0 24l6.335-1.652a11.882 11.882 0 0 0 5.723 1.469h.005c9.815 0 15.788-11.243 9.457-18.368zM12.063 21.784a9.87 9.87 0 0 1-5.031-1.378l-.36-.214-3.741.982.998-3.65-.235-.375a9.86 9.86 0 0 1-1.51-5.256c0-5.458 4.437-9.9 9.895-9.9 2.644 0 5.13 1.03 6.995 2.899a9.833 9.833 0 0 1 2.898 6.999c-.005 5.458-4.443 9.893-9.909 9.893z"/>
+    </svg>
+  </div>
+</a>
+{% endif %}
+</body>
+</html>

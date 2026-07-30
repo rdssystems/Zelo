@@ -1,0 +1,44 @@
+{% extends "public/_wizard_base.html" %}
+
+{% block header_title %}Meus agendamentos{% endblock %}
+{% block back_link %}
+<a aria-label="Voltar" class="w-10 h-10 flex items-center justify-center rounded-full bg-surface-container hover:bg-surface-container-high transition-colors text-on-surface" href="{% url 'public:home' tenant.slug %}">
+  <span class="material-symbols-outlined">arrow_back</span>
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="px-6 flex flex-col gap-6">
+  <p class="text-on-surface-variant text-sm">Informe o telefone usado no agendamento para ver ou cancelar seus horários.</p>
+
+  {% if error %}
+  <div class="rounded-lg bg-error-container text-on-error-container px-4 py-3 text-sm">{{ error }}</div>
+  {% endif %}
+
+  <form method="post" class="flex flex-col gap-4">
+    {% csrf_token %}
+    <div class="relative">
+      <span class="material-symbols-outlined absolute left-0 top-1/2 -translate-y-1/2 text-outline px-1">call</span>
+      <input class="w-full bg-transparent border-0 border-b border-outline-variant focus:border-primary focus:ring-0 pl-8 pr-3 py-3 text-on-surface transition-colors"
+             name="phone" placeholder="(11) 90000-0000" required type="tel" value="{{ request.POST.phone }}"/>
+    </div>
+    <button class="w-full bg-primary-container text-on-primary-container hover:bg-primary hover:text-on-primary font-semibold py-4 px-6 rounded-full transition-all flex items-center justify-center gap-2" type="submit">
+      <span class="material-symbols-outlined text-[18px]">search</span>
+      Buscar meus agendamentos
+    </button>
+  </form>
+
+  {% if client %}
+  <div class="pt-2">
+    <p class="text-sm text-on-surface-variant mb-4">Olá, <span class="font-semibold text-on-surface">{{ client.name }}</span>.</p>
+    {% include "public/_appointments_list.html" %}
+    <div class="mt-8 pt-6 border-t border-surface-variant text-center">
+      <button class="text-sm text-error hover:underline"
+              hx-get="{% url 'public:delete_my_data_confirm' tenant.slug %}" hx-target="#modal-slot" hx-swap="innerHTML">
+        Excluir meus dados deste salão
+      </button>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

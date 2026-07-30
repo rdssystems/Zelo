@@ -1,0 +1,101 @@
+{% extends "painel/base.html" %}
+
+{% block title %}Zelo — Clientes{% endblock %}
+
+{% block content %}
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
+  <div>
+    <h2 class="font-display text-headline-md text-on-surface mb-2">Clientes</h2>
+    <p class="text-on-surface-variant">Histórico, preferências, mensalistas e crédito.</p>
+  </div>
+  <a class="shrink-0 flex items-center gap-2 bg-primary text-on-primary font-semibold text-lg px-8 py-3 rounded-full hover:opacity-90 transition-opacity shadow-sm active:scale-95"
+     href="{% url 'clients:create' %}">
+    <span class="material-symbols-outlined">person_add</span>
+    Novo Cliente
+  </a>
+</div>
+
+{% if messages %}
+  {% for message in messages %}
+  <div class="mb-6 rounded-lg bg-secondary-container text-on-secondary-container px-4 py-3">{{ message }}</div>
+  {% endfor %}
+{% endif %}
+
+<form class="mb-6" method="get">
+  <div class="relative max-w-md">
+    <span class="material-symbols-outlined absolute left-0 top-1/2 -translate-y-1/2 text-outline">search</span>
+    <input class="block w-full pl-8 pr-0 py-2 bg-transparent border-0 border-b border-outline-variant text-on-surface focus:ring-0 focus:border-primary"
+           type="text" name="q" value="{{ query }}" placeholder="Buscar por nome ou telefone..."/>
+  </div>
+</form>
+
+<div class="bg-surface-container-lowest rounded-2xl border border-surface-variant shadow-[0_4px_40px_-10px_rgba(125,86,45,0.08)] overflow-hidden">
+  <div class="overflow-x-auto">
+    <table class="w-full text-left border-collapse">
+      <thead>
+        <tr class="border-b border-surface-variant bg-surface-container-low/50">
+          <th class="py-4 px-6 text-label-caps uppercase text-on-surface-variant">Nome</th>
+          <th class="py-4 px-6 text-label-caps uppercase text-on-surface-variant text-center">WhatsApp</th>
+          <th class="py-4 px-6 text-label-caps uppercase text-on-surface-variant">Telefone</th>
+          <th class="py-4 px-6 text-label-caps uppercase text-on-surface-variant text-center">Mensalista</th>
+          <th class="py-4 px-6 text-label-caps uppercase text-on-surface-variant text-right">Crédito</th>
+          <th class="py-4 px-6 text-label-caps uppercase text-on-surface-variant text-right">Ações</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-surface-variant">
+        {% for client in clients %}
+        <tr class="hover:bg-surface-container-low/50 transition-colors">
+          <td class="py-4 px-6 font-semibold text-on-surface">{{ client.name }}</td>
+          <td class="py-4 px-6 text-center">
+            {% if client.whatsapp_url %}
+            <a class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-[#25D366] text-white hover:opacity-90 transition-opacity"
+               href="{{ client.whatsapp_url }}" target="_blank" rel="noopener" title="Conversar no WhatsApp">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
+                <path d="M20.52 3.449C12.831-3.984.106 1.407.101 11.892c0 2.096.549 4.14 1.595 5.945L0 24l6.335-1.652a11.882 11.882 0 0 0 5.723 1.469h.005c9.815 0 15.788-11.243 9.457-18.368zM12.063 21.784a9.87 9.87 0 0 1-5.031-1.378l-.36-.214-3.741.982.998-3.65-.235-.375a9.86 9.86 0 0 1-1.51-5.256c0-5.458 4.437-9.9 9.895-9.9 2.644 0 5.13 1.03 6.995 2.899a9.833 9.833 0 0 1 2.898 6.999c-.005 5.458-4.443 9.893-9.909 9.893z"/>
+              </svg>
+            </a>
+            {% else %}
+            <span class="text-outline text-sm">—</span>
+            {% endif %}
+          </td>
+          <td class="py-4 px-6 text-sm text-on-surface-variant">{{ client.phone }}</td>
+          <td class="py-4 px-6 text-center">
+            {% if client.is_subscriber %}
+              {% if client.subscription_is_overdue %}
+              <span class="inline-flex items-center px-3 py-1 rounded-full bg-error-container text-on-error-container text-label-caps uppercase">Vencida</span>
+              {% elif client.subscription_is_due_soon %}
+              <span class="inline-flex items-center px-3 py-1 rounded-full bg-secondary-container text-on-secondary-container text-label-caps uppercase">Vence em breve</span>
+              {% else %}
+              <span class="inline-flex items-center px-3 py-1 rounded-full bg-[#e8f5e9] text-[#2e7d32] text-label-caps uppercase">Em dia</span>
+              {% endif %}
+            {% else %}
+            <span class="text-outline text-sm">—</span>
+            {% endif %}
+          </td>
+          <td class="py-4 px-6 text-right text-on-surface">R$ {{ client.credit_balance }}</td>
+          <td class="py-4 px-6 text-right">
+            <div class="flex justify-end gap-1">
+              <a class="p-2 text-outline hover:text-primary transition-colors rounded-full hover:bg-surface-variant inline-flex" title="Ver ficha"
+                 href="{% url 'clients:update' client.pk %}">
+                <span class="material-symbols-outlined">chevron_right</span>
+              </a>
+              <button class="p-2 text-outline hover:text-error transition-colors rounded-full hover:bg-error-container/40" title="Excluir"
+                      hx-get="{% url 'clients:delete_confirm' client.pk %}" hx-target="#modal-slot" hx-swap="innerHTML">
+                <span class="material-symbols-outlined">delete</span>
+              </button>
+            </div>
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td class="py-16 text-center text-on-surface-variant" colspan="6">
+            {% if query %}Nenhum cliente encontrado para "{{ query }}".{% else %}Nenhum cliente cadastrado ainda.{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

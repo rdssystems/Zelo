@@ -1,0 +1,30 @@
+<div class="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6" id="confirm-delete-data-modal">
+  <div class="absolute inset-0 bg-inverse-surface/40 backdrop-blur-sm"
+       onclick="document.getElementById('modal-slot').innerHTML = ''"></div>
+  <div class="relative w-full max-w-sm bg-surface-container-lowest rounded-2xl shadow-2xl overflow-hidden">
+    <div class="p-8">
+      <div class="flex items-center gap-3 mb-6">
+        <div class="w-10 h-10 rounded-full bg-error-container flex items-center justify-center shrink-0">
+          <span class="material-symbols-outlined text-error">warning</span>
+        </div>
+        <h3 class="font-semibold text-lg text-on-surface">Excluir meus dados</h3>
+      </div>
+      <p class="text-on-surface-variant mb-8 text-sm">
+        Seu nome e telefone serão removidos deste salão. Agendamentos futuros serão cancelados.
+        O histórico de atendimentos já realizados é mantido de forma anônima, sem seus dados
+        pessoais, para fins de auditoria financeira. <strong class="text-on-surface">Esta ação
+        não pode ser desfeita.</strong>
+      </p>
+      <form method="post" action="{{ action_url }}">
+        {% csrf_token %}
+        <div class="flex justify-end gap-3">
+          <button class="px-5 py-2.5 rounded-full border border-outline text-on-surface-variant hover:bg-surface-container transition-colors text-sm" type="button"
+                  onclick="document.getElementById('modal-slot').innerHTML = ''">Cancelar</button>
+          <button class="px-6 py-2.5 rounded-full bg-error text-on-error font-semibold hover:opacity-90 transition-opacity active:scale-95 text-sm" type="submit">
+            Excluir meus dados
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

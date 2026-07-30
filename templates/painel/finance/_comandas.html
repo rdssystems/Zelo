@@ -1,0 +1,146 @@
+{% load l10n %}
+{% if not comanda_groups %}
+<p class="text-sm text-on-surface-variant italic py-12 text-center">Nenhuma comanda em aberto.</p>
+{% else %}
+<div class="space-y-6">
+  {% for group in comanda_groups %}
+  <div class="bg-surface-container-lowest rounded-2xl border border-surface-variant shadow-sm p-6"
+       x-data="{
+         clientCreditBalance: {{ group.client.credit_balance|unlocalize }},
+         servicesTotal: {{ group.services_total|unlocalize }},
+         productsTotal: {{ group.products_total|unlocalize }},
+         useCredit: false,
+         creditAmount: 0,
+         get grandTotal() { return this.servicesTotal + this.productsTotal; },
+         get maxCredit() { return Math.min(this.clientCreditBalance, this.grandTotal); },
+         get remainder() { return Math.max(0, this.grandTotal - (this.useCredit ? (Number(this.creditAmount) || 0) : 0)); },
+         toggleCredit() {
+           this.useCredit = !this.useCredit;
+           this.creditAmount = this.useCredit ? this.maxCredit : 0;
+         }
+       }">
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+      <div>
+        <p class="font-semibold text-lg text-on-surface">{{ group.client.name }}</p>
+        <p class="text-xs text-on-surface-variant mt-1">Crédito disponível: R$ {{ group.client.credit_balance }}</p>
+      </div>
+      <div class="flex gap-2 shrink-0">
+        <button type="button"
+                hx-get="{% url 'finance:product_picker' group.client.pk %}" hx-target="#modal-slot" hx-swap="innerHTML"
+                class="flex items-center gap-2 px-4 py-2 rounded-full border border-outline-variant text-sm text-on-surface hover:bg-surface-container-low transition-colors">
+          <span class="material-symbols-outlined text-[18px]">add_shopping_cart</span>
+          Vender produto
+        </button>
+        <button type="button"
+                hx-get="{% url 'finance:walk_in_service_picker' group.client.pk %}" hx-target="#modal-slot" hx-swap="innerHTML"
+                class="flex items-center gap-2 px-4 py-2 rounded-full border border-primary text-primary text-sm hover:bg-primary-container/20 transition-colors">
+          <span class="material-symbols-outlined text-[18px]">add</span>
+          Adicionar serviço
+        </button>
+      </div>
+    </div>
+
+    {% for appointment in group.appointments %}
+    <div class="flex items-center justify-between gap-4 py-3 border-t border-surface-variant first:border-t-0">
+      <p class="text-sm text-on-surface flex items-center gap-2 flex-wrap">
+        <span>{{ appointment.service.name }} · com {{ appointment.employee.full_name }} · {{ appointment.start_time|time:"H:i" }}</span>
+        {% if appointment.date != today %}
+        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold
+          {% if appointment.date < today %}bg-error-container text-on-error-container{% else %}bg-primary-container/40 text-on-primary-container{% endif %}"
+          title="{% if appointment.date < today %}Comanda aberta em dia anterior{% else %}Atendimento antecipado — agendado para {{ appointment.date|date:'d/m/Y' }}{% endif %}">
+          <span class="material-symbols-outlined text-[14px]">event</span>{{ appointment.date|date:"d/m" }}
+        </span>
+        {% endif %}
+      </p>
+      <div class="flex items-center gap-2 shrink-0">
+        <span class="font-display text-lg text-primary">R$ {{ appointment.price_at_booking }}</span>
+        <button type="button" title="Remover serviço da comanda"
+                hx-get="{% url 'finance:comanda_service_remove_confirm' appointment.pk %}" hx-target="#modal-slot" hx-swap="innerHTML"
+                class="text-outline hover:text-error transition-colors">
+          <span class="material-symbols-outlined text-[18px]">delete</span>
+        </button>
+      </div>
+    </div>
+    {% endfor %}
+
+    {% if group.pending_items %}
+    <div class="mt-2 pt-3 border-t border-surface-variant space-y-2">
+      <p class="text-label-caps uppercase text-outline">Produtos</p>
+      {% for item in group.pending_items %}
+      <div class="flex items-center gap-3 bg-surface-container rounded-xl px-4 py-2">
+        <p class="flex-1 text-sm text-on-surface truncate">{{ item.product.name }}</p>
+        <form hx-post="{% url 'finance:comanda_item_update' item.id %}" hx-target="#cash-items" hx-swap="outerHTML" hx-trigger="change">
+          <input type="number" name="quantity" value="{{ item.quantity|stringformat:'s' }}"
+                 step="{% if item.is_whole_unit %}1{% else %}0.01{% endif %}"
+                 min="{% if item.is_whole_unit %}1{% else %}0.01{% endif %}"
+                 class="w-16 px-2 py-1 rounded-lg border border-outline-variant bg-transparent text-center text-sm focus:ring-0 focus:border-primary"/>
+        </form>
+        <p class="w-20 text-right text-sm text-on-surface font-medium">R$ {{ item.line_total|floatformat:2 }}</p>
+        <button type="button"
+                hx-post="{% url 'finance:comanda_item_remove' item.id %}" hx-target="#cash-items" hx-swap="outerHTML"
+                class="text-outline hover:text-error transition-colors">
+          <span class="material-symbols-outlined text-[18px]">close</span>
+        </button>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <form hx-post="{% url 'finance:comanda_finalize_group' %}?start={{ start|date:'Y-m-d' }}&end={{ end|date:'Y-m-d' }}"
+          hx-target="#cash-items" hx-swap="outerHTML" class="space-y-3 mt-4">
+      {% csrf_token %}
+      <input type="hidden" name="client_id" value="{{ group.client.pk }}"/>
+      {% for appointment in group.appointments %}
+      <input type="hidden" name="appointment_id" value="{{ appointment.pk }}"/>
+      {% endfor %}
+
+      <div class="pt-3 border-t border-surface-variant space-y-3">
+        <p class="text-sm text-on-surface-variant">
+          Total: <span class="font-semibold text-on-surface" x-text="'R$ ' + grandTotal.toFixed(2).replace('.', ',')"></span>
+        </p>
+
+        {% if group.appointments %}
+        <div x-show="clientCreditBalance > 0" x-cloak>
+          <label class="flex items-center gap-2 text-sm text-on-surface-variant cursor-pointer">
+            <input type="checkbox" @change="toggleCredit()" :checked="useCredit"
+                   class="rounded border-outline text-primary focus:ring-primary"/>
+            Usar crédito do cliente
+            (<span x-text="'R$ ' + clientCreditBalance.toFixed(2).replace('.', ',')"></span> disponível)
+          </label>
+          <div x-show="useCredit" x-cloak class="flex flex-wrap items-center gap-2 mt-2 pl-6">
+            <label class="text-label-caps uppercase text-outline">Abater</label>
+            <input type="number" name="credit_amount" x-model.number="creditAmount" step="0.01" min="0" :max="maxCredit"
+                   class="w-24 px-2 py-1 rounded-lg border border-outline-variant bg-transparent text-center text-sm focus:ring-0 focus:border-primary"/>
+            <span class="text-xs text-error" x-show="Number(creditAmount) > maxCredit" x-cloak>
+              Máximo disponível: R$ <span x-text="maxCredit.toFixed(2).replace('.', ',')"></span>
+            </span>
+            <span class="text-xs text-on-surface-variant" x-show="remainder > 0" x-cloak>
+              Restante a pagar: R$ <span x-text="remainder.toFixed(2).replace('.', ',')"></span>
+            </span>
+            <span class="text-xs text-on-surface-variant font-medium" x-show="remainder <= 0" x-cloak>
+              Crédito cobre o valor total da comanda.
+            </span>
+          </div>
+        </div>
+        {% endif %}
+
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div x-show="!useCredit || remainder > 0">
+            <label class="text-label-caps uppercase text-outline mr-2">Pagamento</label>
+            <select name="payment_method" :required="!useCredit || remainder > 0"
+                    class="bg-transparent border-0 border-b border-outline-variant text-sm focus:ring-0 focus:border-primary">
+              {% for value, label in payment_methods %}
+              <option value="{{ value }}">{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <button type="submit" class="px-6 py-2.5 rounded-full bg-primary text-on-primary font-semibold text-sm hover:opacity-90 transition-opacity active:scale-95">
+            Finalizar Comanda
+          </button>
+        </div>
+      </div>
+    </form>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}

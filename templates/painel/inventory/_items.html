@@ -1,0 +1,118 @@
+<div id="product-items">
+  <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+    <div class="bg-surface-container-lowest p-6 rounded-xl border border-surface-variant shadow-sm">
+      <div class="flex items-center justify-between mb-4">
+        <span class="text-label-caps uppercase text-on-surface-variant">Total de Itens</span>
+        <span class="material-symbols-outlined text-primary bg-primary-container/20 p-2 rounded-full">inventory</span>
+      </div>
+      <div class="font-display text-3xl text-on-surface">{{ total_items }}</div>
+    </div>
+    <div class="bg-error-container/20 p-6 rounded-xl border border-error/20 shadow-sm">
+      <div class="flex items-center justify-between mb-4">
+        <span class="text-label-caps uppercase text-error">Estoque Baixo</span>
+        <span class="material-symbols-outlined text-error bg-error-container p-2 rounded-full">warning</span>
+      </div>
+      <div class="font-display text-3xl text-error">{{ low_stock_count }}</div>
+    </div>
+    <div class="bg-error-container/20 p-6 rounded-xl border border-error/20 shadow-sm">
+      <div class="flex items-center justify-between mb-4">
+        <span class="text-label-caps uppercase text-error">Lotes Vencendo</span>
+        <span class="material-symbols-outlined text-error bg-error-container p-2 rounded-full">event_busy</span>
+      </div>
+      <div class="font-display text-3xl text-error">{{ expiring_batches_count }}</div>
+    </div>
+    <div class="bg-surface-container-lowest p-6 rounded-xl border border-surface-variant shadow-sm relative overflow-hidden">
+      <div class="relative z-10">
+        <span class="text-label-caps uppercase text-on-surface-variant block mb-2">Valor em Estoque</span>
+        <div class="font-display text-3xl text-on-surface">R$ {{ total_stock_value }}</div>
+      </div>
+      <div class="absolute right-0 bottom-0 w-24 h-24 bg-primary-container/20 rounded-tl-full -mr-6 -mb-6 blur-xl"></div>
+    </div>
+  </section>
+
+  <div class="bg-surface-container-lowest rounded-2xl border border-surface-variant shadow-[0_4px_40px_-10px_rgba(125,86,45,0.08)] overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-left border-collapse">
+        <thead>
+          <tr class="border-b border-surface-variant bg-surface-container-low/50">
+            <th class="py-4 px-6 text-label-caps uppercase text-on-surface-variant">Produto</th>
+            <th class="py-4 px-6 text-label-caps uppercase text-on-surface-variant">SKU</th>
+            <th class="py-4 px-6 text-label-caps uppercase text-on-surface-variant">Categoria</th>
+            <th class="py-4 px-6 text-label-caps uppercase text-on-surface-variant">Preço</th>
+            <th class="py-4 px-6 text-label-caps uppercase text-on-surface-variant text-center">Estoque</th>
+            <th class="py-4 px-6 text-label-caps uppercase text-on-surface-variant text-center">Mínimo</th>
+            <th class="py-4 px-6 text-label-caps uppercase text-on-surface-variant text-center">Status</th>
+            <th class="py-4 px-6 text-label-caps uppercase text-on-surface-variant text-right">Ações</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-surface-variant">
+          {% for product in products %}
+          <tr class="hover:bg-surface-container-low/50 transition-colors group {% if product.is_low_stock %}bg-error-container/10{% endif %} {% if not product.is_active %}opacity-60{% endif %}">
+            <td class="py-4 px-6 {% if product.is_low_stock %}border-l-4 border-error{% endif %}">
+              <p class="font-semibold {% if product.is_low_stock %}text-error{% else %}text-on-surface{% endif %} flex items-center gap-2">
+                {{ product.name }}
+                {% if product.is_low_stock %}<span class="material-symbols-outlined text-[16px]">warning</span>{% endif %}
+              </p>
+              <p class="text-sm text-on-surface-variant">{{ product.unit }}</p>
+              {% if product.tracks_batches %}
+              <button class="inline-flex items-center gap-1 mt-1 text-xs text-primary hover:underline" title="Ver lotes"
+                      hx-get="{% url 'inventory:batches' product.pk %}" hx-target="#modal-slot" hx-swap="innerHTML">
+                <span class="material-symbols-outlined text-[14px]">inventory_2</span> Lotes
+              </button>
+              {% endif %}
+            </td>
+            <td class="py-4 px-6 text-sm text-on-surface-variant">{{ product.sku|default:"—" }}</td>
+            <td class="py-4 px-6 text-sm text-on-surface-variant">{{ product.category.name|default:"—" }}</td>
+            <td class="py-4 px-6 text-on-surface">R$ {{ product.sale_price }}</td>
+            <td class="py-4 px-6 text-center">
+              <span class="inline-flex items-center justify-center px-3 py-1 rounded-full text-label-caps
+                           {% if product.is_low_stock %}bg-error text-on-error font-bold{% else %}bg-secondary-container/50 text-on-secondary-container{% endif %}">
+                {{ product.current_stock }}
+              </span>
+            </td>
+            <td class="py-4 px-6 text-center text-sm text-on-surface-variant">{{ product.min_stock_alert }}</td>
+            <td class="py-4 px-6 text-center">
+              {% if product.is_active %}
+              <span class="inline-flex items-center px-3 py-1 rounded-full bg-[#e8f5e9] text-[#2e7d32] text-label-caps uppercase">Ativo</span>
+              {% else %}
+              <span class="inline-flex items-center px-3 py-1 rounded-full bg-error-container text-on-error-container text-label-caps uppercase">Inativo</span>
+              {% endif %}
+            </td>
+            <td class="py-4 px-6">
+              <div class="flex justify-end gap-1">
+                <button class="p-2 text-outline hover:text-primary transition-colors rounded-full hover:bg-surface-variant" title="Movimentar estoque"
+                        hx-get="{% url 'inventory:movement' product.pk %}" hx-target="#modal-slot" hx-swap="innerHTML">
+                  <span class="material-symbols-outlined">swap_horiz</span>
+                </button>
+                <button class="p-2 text-outline hover:text-primary transition-colors rounded-full hover:bg-surface-variant" title="Editar"
+                        hx-get="{% url 'inventory:update' product.pk %}" hx-target="#modal-slot" hx-swap="innerHTML">
+                  <span class="material-symbols-outlined">edit</span>
+                </button>
+                <button class="p-2 transition-colors rounded-full hover:bg-surface-variant {% if product.is_active %}text-[#2e7d32] hover:text-[#1b5e20]{% else %}text-error hover:text-error{% endif %}"
+                        title="{% if product.is_active %}Ativo — clique para desativar{% else %}Inativo — clique para ativar{% endif %}"
+                        hx-get="{% url 'inventory:toggle_confirm' product.pk %}" hx-target="#modal-slot" hx-swap="innerHTML">
+                  <span class="material-symbols-outlined" {% if product.is_active %}style="font-variation-settings: 'FILL' 1;"{% endif %}>{% if product.is_active %}toggle_on{% else %}toggle_off{% endif %}</span>
+                </button>
+                <button class="p-2 text-outline hover:text-error transition-colors rounded-full hover:bg-error-container/40" title="Excluir"
+                        hx-get="{% url 'inventory:delete_confirm' product.pk %}" hx-target="#modal-slot" hx-swap="innerHTML">
+                  <span class="material-symbols-outlined">delete</span>
+                </button>
+              </div>
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td class="py-16 text-center text-on-surface-variant" colspan="8">
+              Nenhum produto cadastrado ainda.
+              <button class="ml-2 text-primary font-semibold hover:underline"
+                      hx-get="{% url 'inventory:create' %}" hx-target="#modal-slot" hx-swap="innerHTML">
+                Cadastrar o primeiro produto
+              </button>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>

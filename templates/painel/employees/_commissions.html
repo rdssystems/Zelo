@@ -1,0 +1,20 @@
+<div id="commissions-section" class="bg-surface-container-lowest rounded-2xl shadow-[0_4px_40px_-10px_rgba(125,86,45,0.08)] border border-surface-container p-8">
+  <h3 class="text-label-caps uppercase text-outline mb-2">Histórico de comissões pagas</h3>
+  <p class="text-sm text-on-surface-variant mb-6">Pagamentos já feitos a este profissional (ver aba Comissões do Caixa para pagar pendências).</p>
+
+  {% if paid_commissions %}
+  <div class="divide-y divide-surface-variant">
+    {% for commission in paid_commissions %}
+    <div class="py-3 flex items-center justify-between gap-4">
+      <div>
+        <p class="text-sm text-on-surface">{{ commission.appointment.service.name }} — {{ commission.appointment.date|date:"d/m/Y" }}</p>
+        <p class="text-xs text-on-surface-variant">Paga em {{ commission.paid_at|date:"d/m/Y H:i" }}</p>
+      </div>
+      <span class="font-semibold text-on-surface">R$ {{ commission.calculated_amount }}</span>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="text-sm text-on-surface-variant italic">Nenhuma comissão paga ainda.</p>
+  {% endif %}
+</div>

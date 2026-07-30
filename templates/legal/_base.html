@@ -1,0 +1,44 @@
+{% load static %}
+<!DOCTYPE html>
+<html class="light" lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>{% block title %}Zelo{% endblock %}</title>
+<script src="https://cdn.tailwindcss.com?plugins=typography"></script>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Playfair+Display:wght@600;700&amp;display=swap" rel="stylesheet"/>
+<script>
+  tailwind.config = { theme: { extend: {
+    colors: {
+      "background": "#fff8f5", "surface-container-lowest": "#ffffff", "surface-container-low": "#fcf2eb",
+      "on-surface": "#1f1b17", "on-surface-variant": "#50453b",
+      "outline-variant": "#d4c4b7", "primary": "#7d562d", "on-primary": "#ffffff",
+      "error-container": "#ffdad6", "on-error-container": "#93000a"
+    },
+    fontFamily: { "display": ["Playfair Display", "serif"], "sans": ["Inter", "sans-serif"] }
+  } } }
+</script>
+</head>
+<body class="bg-background font-sans text-on-surface antialiased">
+<div class="max-w-3xl mx-auto px-6 py-16">
+  <a class="text-primary font-display text-2xl font-bold" href="/">Zelo</a>
+
+  <div class="mt-8 mb-10 rounded-xl bg-error-container text-on-error-container px-5 py-4 text-sm">
+    <strong>Aviso:</strong> este é um texto-modelo gerado para acelerar o desenvolvimento —
+    ainda não é um documento jurídico validado. Antes de publicar de verdade para clientes
+    reais, peça a revisão de um advogado (especialmente as seções sobre LGPD, pagamentos e
+    responsabilidade).
+  </div>
+
+  <article class="prose prose-headings:font-display prose-headings:text-on-surface prose-p:text-on-surface-variant prose-li:text-on-surface-variant max-w-none">
+    {% block legal_content %}{% endblock %}
+  </article>
+
+  <p class="mt-16 text-sm text-on-surface-variant">
+    <a class="text-primary hover:underline" href="{% url 'signup' %}">← Voltar ao cadastro</a>
+  </p>
+</div>
+</body>
+</html>

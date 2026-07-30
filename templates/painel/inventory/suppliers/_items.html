@@ -1,0 +1,56 @@
+<div id="supplier-items" class="bg-surface-container-lowest rounded-2xl border border-surface-variant shadow-[0_4px_40px_-10px_rgba(125,86,45,0.08)] overflow-hidden">
+  <div class="overflow-x-auto">
+    <table class="w-full text-left border-collapse">
+      <thead>
+        <tr class="border-b border-surface-variant bg-surface-container-low/50">
+          <th class="py-4 px-6 text-label-caps uppercase text-on-surface-variant">Nome</th>
+          <th class="py-4 px-6 text-label-caps uppercase text-on-surface-variant">Contato</th>
+          <th class="py-4 px-6 text-label-caps uppercase text-on-surface-variant">Telefone</th>
+          <th class="py-4 px-6 text-label-caps uppercase text-on-surface-variant text-center">Produtos</th>
+          <th class="py-4 px-6 text-label-caps uppercase text-on-surface-variant text-center">Status</th>
+          <th class="py-4 px-6 text-label-caps uppercase text-on-surface-variant text-right">Ações</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-surface-variant">
+        {% for supplier in suppliers %}
+        <tr class="hover:bg-surface-container-low/50 transition-colors {% if not supplier.is_active %}opacity-60{% endif %}">
+          <td class="py-4 px-6 font-semibold text-on-surface">{{ supplier.name }}</td>
+          <td class="py-4 px-6 text-on-surface-variant">{{ supplier.contact_name|default:"—" }}</td>
+          <td class="py-4 px-6 text-on-surface-variant">{{ supplier.phone|default:"—" }}</td>
+          <td class="py-4 px-6 text-center text-on-surface-variant">{{ supplier.product_count }}</td>
+          <td class="py-4 px-6 text-center">
+            {% if supplier.is_active %}
+            <span class="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-[#e8f5e9] text-[#2e7d32]">Ativo</span>
+            {% else %}
+            <span class="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-error-container text-on-error-container">Inativo</span>
+            {% endif %}
+          </td>
+          <td class="py-4 px-6">
+            <div class="flex justify-end gap-1">
+              <button class="p-2 text-outline hover:text-primary transition-colors rounded-full hover:bg-surface-variant" title="Editar"
+                      hx-get="{% url 'inventory:supplier_update' supplier.pk %}" hx-target="#modal-slot" hx-swap="innerHTML">
+                <span class="material-symbols-outlined">edit</span>
+              </button>
+              <button class="p-2 transition-colors rounded-full hover:bg-surface-variant {% if supplier.is_active %}text-[#2e7d32] hover:text-[#1b5e20]{% else %}text-error hover:text-error{% endif %}"
+                      title="{% if supplier.is_active %}Ativo — clique para desativar{% else %}Inativo — clique para ativar{% endif %}"
+                      hx-post="{% url 'inventory:supplier_toggle' supplier.pk %}" hx-target="#supplier-items" hx-swap="outerHTML">
+                <span class="material-symbols-outlined" {% if supplier.is_active %}style="font-variation-settings: 'FILL' 1;"{% endif %}>{% if supplier.is_active %}toggle_on{% else %}toggle_off{% endif %}</span>
+              </button>
+            </div>
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td class="py-16 text-center text-on-surface-variant" colspan="6">
+            Nenhum fornecedor cadastrado ainda.
+            <button class="ml-2 text-primary font-semibold hover:underline"
+                    hx-get="{% url 'inventory:supplier_create' %}" hx-target="#modal-slot" hx-swap="innerHTML">
+              Cadastrar o primeiro fornecedor
+            </button>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>

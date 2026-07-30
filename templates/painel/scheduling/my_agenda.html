@@ -1,0 +1,55 @@
+{% extends "painel/base.html" %}
+
+{% block title %}Zelo — Minha Agenda{% endblock %}
+
+{% block content %}
+<div class="mb-8">
+  <h2 class="font-display text-headline-md text-on-surface mb-2">Minha Agenda</h2>
+  <p class="text-on-surface-variant">Seus próprios atendimentos, dia a dia.</p>
+</div>
+
+<div class="flex items-center gap-4 mb-8 bg-surface-container-lowest border border-surface-variant rounded-xl p-3">
+  <a class="p-2 rounded-full hover:bg-surface-container-high text-on-surface-variant transition-colors" href="?date={{ prev_date|date:'Y-m-d' }}">
+    <span class="material-symbols-outlined">chevron_left</span>
+  </a>
+  <form class="flex-1 flex justify-center" method="get">
+    <input class="text-center bg-transparent border-0 text-lg font-semibold text-on-surface focus:ring-0" name="date" type="date"
+           value="{{ selected_date|date:'Y-m-d' }}" onchange="this.form.submit()"/>
+  </form>
+  <a class="p-2 rounded-full hover:bg-surface-container-high text-on-surface-variant transition-colors" href="?date={{ next_date|date:'Y-m-d' }}">
+    <span class="material-symbols-outlined">chevron_right</span>
+  </a>
+</div>
+
+<div class="flex flex-col gap-3">
+  {% for appointment in appointments %}
+  <div class="bg-surface-container-lowest rounded-2xl p-5 border border-surface-variant shadow-sm flex flex-col md:flex-row md:items-center gap-4">
+    <div class="md:w-24 shrink-0">
+      <span class="font-display text-2xl text-primary">{{ appointment.start_time|time:"H:i" }}</span>
+      <p class="text-xs text-on-surface-variant">{{ appointment.end_time|time:"H:i" }}</p>
+    </div>
+    <div class="flex-1">
+      <p class="font-semibold text-on-surface">{{ appointment.service.name }}</p>
+      <p class="text-sm text-on-surface-variant">{{ appointment.client.name }}</p>
+    </div>
+    <div>
+      {% if appointment.status == "pending" %}
+      <span class="inline-flex items-center px-3 py-1 rounded-full bg-surface-variant text-on-surface-variant text-label-caps uppercase">Pendente</span>
+      {% elif appointment.status == "confirmed" %}
+      <span class="inline-flex items-center px-3 py-1 rounded-full bg-secondary-container text-on-secondary-container text-label-caps uppercase">Confirmado</span>
+      {% elif appointment.status == "completed" %}
+      <span class="inline-flex items-center px-3 py-1 rounded-full bg-[#e8f5e9] text-[#2e7d32] text-label-caps uppercase">Concluído</span>
+      {% elif appointment.status == "canceled" %}
+      <span class="inline-flex items-center px-3 py-1 rounded-full bg-error-container text-on-error-container text-label-caps uppercase">Cancelado</span>
+      {% elif appointment.status == "no_show" %}
+      <span class="inline-flex items-center px-3 py-1 rounded-full bg-error-container text-on-error-container text-label-caps uppercase">Não compareceu</span>
+      {% endif %}
+    </div>
+  </div>
+  {% empty %}
+  <div class="bg-surface-container-lowest rounded-2xl py-16 text-center border border-surface-variant">
+    <p class="text-on-surface-variant">Nenhum atendimento neste dia.</p>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}
