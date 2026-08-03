@@ -50,7 +50,7 @@
   <form method="post">
     {% csrf_token %}
     <input type="hidden" name="phone" value="{{ client.phone }}"/>
-    <button class="w-full bg-primary hover:bg-secondary text-on-primary font-semibold py-4 px-8 rounded-full shadow-lg shadow-primary/20 transition-all active:scale-[0.98] flex items-center justify-center gap-2" type="submit">
+    <button class="w-full bg-primary hover:bg-secondary text-on-primary font-semibold py-4 px-8 rounded-pill shadow-lg shadow-primary/20 transition-all active:scale-[0.98] flex items-center justify-center gap-2" type="submit">
       Confirmar Agendamento
       <span class="material-symbols-outlined text-[18px]">check</span>
     </button>

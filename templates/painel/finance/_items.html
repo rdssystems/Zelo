@@ -17,7 +17,7 @@
   {% if by_category %}
   <div class="flex flex-wrap gap-3 mb-8">
     {% for row in by_category %}
-    <span class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-surface-container-low border border-surface-variant text-sm text-on-surface-variant">
+    <span class="inline-flex items-center gap-2 px-4 py-2 rounded-pill bg-surface-container-low border border-surface-variant text-sm text-on-surface-variant">
       {{ row.category }}: <strong class="text-on-surface">R$ {{ row.total }}</strong>
     </span>
     {% endfor %}

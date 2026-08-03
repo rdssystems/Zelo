@@ -9,12 +9,12 @@
     <p class="text-on-surface-variant">Saldo do período, lançamentos e comissões a pagar.</p>
   </div>
   <div class="flex flex-wrap gap-3 shrink-0">
-    <button class="flex items-center gap-2 bg-surface-container-lowest border border-primary text-primary font-semibold px-5 py-2.5 md:text-lg md:px-8 md:py-3 rounded-full hover:bg-primary-container/20 transition-colors active:scale-95"
+    <button class="flex items-center gap-2 bg-surface-container-lowest border border-primary text-primary font-semibold px-5 py-2.5 md:text-lg md:px-8 md:py-3 rounded-pill hover:bg-primary-container/20 transition-colors active:scale-95"
             hx-get="{% url 'finance:sale_picker' %}" hx-target="#modal-slot" hx-swap="innerHTML">
       <span class="material-symbols-outlined">add_shopping_cart</span>
       Nova Venda
     </button>
-    <button class="flex items-center gap-2 bg-primary text-on-primary font-semibold px-5 py-2.5 md:text-lg md:px-8 md:py-3 rounded-full hover:opacity-90 transition-opacity shadow-sm active:scale-95"
+    <button class="flex items-center gap-2 bg-primary text-on-primary font-semibold px-5 py-2.5 md:text-lg md:px-8 md:py-3 rounded-pill hover:opacity-90 transition-opacity shadow-sm active:scale-95"
             hx-get="{% url 'finance:expense_create' %}?start={{ start|date:'Y-m-d' }}&end={{ end|date:'Y-m-d' }}" hx-target="#modal-slot" hx-swap="innerHTML">
       <span class="material-symbols-outlined">add</span>
       Nova Despesa
@@ -31,7 +31,7 @@
     <label class="text-sm text-on-surface-variant">Até</label>
     <input class="bg-transparent border-0 border-b border-outline-variant text-on-surface focus:ring-0 focus:border-primary" name="end" type="date" value="{{ end|date:'Y-m-d' }}"/>
   </div>
-  <button class="md:ml-auto px-6 py-2 rounded-full bg-primary-container text-on-primary-container font-semibold text-sm hover:opacity-90 transition-opacity" type="submit">Filtrar</button>
+  <button class="md:ml-auto px-6 py-2 rounded-pill bg-primary-container text-on-primary-container font-semibold text-sm hover:opacity-90 transition-opacity" type="submit">Filtrar</button>
 </form>
 
 {% include "painel/finance/_items.html" %}

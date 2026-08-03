@@ -3,36 +3,67 @@
        onclick="document.getElementById('modal-slot').innerHTML = ''"></div>
   <div class="relative w-full max-w-md bg-surface-container-lowest rounded-2xl shadow-2xl overflow-hidden max-h-[80vh] flex flex-col">
     <div class="p-8 pb-4 flex justify-between items-start shrink-0">
-      <h3 class="font-display text-headline-sm text-on-surface">Novidades</h3>
+      <h3 class="font-display text-headline-sm text-on-surface">Notificações</h3>
       <button class="text-outline hover:text-on-surface transition-colors p-2 rounded-full hover:bg-surface-container"
               onclick="document.getElementById('modal-slot').innerHTML = ''">
         <span class="material-symbols-outlined">close</span>
       </button>
     </div>
 
-    <div class="px-8 pb-8 overflow-y-auto space-y-4">
-      {% if announcements %}
+    <div class="px-8 pb-8 overflow-y-auto space-y-6">
+      {% if agenda_notifications or announcements %}
       <div class="flex justify-end">
         <button class="text-sm text-primary font-semibold hover:underline"
                 hx-post="{% url 'notifications:mark_all_read' %}" hx-target="#notifications-modal" hx-swap="outerHTML">
           Marcar todas como lidas
         </button>
       </div>
-      {% for announcement in announcements %}
-      <div class="rounded-xl border border-surface-variant p-5">
-        <p class="font-semibold text-on-surface mb-1">{{ announcement.title }}</p>
-        <p class="text-sm text-on-surface-variant mb-3 whitespace-pre-line">{{ announcement.message }}</p>
-        <div class="flex items-center justify-between">
-          <p class="text-xs text-outline">{{ announcement.created_at|date:"d/m/Y" }}</p>
-          <button class="text-sm text-primary font-semibold hover:underline"
-                  hx-post="{% url 'notifications:mark_read' announcement.pk %}" hx-target="#notifications-modal" hx-swap="outerHTML">
-            Marcar como lida
-          </button>
+      {% endif %}
+
+      {% if agenda_notifications %}
+      <div>
+        <p class="text-label-caps uppercase text-outline mb-3">Agenda</p>
+        <div class="space-y-3">
+          {% for notification in agenda_notifications %}
+          <div class="rounded-xl border border-secondary/30 bg-secondary-container/10 p-5">
+            <p class="font-semibold text-on-surface mb-1">{{ notification.title }}</p>
+            <p class="text-sm text-on-surface-variant mb-3 whitespace-pre-line">{{ notification.message }}</p>
+            <div class="flex items-center justify-between">
+              <p class="text-xs text-outline">{{ notification.created_at|date:"d/m/Y H:i" }}</p>
+              <button class="text-sm text-primary font-semibold hover:underline"
+                      hx-post="{% url 'notifications:mark_tenant_notification_read' notification.pk %}" hx-target="#notifications-modal" hx-swap="outerHTML">
+                Marcar como lida
+              </button>
+            </div>
+          </div>
+          {% endfor %}
         </div>
       </div>
-      {% endfor %}
-      {% else %}
-      <p class="text-on-surface-variant text-center py-8">Nenhuma novidade por enquanto.</p>
+      {% endif %}
+
+      {% if announcements %}
+      <div>
+        <p class="text-label-caps uppercase text-outline mb-3">Novidades da plataforma</p>
+        <div class="space-y-3">
+          {% for announcement in announcements %}
+          <div class="rounded-xl border border-surface-variant p-5">
+            <p class="font-semibold text-on-surface mb-1">{{ announcement.title }}</p>
+            <p class="text-sm text-on-surface-variant mb-3 whitespace-pre-line">{{ announcement.message }}</p>
+            <div class="flex items-center justify-between">
+              <p class="text-xs text-outline">{{ announcement.created_at|date:"d/m/Y" }}</p>
+              <button class="text-sm text-primary font-semibold hover:underline"
+                      hx-post="{% url 'notifications:mark_read' announcement.pk %}" hx-target="#notifications-modal" hx-swap="outerHTML">
+                Marcar como lida
+              </button>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+      {% if not agenda_notifications and not announcements %}
+      <p class="text-on-surface-variant text-center py-8">Nenhuma notificação por enquanto.</p>
       {% endif %}
     </div>
   </div>

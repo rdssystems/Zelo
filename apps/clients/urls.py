@@ -6,6 +6,11 @@ app_name = "clients"
 
 urlpatterns = [
     path("", views.client_list, name="list"),
+    path(
+        "mensalistas/whatsapp/",
+        views.subscription_whatsapp_campaign,
+        name="subscription_whatsapp_campaign",
+    ),
     path("novo/", views.client_create, name="create"),
     path("<int:pk>/editar/", views.client_update, name="update"),
     path("<int:pk>/mensalista/", views.client_subscription, name="subscription"),

@@ -14,6 +14,8 @@ from apps.finance.models import CashCategory, CashFlowType
 from apps.finance.services import create_cash_transaction, create_commission_for_appointment
 from apps.inventory.models import WHOLE_UNIT_CODES, MovementReason, MovementType, Product
 from apps.inventory.services import register_stock_movement
+from apps.notifications.models import TenantNotificationKind
+from apps.notifications.services import create_tenant_notification
 
 from .availability import compute_end_time, is_slot_available
 from .models import Appointment, AppointmentStatus, BLOCKING_STATUSES
@@ -23,9 +25,12 @@ from .models import Appointment, AppointmentStatus, BLOCKING_STATUSES
 def create_appointment(
     *, tenant, client, employee, service, date, start_time, created_by=None, notes=""
 ):
-    """Cria o agendamento como `pending` (RF15). Revalida a disponibilidade
-    no momento da confirmação (RF05) — a tela de horários pode estar
-    desatualizada entre a consulta e o clique em confirmar."""
+    """Cria o agendamento como `pending` (RF15), ou já `confirmed` se o
+    salão ligou `Tenant.auto_confirm_appointments` em Configurações
+    (decisão do usuário em 2026-07-31 — pula a etapa manual de confirmar na
+    Agenda). Revalida a disponibilidade no momento da confirmação (RF05) —
+    a tela de horários pode estar desatualizada entre a consulta e o clique
+    em confirmar."""
     if not (
         client.tenant_id == tenant.id
         and employee.tenant_id == tenant.id
@@ -42,6 +47,11 @@ def create_appointment(
         )
 
     end_time = compute_end_time(start_time, service.duration_minutes)
+    initial_status = (
+        AppointmentStatus.CONFIRMED
+        if tenant.auto_confirm_appointments
+        else AppointmentStatus.PENDING
+    )
     try:
         return Appointment.objects.create(
             tenant=tenant,
@@ -51,7 +61,7 @@ def create_appointment(
             date=date,
             start_time=start_time,
             end_time=end_time,
-            status=AppointmentStatus.PENDING,
+            status=initial_status,
             price_at_booking=service.price,
             notes=notes,
             created_by=created_by,
@@ -127,14 +137,37 @@ def remove_appointment_from_comanda(appointment):
 _CANCELABLE_STATUSES = [AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED]
 
 
-def cancel_appointment(appointment):
+def cancel_appointment(appointment, *, canceled_by_client=False):
     """RF06: cliente pode cancelar um agendamento futuro (pendente/confirmado).
     Uma vez "em atendimento" (o cliente já chegou), não cabe mais cancelar —
-    só finalizar a comanda pelo Caixa."""
+    só finalizar a comanda pelo Caixa.
+
+    `canceled_by_client=True` (chamado só por `apps.public.views`) grava a
+    origem no próprio agendamento (badge "Cancelado pelo cliente" na Agenda)
+    e sempre gera uma `TenantNotification` — decisão do usuário em
+    2026-07-31: a notificação interna independe de o salão ter o
+    redirecionamento por WhatsApp ligado ou não (esse é só um empurrãozinho
+    a mais pro cliente avisar; a notificação é a rede de segurança)."""
     if appointment.status not in _CANCELABLE_STATUSES:
         raise ValidationError("Este agendamento não pode mais ser cancelado.")
     appointment.status = AppointmentStatus.CANCELED
-    appointment.save(update_fields=["status"])
+    update_fields = ["status"]
+    if canceled_by_client:
+        appointment.canceled_by_client = True
+        update_fields.append("canceled_by_client")
+    appointment.save(update_fields=update_fields)
+    if canceled_by_client:
+        create_tenant_notification(
+            appointment.tenant,
+            kind=TenantNotificationKind.APPOINTMENT_CANCELED_BY_CLIENT,
+            title="Cliente cancelou um agendamento",
+            message=(
+                f"{appointment.client.name} cancelou {appointment.service.name} do dia "
+                f"{appointment.date.strftime('%d/%m/%Y')} às "
+                f"{appointment.start_time.strftime('%H:%M')} com {appointment.employee.full_name}."
+            ),
+            appointment=appointment,
+        )
     return appointment
 
 

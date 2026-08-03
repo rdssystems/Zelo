@@ -19,9 +19,9 @@
         <div class="flex items-center gap-4">
           <span class="font-semibold text-on-surface">R$ {{ commission.calculated_amount }}</span>
           {% if commission.status == "paid" %}
-          <span class="inline-flex items-center px-3 py-1 rounded-full bg-[#e8f5e9] text-[#2e7d32] text-label-caps uppercase">Paga</span>
+          <span class="inline-flex items-center px-3 py-1 rounded-pill bg-[#e8f5e9] text-[#2e7d32] text-label-caps uppercase">Paga</span>
           {% else %}
-          <button class="px-4 py-2 rounded-full bg-primary text-on-primary text-sm font-semibold hover:opacity-90 transition-opacity"
+          <button class="px-4 py-2 rounded-pill bg-primary text-on-primary text-sm font-semibold hover:opacity-90 transition-opacity"
                   hx-get="{% url 'finance:commission_pay_confirm' commission.pk %}?start={{ start|date:'Y-m-d' }}&end={{ end|date:'Y-m-d' }}"
                   hx-target="#modal-slot" hx-swap="innerHTML">
             Pagar
@@ -34,7 +34,7 @@
     {% if row.has_pending %}
     <div class="px-6 py-4 bg-surface-container-low/30 flex items-center justify-end gap-4">
       <span class="text-sm font-medium text-on-surface-variant">Total a pagar: <span class="font-bold text-on-surface text-base ml-1">R$ {{ row.pending_total }}</span></span>
-      <button class="px-6 py-2.5 rounded-full border border-primary text-primary text-sm font-semibold hover:bg-primary-container/20 transition-colors"
+      <button class="px-6 py-2.5 rounded-pill border border-primary text-primary text-sm font-semibold hover:bg-primary-container/20 transition-colors"
               hx-get="{% url 'finance:commission_pay_all_confirm' row.employee.pk %}?start={{ start|date:'Y-m-d' }}&end={{ end|date:'Y-m-d' }}"
               hx-target="#modal-slot" hx-swap="innerHTML">
         Pagar tudo

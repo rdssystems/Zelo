@@ -1,0 +1,9 @@
+{% if subscription.status == "active" %}
+<span class="inline-flex items-center gap-2 text-sm font-semibold text-[#2e7d32]">
+  <span class="material-symbols-outlined text-[18px]">check_circle</span> Pagamento confirmado!
+</span>
+{% else %}
+<span class="inline-flex items-center gap-2 text-sm font-medium text-on-surface-variant">
+  <span class="material-symbols-outlined text-[18px] animate-spin">progress_activity</span> Aguardando confirmação do pagamento…
+</span>
+{% endif %}

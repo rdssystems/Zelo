@@ -1,4 +1,6 @@
-<div id="agenda-items" class="flex flex-col gap-3">
+<div id="agenda-items" class="flex flex-col gap-3"
+     hx-get="{% url 'scheduling:agenda_items_poll' %}?date={{ selected_date|date:'Y-m-d' }}{% if selected_employee_id %}&employee={{ selected_employee_id }}{% endif %}"
+     hx-trigger="every 20s" hx-swap="outerHTML">
   {% for appointment in appointments %}
   <div class="bg-surface-container-lowest rounded-2xl p-5 border border-surface-variant shadow-sm flex flex-col md:flex-row md:items-center gap-4">
     <div class="md:w-24 shrink-0">
@@ -11,28 +13,34 @@
     </div>
     <div>
       {% if appointment.status == "pending" %}
-      <span class="inline-flex items-center px-3 py-1 rounded-full bg-surface-variant text-on-surface-variant text-label-caps uppercase">Pendente</span>
+      <span class="inline-flex items-center px-3 py-1 rounded-pill bg-surface-variant text-on-surface-variant text-label-caps uppercase">Pendente</span>
       {% elif appointment.status == "confirmed" %}
-      <span class="inline-flex items-center px-3 py-1 rounded-full bg-secondary-container text-on-secondary-container text-label-caps uppercase">Confirmado</span>
+      <span class="inline-flex items-center px-3 py-1 rounded-pill bg-secondary-container text-on-secondary-container text-label-caps uppercase">Confirmado</span>
       {% elif appointment.status == "in_progress" %}
-      <span class="inline-flex items-center px-3 py-1 rounded-full bg-primary-container text-on-primary-container text-label-caps uppercase">Em Atendimento</span>
+      <span class="inline-flex items-center px-3 py-1 rounded-pill bg-primary-container text-on-primary-container text-label-caps uppercase">Em Atendimento</span>
       {% elif appointment.status == "completed" %}
-      <span class="inline-flex items-center px-3 py-1 rounded-full bg-[#e8f5e9] text-[#2e7d32] text-label-caps uppercase">Concluído</span>
+      <span class="inline-flex items-center px-3 py-1 rounded-pill bg-[#e8f5e9] text-[#2e7d32] text-label-caps uppercase">Concluído</span>
       {% elif appointment.status == "canceled" %}
-      <span class="inline-flex items-center px-3 py-1 rounded-full bg-error-container text-on-error-container text-label-caps uppercase">Cancelado</span>
+      {% if appointment.canceled_by_client %}
+      <span class="inline-flex items-center gap-1 px-3 py-1 rounded-pill bg-error-container text-on-error-container text-label-caps uppercase" title="O cliente cancelou pela página pública">
+        <span class="material-symbols-outlined text-[14px]">smartphone</span>Cancelado pelo cliente
+      </span>
+      {% else %}
+      <span class="inline-flex items-center px-3 py-1 rounded-pill bg-error-container text-on-error-container text-label-caps uppercase">Cancelado</span>
+      {% endif %}
       {% elif appointment.status == "no_show" %}
-      <span class="inline-flex items-center px-3 py-1 rounded-full bg-error-container text-on-error-container text-label-caps uppercase">Não compareceu</span>
+      <span class="inline-flex items-center px-3 py-1 rounded-pill bg-error-container text-on-error-container text-label-caps uppercase">Não compareceu</span>
       {% endif %}
     </div>
     {% if appointment.status == "pending" or appointment.status == "confirmed" %}
     <div class="flex flex-wrap gap-2 md:justify-end">
       {% if appointment.status == "pending" %}
-      <button class="px-4 py-2 rounded-full border border-outline text-on-surface-variant hover:bg-surface-container transition-colors text-sm"
-              hx-post="{% url 'scheduling:confirm' appointment.pk %}?date={{ selected_date|date:'Y-m-d' }}{% if selected_employee_id %}&employee={{ selected_employee_id }}{% endif %}" hx-target="#agenda-items" hx-swap="outerHTML">
+      <button class="px-4 py-2 rounded-pill border border-outline text-on-surface-variant hover:bg-surface-container transition-colors text-sm"
+              hx-get="{% url 'scheduling:confirm_prepare' appointment.pk %}?date={{ selected_date|date:'Y-m-d' }}{% if selected_employee_id %}&employee={{ selected_employee_id }}{% endif %}" hx-target="#modal-slot" hx-swap="innerHTML">
         Confirmar
       </button>
       {% endif %}
-      <button class="px-4 py-2 rounded-full bg-primary text-on-primary font-semibold hover:opacity-90 transition-opacity text-sm"
+      <button class="px-4 py-2 rounded-pill bg-primary text-on-primary font-semibold hover:opacity-90 transition-opacity text-sm"
               hx-post="{% url 'scheduling:start' appointment.pk %}?date={{ selected_date|date:'Y-m-d' }}{% if selected_employee_id %}&employee={{ selected_employee_id }}{% endif %}" hx-target="#agenda-items" hx-swap="outerHTML">
         Iniciar Atendimento
       </button>

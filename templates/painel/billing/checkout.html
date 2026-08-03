@@ -1,0 +1,58 @@
+{% extends "painel/base.html" %}
+
+{% block title %}Zelo — Assinar {{ subscription.plan.name }}{% endblock %}
+
+{% block content %}
+<div class="mb-8">
+  <a href="{% url 'billing:my_plan' %}" class="text-sm text-on-surface-variant hover:text-primary inline-flex items-center gap-1 mb-4">
+    <span class="material-symbols-outlined text-[18px]">arrow_back</span> Voltar pros planos
+  </a>
+  <h2 class="font-display text-headline-md text-on-surface mb-2">Assinar plano {{ subscription.plan.name }}</h2>
+  <p class="text-on-surface-variant">R$ {{ subscription.plan.price }}/mês</p>
+</div>
+
+{% if error %}
+<div class="bg-error-container/20 border border-error/20 rounded-2xl px-6 py-4 mb-8">
+  <p class="text-sm font-medium text-error">{{ error }}</p>
+</div>
+{% endif %}
+
+{% if document_form %}
+<div class="bg-surface-container-lowest rounded-2xl border border-surface-variant shadow-sm p-8 max-w-md">
+  <h3 class="text-label-caps uppercase text-outline mb-2">Falta só uma informação</h3>
+  <p class="text-sm text-on-surface-variant mb-6">O Asaas (nossa processadora de pagamento) exige o CPF ou CNPJ do salão pra emitir a cobrança.</p>
+  <form method="post" action="{% url 'billing:submit_document' %}">
+    {% csrf_token %}
+    <label class="block text-label-caps uppercase text-outline mb-2">{{ document_form.document.label }}</label>
+    {{ document_form.document }}
+    {% if document_form.document.errors %}
+    <p class="text-error text-sm mt-1">{{ document_form.document.errors|join:" " }}</p>
+    {% endif %}
+    <button type="submit" class="mt-6 w-full py-3 rounded-pill bg-primary text-on-primary font-semibold text-sm hover:opacity-90 transition-opacity">
+      Continuar
+    </button>
+  </form>
+</div>
+
+{% elif invoice_url %}
+<div class="bg-surface-container-lowest rounded-2xl border border-surface-variant shadow-sm max-w-xl p-8 text-center">
+  <div class="w-14 h-14 rounded-full bg-primary-container/30 flex items-center justify-center mx-auto mb-5">
+    <span class="material-symbols-outlined text-primary text-2xl">receipt_long</span>
+  </div>
+  <h3 class="font-display text-xl font-bold mb-2">Sua fatura está pronta</h3>
+  <p class="text-sm text-on-surface-variant mb-6">
+    O Asaas (nossa processadora de pagamento) não permite mostrar a fatura dentro de outro
+    site por segurança — é assim com qualquer provedor de pagamento sério. Clique abaixo pra
+    abrir e escolher PIX, boleto ou cartão. Essa tela aqui atualiza sozinha assim que a
+    confirmação chegar, não precisa voltar manualmente.
+  </p>
+  <a href="{{ invoice_url }}" target="_blank" rel="noopener"
+     class="inline-flex items-center justify-center gap-2 w-full bg-primary text-on-primary font-semibold text-lg py-3 rounded-pill hover:opacity-90 transition-opacity active:scale-95 mb-6">
+    Pagar agora <span class="material-symbols-outlined text-[18px]">open_in_new</span>
+  </a>
+  <div class="rounded-lg bg-surface-container-low px-4 py-3" id="checkout-status" hx-get="{% url 'billing:checkout_status' %}" hx-trigger="every 4s" hx-swap="innerHTML">
+    {% include "painel/billing/_status_pill.html" %}
+  </div>
+</div>
+{% endif %}
+{% endblock %}

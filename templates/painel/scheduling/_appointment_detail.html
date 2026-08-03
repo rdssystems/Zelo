@@ -36,28 +36,34 @@
       </dl>
 
       {% if appointment.status == "pending" %}
-      <span class="inline-flex items-center px-3 py-1 rounded-full bg-surface-variant text-on-surface-variant text-label-caps uppercase mb-6">Pendente</span>
+      <span class="inline-flex items-center px-3 py-1 rounded-pill bg-surface-variant text-on-surface-variant text-label-caps uppercase mb-6">Pendente</span>
       {% elif appointment.status == "confirmed" %}
-      <span class="inline-flex items-center px-3 py-1 rounded-full bg-secondary-container text-on-secondary-container text-label-caps uppercase mb-6">Confirmado</span>
+      <span class="inline-flex items-center px-3 py-1 rounded-pill bg-secondary-container text-on-secondary-container text-label-caps uppercase mb-6">Confirmado</span>
       {% elif appointment.status == "in_progress" %}
-      <span class="inline-flex items-center px-3 py-1 rounded-full bg-primary-container text-on-primary-container text-label-caps uppercase mb-6">Em Atendimento</span>
+      <span class="inline-flex items-center px-3 py-1 rounded-pill bg-primary-container text-on-primary-container text-label-caps uppercase mb-6">Em Atendimento</span>
       {% elif appointment.status == "completed" %}
-      <span class="inline-flex items-center px-3 py-1 rounded-full bg-[#e8f5e9] text-[#2e7d32] text-label-caps uppercase mb-6">Concluído</span>
+      <span class="inline-flex items-center px-3 py-1 rounded-pill bg-[#e8f5e9] text-[#2e7d32] text-label-caps uppercase mb-6">Concluído</span>
       {% elif appointment.status == "canceled" %}
-      <span class="inline-flex items-center px-3 py-1 rounded-full bg-error-container text-on-error-container text-label-caps uppercase mb-6">Cancelado</span>
+      {% if appointment.canceled_by_client %}
+      <span class="inline-flex items-center gap-1 px-3 py-1 rounded-pill bg-error-container text-on-error-container text-label-caps uppercase mb-6" title="O cliente cancelou pela página pública">
+        <span class="material-symbols-outlined text-[14px]">smartphone</span>Cancelado pelo cliente
+      </span>
+      {% else %}
+      <span class="inline-flex items-center px-3 py-1 rounded-pill bg-error-container text-on-error-container text-label-caps uppercase mb-6">Cancelado</span>
+      {% endif %}
       {% elif appointment.status == "no_show" %}
-      <span class="inline-flex items-center px-3 py-1 rounded-full bg-error-container text-on-error-container text-label-caps uppercase mb-6">Não compareceu</span>
+      <span class="inline-flex items-center px-3 py-1 rounded-pill bg-error-container text-on-error-container text-label-caps uppercase mb-6">Não compareceu</span>
       {% endif %}
 
       {% if appointment.status == "pending" or appointment.status == "confirmed" %}
       <div class="flex flex-wrap gap-2">
         {% if appointment.status == "pending" %}
-        <button class="px-4 py-2 rounded-full border border-outline text-on-surface-variant hover:bg-surface-container transition-colors text-sm"
-                hx-post="{% url 'scheduling:confirm' appointment.pk %}?{{ return_qs }}" hx-target="#agenda-week-grid" hx-swap="outerHTML">
+        <button class="px-4 py-2 rounded-pill border border-outline text-on-surface-variant hover:bg-surface-container transition-colors text-sm"
+                hx-get="{% url 'scheduling:confirm_prepare' appointment.pk %}?{{ return_qs }}" hx-target="#modal-slot" hx-swap="innerHTML">
           Confirmar
         </button>
         {% endif %}
-        <button class="px-4 py-2 rounded-full bg-primary text-on-primary font-semibold hover:opacity-90 transition-opacity text-sm"
+        <button class="px-4 py-2 rounded-pill bg-primary text-on-primary font-semibold hover:opacity-90 transition-opacity text-sm"
                 hx-post="{% url 'scheduling:start' appointment.pk %}?{{ return_qs }}" hx-target="#agenda-week-grid" hx-swap="outerHTML">
           Iniciar Atendimento
         </button>

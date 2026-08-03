@@ -31,11 +31,76 @@ A plataforma cobra **assinatura mensal dos tenants** via Asaas.
 - RF04: Telefone é o identificador único do cliente dentro daquele tenant (não precisa senha).
   Se o telefone já existe, recupera nome e histórico; se não existe, cadastra na hora.
 - RF05: Sistema bloqueia horários fora da jornada do funcionário e horários já ocupados.
-- RF06: Cliente pode ver/cancelar agendamento futuro reentrando com o telefone.
+- RF06: Cliente pode ver/cancelar agendamento futuro reentrando com o telefone. Cada agendamento
+  mostra um selo de status ✅ *(2026-07-31)*: "Aguardando confirmação" (pendente), "Confirmado" ou
+  "Em atendimento" — reflete direto o que o admin do salão faz na Agenda (RF15b).
+- RF06i ✅ *(implementado em 2026-07-31)*: Tela de sucesso do agendamento
+  (`/<slug>/agendar/sucesso/<id>/`) reflete o `status` real do agendamento, em vez de sempre
+  dizer "Confirmado" — controlado por `Tenant.auto_confirm_appointments` (checkbox em
+  Configurações, RF26d, default desmarcado): **desmarcado** → agendamento nasce `pending`, a
+  tela mostra "Agendamento Enviado" + aviso pra acompanhar em "Meus agendamentos" até o salão
+  confirmar na Agenda (mesmo fluxo de sempre, RF15b); **marcado** → agendamento já nasce
+  `confirmed` (`apps.scheduling.services.create_appointment`), a tela mostra "Agendamento
+  Confirmado" na hora, sem esperar o salão.
 - RF06b: Atalho de contato via WhatsApp: botão "Fale conosco" na página pública (ícone oficial do
   WhatsApp) abre conversa com o número do tenant; na lista de Clientes do painel, cada cliente com
   telefone válido tem um ícone de WhatsApp (coluna própria) que abre a conversa direto com aquele
   cliente (`wa.me/55<telefone>`). Cliente anonimizado (LGPD) não mostra o ícone.
+- RF06d ✅ *(implementado em 2026-07-31)*: Campanha de cobrança de mensalista por WhatsApp —
+  botão "Cobrar mensalistas" (ao lado de "Novo Cliente" em `/painel/clientes/`) abre modal com
+  selectbox **Vencidas / A Vencer** (janela configurável, ver RF26b abaixo); lista o mensalista
+  daquela situação com telefone + mensagem pronta (editável), e "Enviar e ir pro próximo" abre o
+  WhatsApp (`wa.me/55<telefone>?text=<mensagem>`) um cliente por vez, num loop dentro do próprio
+  modal (Alpine.js, sem round-trip ao servidor por envio). Só entram clientes com telefone válido
+  (mesmo critério do RF06b — anonimizado LGPD fica de fora).
+- RF06e ✅ *(implementado em 2026-07-31)*: Cliente sem atendimento concluído há
+  `Tenant.client_inactive_days` dias (RF26b) aparece com um badge "Inativo" ao lado do nome na
+  lista de Clientes — conta a partir do cadastro (`created_at`) se o cliente nunca voltou.
+- RF06f ✅ *(implementado em 2026-07-31)*: Cancelamento pelo cliente avisa o salão. Ao confirmar
+  "Cancelar agendamento" em `/meus-agendamentos/`, se `Tenant.whatsapp_cancel_redirect_enabled`
+  estiver ligado (default `True`, toggle em Configurações — RF26c) e o salão tiver WhatsApp
+  cadastrado, o mesmo clique abre `wa.me/<número do salão>?text=<mensagem>` numa aba nova com um
+  aviso pronto ("Sou {cliente} e decidi cancelar meu agendamento de {serviço} marcado para
+  {data/hora}. Só avisando por aqui!") — o cliente só edita se quiser e clica enviar dentro do
+  próprio WhatsApp. **Independente desse toggle**, todo cancelamento pelo cliente também: (1)
+  grava `Appointment.canceled_by_client=True`, mostrando "Cancelado pelo cliente" (com ícone) em
+  vez de só "Cancelado" na Agenda (lista do dia, grade semanal e modal de detalhe); (2) gera uma
+  `TenantNotification` (RF06g) — decisão do usuário: a notificação interna não pode depender do
+  cliente efetivamente mandar a mensagem no WhatsApp (ele pode fechar a aba sem enviar), então é
+  sempre criada, o WhatsApp é só um reforço a mais.
+- RF06g ✅ *(implementado em 2026-07-31)*: Notificações operacionais do salão. Novo tipo de
+  alerta, `apps.notifications.models.TenantNotification` — diferente de `Announcement` (aviso da
+  plataforma pra **todos** os tenants), é escopado a **um** tenant, nascendo de eventos dentro do
+  próprio salão (hoje só "cliente cancelou agendamento", RF06f; o `kind` já é um enum extensível
+  pra outros eventos futuros, ver roadmap "tempo real" abaixo). Aparece em três lugares, ao mesmo
+  tempo (decisão do usuário — "sininho + aviso no canto + no card"):
+  1. **Sininho** (ícone já existente na barra lateral, renomeado de "Novidades" pra
+     "Notificações") — o contador soma avisos da plataforma (`Announcement`) +
+     `TenantNotification` não lidas deste tenant; o modal ao clicar mostra as duas listas em
+     seções separadas ("Agenda" e "Novidades da plataforma"), cada uma com "marcar como
+     lida"/"marcar todas como lidas".
+  2. **Aviso no canto da tela ("toast")** — `painel/base.html` faz polling
+     (`hx-trigger="every 20s"`) em `notifications:agenda_toast_poll`, que devolve só as
+     notificações novas desde a última checada nesta sessão (watermark por `pk` guardado em
+     `request.session`, não por `is_read` — o toast aparece uma vez por notificação por sessão de
+     navegador, independente de o admin marcar como lida ou não) e as injeta via HTMX OOB em
+     `#toast-slot`; cada toast some sozinho depois de 8s (ou ao clicar o X).
+  3. **Card do agendamento na Agenda** — RF06f acima.
+- RF06h ✅ *(implementado em 2026-07-31, base pro RF06f/g)*: Agenda com atualização automática —
+  `#agenda-items` (lista do dia) e `#agenda-week-grid` (grade semanal) fazem polling
+  (`hx-trigger="every 20s"`) contra endpoints dedicados (`scheduling:agenda_items_poll`/
+  `agenda_week_poll`) que devolvem só o partial, sem fechar modal aberto no meio de uma ação —
+  pensado pro PC do salão que fica com a Agenda aberta o dia inteiro (pedido do usuário).
+  **Roadmap explicitamente não implementado agora** (pedido do usuário, "colocar nos planos"):
+  notificar automaticamente TODA mudança relevante na agenda — novo agendamento, reagendamento,
+  etc. — não só cancelamento pelo cliente. Polling a cada 20s já cobre a necessidade prática de
+  hoje (a Agenda se atualiza sozinha, o sininho/toast avisam de cancelamento) com zero
+  infraestrutura nova. Pra virar "tempo real" de verdade (latência sub-segundo, sem esperar o
+  próximo ciclo de poll) o próximo passo natural seria WebSockets (Django Channels) ou
+  Server-Sent Events com Redis como backend de pub/sub — ambos exigem processo assíncrono
+  adicional rodando ao lado do `gunicorn` atual (`docker-compose.yml` ganharia mais um serviço) e
+  não são gratuitos em complexidade operacional; recomendação: só migrar pra isso se o polling de
+  20s se mostrar insuficiente na prática (esse número é fácil de ajustar pra baixo primeiro).
 
 ### 3.1b Login/cadastro do painel (dono do salão)
 - RF06c: Login e cadastro do painel (`/painel/login/`, `/cadastrar/`) aceitam **"Continuar com
@@ -73,6 +138,13 @@ A plataforma cobra **assinatura mensal dos tenants** via Asaas.
   não compareceu (no-show). "Em atendimento" é quando o cliente chegou e a comanda abre no Caixa
   (`start_appointment`) — a partir daí não cabe mais cancelar direto (RF06), só remover pela
   comanda (RF17e) ou finalizar (RF16).
+- RF15b ✅ *(implementado em 2026-07-31)*: Confirmar um agendamento pendente (`/painel/agenda/`,
+  lista do dia ou grade semanal) abre um modal em vez de confirmar na hora — mostra uma mensagem
+  de confirmação pra WhatsApp pronta (editável) com nome do cliente, serviço, data/horário e
+  profissional. O botão "Confirmar e avisar no WhatsApp" faz as duas coisas juntas: confirma de
+  verdade (`pending` → `confirmed`) e abre `wa.me/55<telefone>?text=<mensagem>` numa aba nova
+  pro admin só clicar enviar. Cliente sem telefone válido (anonimizado LGPD) só vê o botão
+  "Confirmar", sem a parte de WhatsApp.
 - RF16: Ao marcar um agendamento como **concluído**, o sistema:
   - gera a comissão do funcionário (pendente de pagamento);
   - gera lançamento de caixa (entrada);
@@ -137,6 +209,38 @@ A plataforma cobra **assinatura mensal dos tenants** via Asaas.
   configurável por dia da semana (aberto/fechado + abertura/fechamento), exibido corretamente na
   página pública (dia atual em destaque, semana completa expansível).
 - RF27: Slug customizável (com validação de unicidade) usado na URL pública.
+- RF26b ✅ *(implementado em 2026-07-31)*: Card "Mensalistas e engajamento" em Configurações com
+  dois campos numéricos: dias de antecedência pra avisar mensalidade a vencer
+  (`Tenant.subscription_due_soon_days`, default 7 — usado no badge "Vence em breve" da lista de
+  Clientes e na campanha de WhatsApp, RF06d) e dias sem atendimento pra marcar cliente inativo
+  (`Tenant.client_inactive_days`, default 60 — RF06e).
+- RF26c ✅ *(implementado em 2026-07-31)*: Checkbox "Ao cliente cancelar... abrir o WhatsApp do
+  salão..." junto do campo WhatsApp em Configurações — controla
+  `Tenant.whatsapp_cancel_redirect_enabled` (default `True`), usado pelo RF06f. Não afeta a
+  notificação interna (RF06g), que sempre acontece.
+- RF26d ✅ *(implementado em 2026-07-31)*: Card "Confirmação de agendamento" em Configurações —
+  checkbox "Confirmar agendamento automaticamente" controla
+  `Tenant.auto_confirm_appointments` (default desmarcado/`False`, RF06i).
+- RF26e ✅ *(implementado em 2026-08-01)*: **Tema visual por tenant** (salão de beleza ou
+  barbearia) — `Tenant.theme` (`TenantTheme`, default `salao`). Escolhido no cadastro
+  (`/cadastrar/`, dois cards clicáveis "Salão de Beleza"/"Barbearia", sem JS — `input radio`
+  escondido + `label` estilizado via `peer-checked`) e editável depois em Configurações (mesmo
+  componente, dentro do card "Identidade visual"). **Só muda aparência** (paleta de cores,
+  tipografia, raio de borda de cards/modais) — nenhuma regra de negócio ou funcionalidade
+  muda entre os dois temas, decisão confirmada com o usuário. Afeta tanto a página pública
+  quanto o painel administrativo inteiro; não afeta login/cadastro/páginas legais (antes de
+  logar não existe um tenant resolvido ainda) nem `/plataforma/` (ferramenta do superadmin, não
+  é de um tenant específico). Paleta "Barbearia" ("Heritage & Steel") validada antes no Google
+  Stitch — ver `design-reference/barbearia/`. Cadastro via Google (sem formulário) sempre nasce
+  `salao`; o dono troca depois se quiser, decisão deliberada pra não adicionar uma tela extra
+  nesse fluxo.
+  **Formato dos botões ✅ *(implementado em 2026-08-01)*:** novo token `borderRadius.pill` em
+  `templates/_theme_tailwind_config.html` — `9999px` (pílula, igual hoje) no tema salão, `0.5rem`
+  (8px, "Tailored Square") no tema barbearia. 155 ocorrências de `rounded-full` em 63 templates
+  trocadas pra `rounded-pill` (botões de ação com texto — "Confirmar", "Salvar", "Criar meu
+  salão" etc. — e selos de status como "Ativo"/"Confirmado"/"Vencida"); as outras 85 ocorrências
+  (fotos de perfil, avatares, botões de ícone único, círculos decorativos) continuam
+  `rounded-full` propositalmente, nos dois temas — são círculo de verdade, não escolha de marca.
 
 ### 3.8 Assinatura SaaS (plataforma → tenant)
 - RF28: Ao criar um tenant, gera-se cliente e assinatura no Asaas. **Etapa 9/Asaas foi
@@ -145,8 +249,11 @@ A plataforma cobra **assinatura mensal dos tenants** via Asaas.
   a integração automática existir.
 - RF29: Webhook do Asaas atualiza status da assinatura (ativa, atrasada, cancelada). *Não
   construído ainda — depende do RF28 ser retomado.*
-- RF30: Tenant com assinatura inadimplente perde acesso ao painel admin (a definir regra de
-  carência) — página pública pode continuar ativa por X dias (a decidir). *Não construído ainda.*
+- RF30 ✅ *(implementado em 2026-07-31, ver detalhe em §4.2)*: Tenant com assinatura
+  inadimplente perde acesso ao painel admin, respeitando `grace_period_days` de carência —
+  página pública continua ativa normalmente, sem limite de dias. **Extensão ✅ (mesmo dia):** o
+  mesmo bloqueio vale pro trial gratuito de 14 dias vencido sem plano escolhido — nesse caso,
+  sem tolerância extra (bloqueia assim que `trial_ends_at` passa).
 
 ### 3.9 Painel do superadmin (plataforma) — `/plataforma/`
 Painel custom do superadmin, separado do Django Admin cru (que continua em `/superadmin/` — os
@@ -179,7 +286,8 @@ dois links coexistem, por instrução explícita do usuário).
   Meta ou provedor tipo Twilio/Z-API.
 - RF39: Notificação de estoque baixo por e-mail/WhatsApp.
 - RF40: Avaliação do atendimento pelo cliente (nota + comentário) pós-serviço.
-- RF41: Múltiplos planos de assinatura com limites diferentes (nº de funcionários, etc.).
+- RF41: Múltiplos planos de assinatura com limites diferentes (nº de funcionários, etc.) — ver
+  detalhamento e proposta em `4.2`.
 - RF42: App mobile (a API REST via DRF já deve estar pronta para isso).
 
 ### 4.1 Estoque profissional (plano iniciado em 2026-07-20 — ver `03-MODELO-DE-DADOS.md` pros modelos)
@@ -222,6 +330,116 @@ entre si nem com o resto, ficam por último):
   técnica por serviço — um serviço (ex. "Coloração") ter uma receita pré-definida de produtos
   consumidos automaticamente, em vez do admin escolher manualmente na hora de fechar a comanda
   (como funciona hoje). Ainda não planejado em detalhe.
+
+### 4.2 Planos, trial e checkout self-service (RF41 + parte do RF28/29 — implementado em
+2026-07-30, ver `03-MODELO-DE-DADOS.md`)
+
+**Trial ✅ *(implementado)*:** `register_tenant` agora seta `Subscription.trial_ends_at` = 14
+dias corridos a partir do cadastro (`apps.billing.services.TRIAL_DAYS`), acesso completo até lá,
+sem cartão de crédito. Exibido no painel (`/painel/plano/`) com contagem regressiva.
+
+**Plano + dias restantes no menu lateral ✅ *(implementado em 2026-07-31)*:** embaixo do
+e-mail e do nome do salão, em todo o painel (não só em `/painel/plano/`), o tenant_admin vê o
+plano atual e a contagem regressiva —
+`apps.billing.context_processors.sidebar_plan` (registrado em `TEMPLATES` em
+`config/settings.py`) + `templates/painel/_sidebar_plan.html`. Só conta como "plano pago" com
+`status == active` (webhook confirmou o 1º pagamento no Asaas); escolher um plano e não pagar
+deixa `status == pending` com `subscription.plan` preenchido, mas o menu continua mostrando
+"Gratuito" — decisão do usuário em 2026-07-31 ("não pagou, é gratuito"), corrigindo um bug do
+corte anterior que mostrava o nome do plano pago assim que escolhido, antes da confirmação.
+"Gratuito · N dias restantes" conta `trial_ends_at` por data de calendário (no dia do cadastro
+mostra 14, não 13); com plano ativo mostra o nome do plano e os dias restantes do período atual
+(`current_period_end`). Só aparece pro tenant_admin (mesmo critério do sininho de avisos), não
+pra funcionário. Migration de dados `billing/migrations/0006_reset_free_trial_to_14_days.py`
+reiniciou, uma única vez, o `trial_ends_at` de toda assinatura gratuita existente para 14 dias
+a partir de 2026-07-31.
+
+**Bug corrigido em 2026-07-31 — "Meu Plano" não mostrava dias restantes com assinatura
+`pending`:** `my_plan` (`apps/billing/views.py`) só calculava `days_left` com
+`status == trialing`; uma assinatura `pending` (plano escolhido, pagamento não confirmado) não
+mostrava nada, mesmo contando como gratuita agora (ver item acima). Trocado pra
+`status != active`, e o banner de `pending` em `painel/billing/my_plan.html` passou a exibir a
+contagem também. Achado no mesmo bug: a assinatura de teste "Catherine's Sthetic" (pending,
+plano Ilimitado) tinha `trial_ends_at` nulo — nunca tinha passado pelo trial — corrigido por
+`billing/migrations/0007_backfill_missing_trial_ends_at.py` (preenche 14 dias a partir de hoje
+em qualquer assinatura não-ativa sem `trial_ends_at`).
+
+**3 planos seedados ✅ *(implementado, `billing/migrations/0005_seed_plans.py`)*:**
+
+| | Essencial | Profissional | Ilimitado |
+|---|---|---|---|
+| Preço | R$ 49,90/mês | R$ 99,90/mês | R$ 179,90/mês |
+| Funcionários (marketing) | até 2 | até 6 | ilimitado |
+| Estoque (marketing) | básico | profissional completo (RF43-46) | profissional completo |
+| Relatórios/WhatsApp (marketing) | — | relatórios (quando existir) | relatórios + WhatsApp |
+
+⚠️ **O texto acima é só copy de marketing** (`apps/billing/views.py::PLAN_HIGHLIGHTS`), exibido
+na vitrine — **não existe enforcement real ainda**. `Plan` continua sem campo de limite
+(`max_employees` etc. seguem só documentados aqui, não criados) — nenhum tenant é bloqueado por
+passar de N funcionários ou usar estoque profissional num plano "Essencial". Isso é o próximo
+passo, deliberadamente fora deste corte (fatia de hoje foi "assinar", não "limitar").
+
+**Checkout self-service dentro do painel ✅ *(implementado)*:** `/painel/plano/` — tenant_admin
+logado escolhe um plano (`billing:select_plan`), o sistema pede CPF/CNPJ do salão se ainda não
+tiver (`Tenant.document`, validado com dígito verificador real —
+`apps.tenants.models.validate_cpf_cnpj`), cria cliente + assinatura no Asaas
+(`apps/billing/asaas_client.py`) e embute a fatura (`invoiceUrl`) num iframe dentro do próprio
+painel (`billingType=UNDEFINED` — cliente escolhe PIX/boleto/cartão na própria fatura), com link
+"abrir em nova aba" como alternativa. Status novo `SubscriptionStatus.PENDING` cobre o intervalo
+entre "escolheu o plano" e "webhook confirmou o pagamento" — antes só existia `trialing` pra
+esse limbo. Polling HTMX (`billing:checkout_status`, a cada 4s) atualiza a tela sozinha quando o
+pagamento é confirmado.
+
+**Webhook do Asaas ✅ *(implementado, `POST /webhooks/asaas/`)*:** valida o header
+`asaas-access-token` contra `ASAAS_WEBHOOK_TOKEN` (`.env`); idempotente via
+`AsaasWebhookEvent` (`unique_together` em `payment_id`+`event_type` — Asaas reenvia o mesmo
+evento se não recebe 200 a tempo, reenvio é ignorado sem reprocessar). `PAYMENT_CONFIRMED`/
+`PAYMENT_RECEIVED` → `active`; `PAYMENT_OVERDUE` → `overdue`; `PAYMENT_DELETED`/
+`PAYMENT_REFUNDED`/`SUBSCRIPTION_DELETED` → `canceled`.
+
+**Estado real das credenciais**: `ASAAS_API_KEY`/`ASAAS_WEBHOOK_TOKEN` seguem vazios no `.env`
+(decisão do usuário — só preencher depois). Com a chave vazia, `asaas_client` levanta
+`AsaasNotConfigured` e a tela de checkout mostra aviso amigável ("pagamento ainda não ativado")
+em vez de quebrar — todo o resto (models, views, templates, testes) já está pronto, só falta a
+chave de sandbox/produção pra virar cobrança de verdade.
+
+**RF30 (bloqueio por inadimplência) ✅ *(implementado em 2026-07-31)*:**
+`apps.billing.services.subscription_blocks_panel_access(tenant)` decide se o painel bloqueia —
+`canceled` bloqueia na hora; `overdue` só bloqueia depois de estourado o `grace_period_days`
+(default 5) contado do fim do último período pago (`current_period_end`); sem
+`current_period_end` conhecido bloqueia direto (mais seguro que deixar passar sem limite);
+`pending`/`active` nunca bloqueiam. Decisão do usuário: bloqueia o painel inteiro
+(admin **e** funcionário), com uma única exceção — as telas de `apps.billing` que o admin
+precisa pra regularizar (`/painel/plano/`, seleção de plano, checkout, envio de CPF/CNPJ,
+polling de status). Página pública de agendamento (`/<slug>/`) nunca é afetada.
+
+**Extensão ✅ *(mesmo dia, mesma função)*: bloqueio do trial de 14 dias vencido.** Até então
+`trialing` nunca bloqueava — o gap era real: nenhum job muda o `status` quando `trial_ends_at`
+passa (não existe Celery beat configurado no projeto), então o tenant ficava com acesso
+irrestrito pra sempre depois do trial. Agora `subscription_blocks_panel_access` também bloqueia
+quando `status == trialing` e `trial_ends_at` (datetime) já passou — decisão do usuário: **sem
+tolerância extra** (a contagem regressiva já fica visível o tempo todo no menu lateral/Meu
+Plano, então o vencimento não é surpresa; `grace_period_days` continua exclusivo de assinatura
+paga vencida, não é reaproveitado aqui). Sem `trial_ends_at` setado (não deveria acontecer —
+`create_subscription_for_tenant` sempre seta — mas por segurança) não bloqueia. Continua
+computado a cada request, nenhum campo novo de banco nem job agendado foram necessários. O
+banner de "Meu Plano" (`painel/billing/my_plan.html`) e o rótulo "Gratuito" do menu lateral
+(`apps.billing.context_processors.sidebar_plan`) mostram "expirado"/aviso de bloqueio nesse
+estado, em vez da contagem regressiva.
+
+Aplicado nos dois decorators de painel (`apps/accounts/decorators.py`):
+`tenant_admin_required(allow_when_blocked=True)` isenta uma view específica (só usado nas 5
+views de billing citadas acima); qualquer outra view do tenant_admin redireciona pra
+`/painel/plano/` com uma mensagem. `employee_required` não tem pra onde redirecionar (funcionário
+não acessa `/painel/plano/`), então devolve 403 direto com mensagem pra falar com o admin.
+`templates/painel/billing/my_plan.html` mostra contagem regressiva da carência (dias restantes
+até bloquear) ou aviso de já bloqueado, conforme o caso.
+
+**Pendente pra fechar RF41 de vez** (não fez parte deste corte): `Plan.max_employees` +
+`Plan.stock_professional_enabled` como campos reais, e o enforcement em si (bloquear cadastro de
+funcionário além do limite, esconder telas de estoque profissional pra quem não tem no plano) —
+provavelmente em `apps/tenants/services.py` ou um middleware novo, decisão de onde colocar ainda
+em aberto.
 
 ## 5. Requisitos não-funcionais
 

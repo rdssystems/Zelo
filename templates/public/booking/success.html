@@ -4,27 +4,26 @@
 <head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>Agendamento confirmado — {{ tenant.name }}</title>
+<title>{% if appointment.status == "confirmed" %}Agendamento confirmado{% else %}Agendamento enviado{% endif %} — {{ tenant.name }}</title>
+{% include "_favicon.html" %}
 <script src="https://cdn.tailwindcss.com"></script>
 <link href="https://fonts.googleapis.com" rel="preconnect"/>
 <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Playfair+Display:wght@600;700&amp;display=swap" rel="stylesheet"/>
+{% include "_theme_fonts.html" %}
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
 <style>
   .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24; }
+  {% if request.tenant.theme == "barbearia" %}
+  .glass-panel { background: linear-gradient(135deg, rgba(35,31,26,0.7) 0%, rgba(23,19,15,0.4) 100%); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(80,69,55,0.4); }
+  {% else %}
   .glass-panel { background: linear-gradient(135deg, rgba(255,255,255,0.7) 0%, rgba(255,248,245,0.4) 100%); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(212,196,183,0.4); }
+  {% endif %}
   .animate-float { animation: float 6s ease-in-out infinite; }
   @keyframes float { 0% { transform: translateY(0px);} 50% { transform: translateY(-10px);} 100% { transform: translateY(0px);} }
 </style>
 <script>
   tailwind.config = { theme: { extend: {
-    colors: {
-      "surface": "#fff8f5", "on-surface": "#1f1b17", "on-surface-variant": "#50453b",
-      "surface-container-low": "#fcf2eb", "surface-container-high": "#f0e6e0",
-      "primary": "#7d562d", "on-primary": "#ffffff", "primary-container": "#d4a373",
-      "outline-variant": "#d4c4b7", "secondary-fixed": "#fedbcc", "primary-fixed": "#ffdcbd"
-    },
-    fontFamily: { "display": ["Playfair Display", "serif"], "sans": ["Inter", "sans-serif"] }
+    {% include "_theme_tailwind_config.html" %}
   } } }
 </script>
 </head>
@@ -35,11 +34,19 @@
 <main class="w-full max-w-[800px] relative z-10">
   <div class="glass-panel rounded-3xl shadow-[0_30px_60px_-15px_rgba(125,86,45,0.08)] p-6 sm:p-10 md:p-12">
     <div class="flex flex-col items-center text-center mb-10">
+      {% if appointment.status == "confirmed" %}
       <div class="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-primary-container/20 flex items-center justify-center mb-6 animate-float border border-primary-container/30">
         <span class="material-symbols-outlined text-primary" style="font-size: 48px; font-variation-settings: 'FILL' 1;">check_circle</span>
       </div>
       <h1 class="font-display text-3xl sm:text-4xl text-primary mb-2">Agendamento Confirmado</h1>
       <p class="text-on-surface-variant max-w-md mx-auto">Tudo certo! Seu momento de autocuidado está reservado. Confira os detalhes abaixo.</p>
+      {% else %}
+      <div class="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-secondary-fixed/40 flex items-center justify-center mb-6 animate-float border border-outline-variant/30">
+        <span class="material-symbols-outlined text-on-surface-variant" style="font-size: 48px; font-variation-settings: 'FILL' 1;">hourglass_top</span>
+      </div>
+      <h1 class="font-display text-3xl sm:text-4xl text-primary mb-2">Agendamento Enviado</h1>
+      <p class="text-on-surface-variant max-w-md mx-auto">Recebemos seu pedido! Acompanhe em "Meus agendamentos" — assim que o salão confirmar, seu horário estará garantido.</p>
+      {% endif %}
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-10">
@@ -80,12 +87,12 @@
     </div>
 
     <div class="flex flex-col sm:flex-row gap-4 justify-center">
-      <a class="bg-transparent border border-outline-variant text-on-surface font-medium py-4 px-8 rounded-full flex items-center justify-center gap-2 hover:bg-surface-container-high transition-all active:scale-[0.98] w-full sm:w-auto"
+      <a class="bg-transparent border border-outline-variant text-on-surface font-medium py-4 px-8 rounded-pill flex items-center justify-center gap-2 hover:bg-surface-container-high transition-all active:scale-[0.98] w-full sm:w-auto"
          href="{% url 'public:my_appointments' tenant.slug %}">
         <span class="material-symbols-outlined" style="font-size: 18px;">event_note</span>
         Ver ou cancelar meus agendamentos
       </a>
-      <a class="bg-primary text-on-primary font-medium py-4 px-8 rounded-full flex items-center justify-center gap-2 hover:opacity-90 transition-all active:scale-[0.98] w-full sm:w-auto"
+      <a class="bg-primary text-on-primary font-medium py-4 px-8 rounded-pill flex items-center justify-center gap-2 hover:opacity-90 transition-all active:scale-[0.98] w-full sm:w-auto"
          href="{% url 'public:home' tenant.slug %}">
         Voltar ao início
       </a>

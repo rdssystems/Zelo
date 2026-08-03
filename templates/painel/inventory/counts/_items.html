@@ -33,11 +33,11 @@
             {% if item.difference == None %}
             <span class="text-on-surface-variant">—</span>
             {% elif item.difference == 0 %}
-            <span class="inline-flex items-center justify-center px-3 py-1 rounded-full text-label-caps bg-secondary-container/50 text-on-secondary-container">OK</span>
+            <span class="inline-flex items-center justify-center px-3 py-1 rounded-pill text-label-caps bg-secondary-container/50 text-on-secondary-container">OK</span>
             {% elif item.difference > 0 %}
-            <span class="inline-flex items-center justify-center px-3 py-1 rounded-full text-label-caps bg-secondary-container text-on-secondary-container">+{{ item.difference }}</span>
+            <span class="inline-flex items-center justify-center px-3 py-1 rounded-pill text-label-caps bg-secondary-container text-on-secondary-container">+{{ item.difference }}</span>
             {% else %}
-            <span class="inline-flex items-center justify-center px-3 py-1 rounded-full text-label-caps bg-error-container text-on-error-container">{{ item.difference }}</span>
+            <span class="inline-flex items-center justify-center px-3 py-1 rounded-pill text-label-caps bg-error-container text-on-error-container">{{ item.difference }}</span>
             {% endif %}
           </td>
         </tr>

@@ -16,7 +16,7 @@
     </div>
     <div class="md:col-span-5 flex flex-wrap gap-2">
       {% for link in employee.service_links.all %}
-      <span class="bg-secondary-container text-on-secondary-container px-3 py-1 rounded-full text-label-caps uppercase tracking-wider flex items-center gap-1">
+      <span class="bg-secondary-container text-on-secondary-container px-3 py-1 rounded-pill text-label-caps uppercase tracking-wider flex items-center gap-1">
         <span class="material-symbols-outlined text-[14px]">content_cut</span>
         {{ link.service.name }}
       </span>
@@ -26,11 +26,11 @@
     </div>
     <div class="md:col-span-2 flex md:justify-center items-center">
       {% if employee.is_active %}
-      <div class="bg-[#e8f5e9] text-[#2e7d32] px-3 py-1 rounded-full text-label-caps uppercase flex items-center gap-1.5 border border-[#c8e6c9]">
+      <div class="bg-[#e8f5e9] text-[#2e7d32] px-3 py-1 rounded-pill text-label-caps uppercase flex items-center gap-1.5 border border-[#c8e6c9]">
         <span class="w-1.5 h-1.5 rounded-full bg-[#2e7d32]"></span> Ativo
       </div>
       {% else %}
-      <div class="bg-surface-container text-on-surface-variant px-3 py-1 rounded-full text-label-caps uppercase flex items-center gap-1.5 border border-surface-variant">
+      <div class="bg-surface-container text-on-surface-variant px-3 py-1 rounded-pill text-label-caps uppercase flex items-center gap-1.5 border border-surface-variant">
         <span class="w-1.5 h-1.5 rounded-full bg-outline"></span> Inativo
       </div>
       {% endif %}

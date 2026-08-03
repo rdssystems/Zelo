@@ -496,6 +496,19 @@ class CreateAppointmentTest(TestCase):
         self.assertEqual(appointment.end_time, datetime.time(10, 0))
         self.assertEqual(appointment.price_at_booking, self.service.price)
 
+    def test_auto_confirm_appointments_creates_confirmed(self):
+        self.tenant.auto_confirm_appointments = True
+        self.tenant.save(update_fields=["auto_confirm_appointments"])
+        appointment = create_appointment(
+            tenant=self.tenant,
+            client=self.client_,
+            employee=self.employee,
+            service=self.service,
+            date=self.monday,
+            start_time=datetime.time(9, 0),
+        )
+        self.assertEqual(appointment.status, AppointmentStatus.CONFIRMED)
+
     def test_price_snapshot_survives_later_price_change(self):
         appointment = create_appointment(
             tenant=self.tenant, client=self.client_, employee=self.employee,
@@ -631,6 +644,69 @@ class CancelAppointmentTest(TestCase):
         )
         with self.assertRaises(ValidationError):
             cancel_appointment(appointment)
+
+    def test_admin_cancel_does_not_mark_canceled_by_client(self):
+        appointment = book(
+            self.tenant, self.employee, self.service, self.client_,
+            self.monday, datetime.time(9, 0), datetime.time(10, 0),
+            status=AppointmentStatus.PENDING,
+        )
+        cancel_appointment(appointment)
+        appointment.refresh_from_db()
+        self.assertFalse(appointment.canceled_by_client)
+
+    def test_admin_cancel_does_not_create_notification(self):
+        from apps.notifications.models import TenantNotification
+
+        appointment = book(
+            self.tenant, self.employee, self.service, self.client_,
+            self.monday, datetime.time(9, 0), datetime.time(10, 0),
+            status=AppointmentStatus.PENDING,
+        )
+        cancel_appointment(appointment)
+        self.assertFalse(TenantNotification.objects.filter(tenant=self.tenant).exists())
+
+    def test_client_cancel_marks_canceled_by_client(self):
+        appointment = book(
+            self.tenant, self.employee, self.service, self.client_,
+            self.monday, datetime.time(9, 0), datetime.time(10, 0),
+            status=AppointmentStatus.PENDING,
+        )
+        cancel_appointment(appointment, canceled_by_client=True)
+        appointment.refresh_from_db()
+        self.assertTrue(appointment.canceled_by_client)
+        self.assertEqual(appointment.status, AppointmentStatus.CANCELED)
+
+    def test_client_cancel_creates_tenant_notification(self):
+        from apps.notifications.models import TenantNotification, TenantNotificationKind
+
+        appointment = book(
+            self.tenant, self.employee, self.service, self.client_,
+            self.monday, datetime.time(9, 0), datetime.time(10, 0),
+            status=AppointmentStatus.PENDING,
+        )
+        cancel_appointment(appointment, canceled_by_client=True)
+        notification = TenantNotification.objects.get(tenant=self.tenant)
+        self.assertEqual(notification.kind, TenantNotificationKind.APPOINTMENT_CANCELED_BY_CLIENT)
+        self.assertEqual(notification.appointment_id, appointment.pk)
+        self.assertIn(self.client_.name, notification.message)
+        self.assertFalse(notification.is_read)
+
+    def test_client_cancel_notification_created_even_without_whatsapp_toggle(self):
+        """Decisão do usuário em 2026-07-31: a notificação interna independe
+        do toggle de redirecionamento por WhatsApp (esse controla só o
+        cliente ser levado pro WhatsApp, não a notificação do salão)."""
+        from apps.notifications.models import TenantNotification
+
+        self.tenant.whatsapp_cancel_redirect_enabled = False
+        self.tenant.save(update_fields=["whatsapp_cancel_redirect_enabled"])
+        appointment = book(
+            self.tenant, self.employee, self.service, self.client_,
+            self.monday, datetime.time(9, 0), datetime.time(10, 0),
+            status=AppointmentStatus.PENDING,
+        )
+        cancel_appointment(appointment, canceled_by_client=True)
+        self.assertTrue(TenantNotification.objects.filter(tenant=self.tenant).exists())
 
 
 class UpcomingAppointmentsForClientTest(TestCase):
@@ -1378,6 +1454,81 @@ class ConfirmAndNoShowTest(TestCase):
             mark_no_show(appointment)
 
 
+class AppointmentConfirmModalTest(TestCase):
+    """"Confirmar" abre um modal com mensagem de WhatsApp pronta (editável)
+    em vez de confirmar na hora — o POST de verdade só acontece quando o
+    admin clica o botão dentro do modal (ver
+    `apps.scheduling.views.appointment_confirm_prepare`)."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.tenant, cls.admin = make_tenant_with_admin("salao-confirmmodal")
+        cls.employee = make_employee(cls.tenant)
+        cls.service = create_service(
+            tenant=cls.tenant, name="Corte", duration_minutes=60, price=Decimal("100")
+        )
+        cls.monday = next_weekday(datetime.date(2026, 8, 1), 0)
+
+    def test_login_required(self):
+        client_ = Client.objects.create(tenant=self.tenant, phone="11988887777", name="Maria")
+        appointment = book(
+            self.tenant, self.employee, self.service, client_,
+            self.monday, datetime.time(9, 0), datetime.time(10, 0),
+            status=AppointmentStatus.PENDING,
+        )
+        response = self.client.get(f"/painel/agenda/{appointment.pk}/confirmar/preparar/")
+        self.assertEqual(response.status_code, 302)
+
+    def test_shows_editable_message_with_valid_phone(self):
+        client_ = Client.objects.create(tenant=self.tenant, phone="11988887777", name="Maria")
+        appointment = book(
+            self.tenant, self.employee, self.service, client_,
+            self.monday, datetime.time(9, 0), datetime.time(10, 0),
+            status=AppointmentStatus.PENDING,
+        )
+        self.client.force_login(self.admin)
+        response = self.client.get(f"/painel/agenda/{appointment.pk}/confirmar/preparar/")
+        self.assertEqual(response.status_code, 200)
+        body = response.content.decode()
+        self.assertIn("wa.me/5511988887777", body)
+        self.assertIn("Maria", body)
+        self.assertIn("Confirmar e avisar no WhatsApp", body)
+        # a confirmação de verdade ainda não aconteceu, só abrir o modal
+        appointment.refresh_from_db()
+        self.assertEqual(appointment.status, AppointmentStatus.PENDING)
+
+    def test_no_valid_phone_shows_notice_without_message_field(self):
+        client_ = Client.objects.create(
+            tenant=self.tenant, phone="removido-1", name="Cliente removido (LGPD)"
+        )
+        appointment = book(
+            self.tenant, self.employee, self.service, client_,
+            self.monday, datetime.time(9, 0), datetime.time(10, 0),
+            status=AppointmentStatus.PENDING,
+        )
+        self.client.force_login(self.admin)
+        response = self.client.get(f"/painel/agenda/{appointment.pk}/confirmar/preparar/")
+        self.assertEqual(response.status_code, 200)
+        body = response.content.decode()
+        self.assertNotIn("wa.me/", body)
+        self.assertIn("não tem um WhatsApp válido", body)
+
+    def test_confirm_button_in_modal_actually_confirms(self):
+        client_ = Client.objects.create(tenant=self.tenant, phone="11988887777", name="Maria")
+        appointment = book(
+            self.tenant, self.employee, self.service, client_,
+            self.monday, datetime.time(9, 0), datetime.time(10, 0),
+            status=AppointmentStatus.PENDING,
+        )
+        self.client.force_login(self.admin)
+        response = self.client.post(
+            f"/painel/agenda/{appointment.pk}/confirmar/?date={self.monday.isoformat()}"
+        )
+        self.assertEqual(response.status_code, 200)
+        appointment.refresh_from_db()
+        self.assertEqual(appointment.status, AppointmentStatus.CONFIRMED)
+
+
 class AgendaPanelTest(TestCase):
     @classmethod
     def setUpTestData(cls):
@@ -1613,6 +1764,65 @@ class AgendaPanelTest(TestCase):
             f"/painel/agenda/{other_appointment.pk}/confirmar/?date={tomorrow.isoformat()}"
         )
         self.assertEqual(response.status_code, 404)
+
+
+class CanceledByClientBadgeAndPollingTest(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.tenant, cls.admin = make_tenant_with_admin("salao-canceladopelocliente")
+        cls.employee = make_employee(cls.tenant)
+        cls.client_ = make_client(cls.tenant)
+        cls.service = create_service(
+            tenant=cls.tenant, name="Corte", duration_minutes=60, price=Decimal("100")
+        )
+        cls.today = datetime.date.today()
+
+    def test_items_view_shows_client_cancel_badge(self):
+        tomorrow = self.today + datetime.timedelta(days=1)
+        appointment = book(
+            self.tenant, self.employee, self.service, self.client_,
+            tomorrow, datetime.time(9, 0), datetime.time(10, 0), status=AppointmentStatus.CANCELED,
+        )
+        appointment.canceled_by_client = True
+        appointment.save(update_fields=["canceled_by_client"])
+        self.client.force_login(self.admin)
+        response = self.client.get(f"/painel/agenda/?date={tomorrow.isoformat()}")
+        self.assertContains(response, "Cancelado pelo cliente")
+
+    def test_items_view_shows_plain_canceled_for_admin_cancel(self):
+        tomorrow = self.today + datetime.timedelta(days=1)
+        book(
+            self.tenant, self.employee, self.service, self.client_,
+            tomorrow, datetime.time(9, 0), datetime.time(10, 0), status=AppointmentStatus.CANCELED,
+        )
+        self.client.force_login(self.admin)
+        response = self.client.get(f"/painel/agenda/?date={tomorrow.isoformat()}")
+        self.assertContains(response, ">Cancelado<")
+        self.assertNotContains(response, "Cancelado pelo cliente")
+
+    def test_agenda_items_poll_requires_login(self):
+        response = self.client.get("/painel/agenda/atualizar/")
+        self.assertEqual(response.status_code, 302)
+
+    def test_agenda_items_poll_returns_current_items(self):
+        tomorrow = self.today + datetime.timedelta(days=1)
+        book(
+            self.tenant, self.employee, self.service, self.client_,
+            tomorrow, datetime.time(9, 0), datetime.time(10, 0), status=AppointmentStatus.PENDING,
+        )
+        self.client.force_login(self.admin)
+        response = self.client.get(f"/painel/agenda/atualizar/?date={tomorrow.isoformat()}")
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Corte")
+        # não deve fechar modal aberto (sem o reset de #modal-slot)
+        self.assertNotContains(response, 'hx-swap-oob="true"')
+
+    def test_agenda_week_poll_returns_grid(self):
+        self.client.force_login(self.admin)
+        week_monday = self.today - datetime.timedelta(days=self.today.weekday())
+        response = self.client.get(f"/painel/agenda/semana/atualizar/?week={week_monday.isoformat()}")
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'id="agenda-week-grid"')
 
 
 class AgendaWeekPanelTest(TestCase):

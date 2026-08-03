@@ -8,6 +8,7 @@ from django.views.generic import TemplateView
 from rest_framework.routers import DefaultRouter
 
 from apps.accounts.views import painel_home
+from apps.billing.views_webhook import asaas_webhook
 from apps.clients.views import ClientViewSet
 from apps.employees.views import EmployeeViewSet
 from apps.finance.views import CashTransactionViewSet, CommissionViewSet, my_commissions
@@ -64,6 +65,10 @@ urlpatterns = [
     path("painel/caixa/", include("apps.finance.urls")),
     path("painel/configuracoes/", include("apps.tenants.urls")),
     path("painel/avisos/", include("apps.notifications.urls")),
+    path("painel/plano/", include("apps.billing.urls_tenant")),
+    # Webhook do Asaas — fora de /painel/ e /plataforma/ (chamado pelo Asaas,
+    # não por usuário logado; autenticação é via header, não sessão).
+    path("webhooks/asaas/", asaas_webhook, name="asaas_webhook"),
     # Painel do superadmin (custom) — /superadmin/ acima continua sendo o
     # Django Admin cru, por instrução explícita do usuário; este é o painel
     # próprio (planos, assinantes, dashboard da plataforma, avisos). A rota

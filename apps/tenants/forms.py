@@ -2,7 +2,7 @@ from django import forms
 from django.contrib.auth import get_user_model
 from django.contrib.auth import password_validation
 
-from .models import Tenant
+from .models import Tenant, TenantTheme
 
 User = get_user_model()
 
@@ -15,6 +15,10 @@ class SignUpForm(forms.Form):
     email = forms.EmailField(label="E-mail")
     password1 = forms.CharField(widget=forms.PasswordInput, label="Senha")
     password2 = forms.CharField(widget=forms.PasswordInput, label="Confirmar senha")
+    theme = forms.ChoiceField(
+        choices=TenantTheme.choices, initial=TenantTheme.SALAO,
+        widget=forms.RadioSelect, label="Que tipo de negócio você tem?",
+    )
     accept_terms = forms.BooleanField(
         label="Li e aceito os Termos de Uso e a Política de Privacidade",
         required=True,
@@ -55,13 +59,40 @@ class TenantSettingsForm(forms.ModelForm):
         fields = [
             "name",
             "slug",
+            "theme",
             "whatsapp",
             "address",
             "description",
             "logo",
             "cover_image",
             "background_image",
+            "subscription_due_soon_days",
+            "client_inactive_days",
+            "whatsapp_cancel_redirect_enabled",
+            "auto_confirm_appointments",
         ]
+        widgets = {"theme": forms.RadioSelect}
+
+
+class TenantDocumentForm(forms.ModelForm):
+    """CPF/CNPJ — pedido só na hora de assinar um plano (não no cadastro,
+    nem em Configurações), porque é o único momento em que o Asaas
+    realmente precisa dele pra criar o cliente da cobrança."""
+
+    class Meta:
+        model = Tenant
+        fields = ["document"]
+        widgets = {
+            "document": forms.TextInput(attrs={
+                "placeholder": "CPF ou CNPJ",
+                "inputmode": "numeric",
+                "class": (
+                    "w-full px-4 py-2.5 rounded-lg border border-outline-variant "
+                    "bg-surface-container-lowest text-on-surface focus:ring-2 "
+                    "focus:ring-primary focus:border-primary transition-colors"
+                ),
+            })
+        }
 
     def clean_name(self):
         name = self.cleaned_data["name"].strip()

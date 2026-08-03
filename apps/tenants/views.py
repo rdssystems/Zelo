@@ -49,6 +49,7 @@ def signup_view(request):
                     name=form.cleaned_data["name"],
                     email=form.cleaned_data["email"],
                     password=form.cleaned_data["password1"],
+                    theme=form.cleaned_data["theme"],
                 )
             except ValidationError as exc:
                 for field, errors in getattr(

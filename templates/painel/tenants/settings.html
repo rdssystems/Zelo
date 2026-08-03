@@ -23,6 +23,29 @@
 
   <div class="bg-surface-container-lowest rounded-2xl shadow-[0_4px_40px_-10px_rgba(125,86,45,0.08)] border border-surface-container p-8">
     <h3 class="text-label-caps uppercase text-outline mb-6">Identidade visual</h3>
+
+    <div class="mb-8">
+      <label class="block text-label-caps uppercase text-outline mb-2">Tema visual</label>
+      <p class="text-sm text-on-surface-variant mb-3">Muda a paleta de cores e a tipografia do app inteiro — só aparência, nenhuma funcionalidade muda.</p>
+      <div class="grid grid-cols-2 gap-3 max-w-sm">
+        <label class="cursor-pointer">
+          <input class="peer sr-only" name="theme" type="radio" value="salao" {% if form.theme.value|default:"salao" == "salao" %}checked{% endif %}/>
+          <div class="flex flex-col items-center gap-1 border-2 border-outline-variant peer-checked:border-primary peer-checked:bg-primary-container/10 rounded-xl p-4 text-center transition-colors">
+            <span class="material-symbols-outlined">spa</span>
+            <span class="text-sm font-medium">Salão de Beleza</span>
+          </div>
+        </label>
+        <label class="cursor-pointer">
+          <input class="peer sr-only" name="theme" type="radio" value="barbearia" {% if form.theme.value == "barbearia" %}checked{% endif %}/>
+          <div class="flex flex-col items-center gap-1 border-2 border-outline-variant peer-checked:border-primary peer-checked:bg-primary-container/10 rounded-xl p-4 text-center transition-colors">
+            <span class="material-symbols-outlined">content_cut</span>
+            <span class="text-sm font-medium">Barbearia</span>
+          </div>
+        </label>
+      </div>
+      {% if form.theme.errors %}<p class="text-error text-sm mt-1">{{ form.theme.errors|join:" " }}</p>{% endif %}
+    </div>
+
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-8">
       <div x-data="{ fileName: '' }">
         <label class="block text-label-caps uppercase text-outline mb-2">Logo</label>
@@ -30,7 +53,7 @@
         <img class="w-20 h-20 rounded-full object-cover mb-3 border border-surface-variant" src="{{ tenant.logo.url }}" alt="Logo atual"/>
         {% endif %}
         <div>
-          <label class="cursor-pointer inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary-container text-on-primary-container text-sm font-medium hover:opacity-90 transition-opacity">
+          <label class="cursor-pointer inline-flex items-center gap-2 px-4 py-2 rounded-pill bg-primary-container text-on-primary-container text-sm font-medium hover:opacity-90 transition-opacity">
             <span class="material-symbols-outlined text-[18px]">upload</span>
             <span x-text="fileName ? 'Arquivo selecionado' : '{% if tenant.logo %}Alterar logo{% else %}Escolher logo{% endif %}'"></span>
             <input class="hidden" name="logo" type="file" accept="image/*" @change="fileName = $event.target.files[0]?.name || ''"/>
@@ -46,7 +69,7 @@
         <img class="w-full h-20 rounded-lg object-cover mb-3 border border-surface-variant" src="{{ tenant.cover_image.url }}" alt="Capa atual"/>
         {% endif %}
         <div>
-          <label class="cursor-pointer inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary-container text-on-primary-container text-sm font-medium hover:opacity-90 transition-opacity">
+          <label class="cursor-pointer inline-flex items-center gap-2 px-4 py-2 rounded-pill bg-primary-container text-on-primary-container text-sm font-medium hover:opacity-90 transition-opacity">
             <span class="material-symbols-outlined text-[18px]">upload</span>
             <span x-text="fileName ? 'Arquivo selecionado' : '{% if tenant.cover_image %}Alterar capa{% else %}Escolher capa{% endif %}'"></span>
             <input class="hidden" name="cover_image" type="file" accept="image/*" @change="fileName = $event.target.files[0]?.name || ''"/>
@@ -62,7 +85,7 @@
         <img class="w-full h-20 rounded-lg object-cover mb-3 border border-surface-variant" src="{{ tenant.background_image.url }}" alt="Fundo atual"/>
         {% endif %}
         <div>
-          <label class="cursor-pointer inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary-container text-on-primary-container text-sm font-medium hover:opacity-90 transition-opacity">
+          <label class="cursor-pointer inline-flex items-center gap-2 px-4 py-2 rounded-pill bg-primary-container text-on-primary-container text-sm font-medium hover:opacity-90 transition-opacity">
             <span class="material-symbols-outlined text-[18px]">upload</span>
             <span x-text="fileName ? 'Arquivo selecionado' : '{% if tenant.background_image %}Alterar fundo{% else %}Escolher fundo{% endif %}'"></span>
             <input class="hidden" name="background_image" type="file" accept="image/*" @change="fileName = $event.target.files[0]?.name || ''"/>
@@ -88,6 +111,11 @@
         <label class="block text-label-caps uppercase text-outline mb-1" for="id_whatsapp">WhatsApp</label>
         <input class="block w-full px-0 py-2 bg-transparent border-0 border-b border-outline-variant text-on-surface focus:ring-0 focus:border-primary transition-colors"
                id="id_whatsapp" name="whatsapp" type="text" placeholder="(11) 90000-0000" value="{{ form.whatsapp.value|default:'' }}" maxlength="20"/>
+        <label class="flex items-center gap-2 mt-3 text-sm text-on-surface-variant">
+          <input class="rounded border-outline text-primary focus:ring-primary" type="checkbox" name="whatsapp_cancel_redirect_enabled"
+                 {% if form.whatsapp_cancel_redirect_enabled.value %}checked{% endif %}/>
+          Ao cliente cancelar um agendamento pela página pública, abrir o WhatsApp do salão com um aviso pronto (editável) pra ele só clicar em enviar
+        </label>
       </div>
       <div>
         <label class="block text-label-caps uppercase text-outline mb-1" for="id_address">Endereço</label>
@@ -98,6 +126,50 @@
         <label class="block text-label-caps uppercase text-outline mb-1" for="id_description">Descrição curta</label>
         <textarea class="block w-full px-0 py-2 bg-transparent border-0 border-b border-outline-variant text-on-surface focus:ring-0 focus:border-primary transition-colors resize-none"
                   id="id_description" name="description" rows="2">{{ form.description.value|default:'' }}</textarea>
+      </div>
+    </div>
+  </div>
+
+  <div class="bg-surface-container-lowest rounded-2xl shadow-[0_4px_40px_-10px_rgba(125,86,45,0.08)] border border-surface-container p-8">
+    <h3 class="text-label-caps uppercase text-outline mb-2">Confirmação de agendamento</h3>
+    <p class="text-sm text-on-surface-variant mb-4">
+      Controla o que acontece quando o cliente agenda pela página pública.
+    </p>
+    <label class="flex items-start gap-3 text-sm text-on-surface-variant">
+      <input class="mt-0.5 rounded border-outline text-primary focus:ring-primary" type="checkbox" name="auto_confirm_appointments"
+             {% if form.auto_confirm_appointments.value %}checked{% endif %}/>
+      <span>
+        Confirmar agendamento automaticamente<br/>
+        <span class="text-xs">Desmarcado (padrão): o agendamento nasce pendente — o cliente vê "Agendamento enviado" até o salão confirmar na Agenda. Marcado: já nasce confirmado, sem esperar.</span>
+      </span>
+    </label>
+  </div>
+
+  <div class="bg-surface-container-lowest rounded-2xl shadow-[0_4px_40px_-10px_rgba(125,86,45,0.08)] border border-surface-container p-8">
+    <h3 class="text-label-caps uppercase text-outline mb-2">Mensalistas e engajamento</h3>
+    <p class="text-sm text-on-surface-variant mb-6">
+      Controla quando um cliente aparece como "vence em breve" ou "inativo" na lista de Clientes.
+    </p>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-8">
+      <div>
+        <label class="block text-label-caps uppercase text-outline mb-1" for="id_subscription_due_soon_days">
+          Avisar mensalidade a vencer com quantos dias de antecedência
+        </label>
+        <input class="block w-full px-0 py-2 bg-transparent border-0 border-b {% if form.subscription_due_soon_days.errors %}border-error{% else %}border-outline-variant{% endif %} text-on-surface focus:ring-0 focus:border-primary transition-colors"
+               id="id_subscription_due_soon_days" name="subscription_due_soon_days" type="number" min="1"
+               value="{{ form.subscription_due_soon_days.value|default:'' }}"/>
+        {% if form.subscription_due_soon_days.errors %}<p class="text-error text-sm mt-1">{{ form.subscription_due_soon_days.errors|join:" " }}</p>{% endif %}
+        <p class="text-xs text-on-surface-variant mt-1">Usado na lista de Clientes e na campanha de cobrança por WhatsApp.</p>
+      </div>
+      <div>
+        <label class="block text-label-caps uppercase text-outline mb-1" for="id_client_inactive_days">
+          Marcar cliente como inativo após quantos dias sem atendimento
+        </label>
+        <input class="block w-full px-0 py-2 bg-transparent border-0 border-b {% if form.client_inactive_days.errors %}border-error{% else %}border-outline-variant{% endif %} text-on-surface focus:ring-0 focus:border-primary transition-colors"
+               id="id_client_inactive_days" name="client_inactive_days" type="number" min="1"
+               value="{{ form.client_inactive_days.value|default:'' }}"/>
+        {% if form.client_inactive_days.errors %}<p class="text-error text-sm mt-1">{{ form.client_inactive_days.errors|join:" " }}</p>{% endif %}
+        <p class="text-xs text-on-surface-variant mt-1">Conta a partir do cadastro se o cliente nunca voltou.</p>
       </div>
     </div>
   </div>
@@ -143,7 +215,7 @@
   </div>
 
   <div class="flex justify-end">
-    <button class="px-8 py-3 rounded-full bg-primary text-on-primary font-semibold hover:opacity-90 transition-opacity active:scale-95" type="submit">Salvar configurações</button>
+    <button class="px-8 py-3 rounded-pill bg-primary text-on-primary font-semibold hover:opacity-90 transition-opacity active:scale-95" type="submit">Salvar configurações</button>
   </div>
 </form>
 
@@ -153,7 +225,7 @@
     Excluir sua conta apaga permanentemente todos os dados do salão — funcionários, serviços,
     clientes, agendamentos, estoque e financeiro. Não é possível desfazer.
   </p>
-  <button class="px-6 py-3 rounded-full border border-error text-error font-semibold hover:bg-error hover:text-on-error transition-colors"
+  <button class="px-6 py-3 rounded-pill border border-error text-error font-semibold hover:bg-error hover:text-on-error transition-colors"
           hx-get="{% url 'tenants:delete_account_confirm' %}" hx-target="#modal-slot" hx-swap="innerHTML">
     Excluir minha conta
   </button>

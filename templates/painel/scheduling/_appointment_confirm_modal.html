@@ -1,0 +1,45 @@
+{{ confirm_message|json_script:"confirm-message-data" }}
+
+<div class="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6" id="appointment-confirm-modal"
+     x-data="{ message: JSON.parse(document.getElementById('confirm-message-data').textContent) }">
+  <div class="absolute inset-0 bg-inverse-surface/40 backdrop-blur-sm"
+       onclick="document.getElementById('modal-slot').innerHTML = ''"></div>
+  <div class="relative w-full max-w-md bg-surface-container-lowest rounded-2xl shadow-2xl overflow-hidden">
+    <div class="p-8">
+      <div class="flex items-center gap-3 mb-2">
+        <div class="w-10 h-10 rounded-full bg-[#25D366]/15 flex items-center justify-center shrink-0">
+          <span class="material-symbols-outlined text-[#25D366]">event_available</span>
+        </div>
+        <h3 class="font-display text-xl font-bold text-on-surface">Confirmar agendamento</h3>
+      </div>
+      <p class="text-sm text-on-surface-variant mb-6">
+        {{ appointment.client.name }} — {{ appointment.service.name }} em {{ appointment.date|date:"d/m/Y" }} às {{ appointment.start_time|time:"H:i" }}
+      </p>
+
+      {% if whatsapp_phone %}
+      <label class="block text-label-caps uppercase text-outline mb-1" for="confirm-message-input">Mensagem de confirmação (WhatsApp)</label>
+      <textarea id="confirm-message-input"
+                class="block w-full px-3 py-2 rounded-lg border border-outline-variant bg-surface-container-lowest text-on-surface text-sm focus:ring-2 focus:ring-primary focus:border-primary transition-colors resize-none mb-6"
+                rows="4" x-model="message"></textarea>
+      {% else %}
+      <p class="text-sm text-on-surface-variant italic mb-6">Este cliente não tem um WhatsApp válido cadastrado — só é possível confirmar sem enviar mensagem.</p>
+      {% endif %}
+
+      <div class="flex justify-end gap-3">
+        <button type="button" class="px-5 py-2.5 rounded-pill border border-outline-variant text-on-surface-variant font-medium hover:bg-surface-variant transition-colors"
+                onclick="document.getElementById('modal-slot').innerHTML = ''">Cancelar</button>
+        <button type="button"
+                class="px-6 py-2.5 rounded-pill bg-primary text-on-primary font-semibold hover:opacity-90 transition-opacity active:scale-95 inline-flex items-center gap-2"
+                {% if whatsapp_phone %}@click="window.open('https://wa.me/55{{ whatsapp_phone }}?text=' + encodeURIComponent(message), '_blank')"{% endif %}
+                hx-post="{{ confirm_url }}" hx-target="{{ target }}" hx-swap="outerHTML">
+          {% if whatsapp_phone %}
+          <span class="material-symbols-outlined text-[18px]">chat</span>
+          Confirmar e avisar no WhatsApp
+          {% else %}
+          Confirmar
+          {% endif %}
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

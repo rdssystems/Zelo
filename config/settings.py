@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 import environ
@@ -81,6 +82,7 @@ TEMPLATES = [
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
                 "apps.notifications.context_processors.unread_announcements",
+                "apps.billing.context_processors.sidebar_plan",
             ],
             **(
                 {
@@ -218,7 +220,12 @@ else:
 DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="nao-responda@zelo.local")
 
 # Asaas (billing da plataforma) — nunca hardcodar chaves
-ASAAS_API_KEY = env("ASAAS_API_KEY", default="")
+# ASAAS_API_KEY não passa por env() de propósito: a chave da Asaas começa
+# com "$" de verdade (formato deles, ex: `$aact_prod_...`) e o
+# django-environ trata valor começando com "$" como referência a OUTRA
+# variável de ambiente (`$OUTRA_VAR`) — silenciosamente vira string vazia.
+# os.environ.get() lê o valor bruto, sem essa resolução.
+ASAAS_API_KEY = os.environ.get("ASAAS_API_KEY", "")
 ASAAS_WEBHOOK_TOKEN = env("ASAAS_WEBHOOK_TOKEN", default="")
 ASAAS_ENV = env("ASAAS_ENV", default="sandbox")
 

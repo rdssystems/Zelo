@@ -1,6 +1,8 @@
 from django.conf import settings
 from django.db import models
 
+from apps.tenants.models import TenantModel
+
 
 class Announcement(models.Model):
     """Aviso de atualização do app, criado pelo superadmin em /plataforma/ e
@@ -45,3 +47,42 @@ class AnnouncementRead(models.Model):
 
     def __str__(self):
         return f"{self.user} leu '{self.announcement}'"
+
+
+class TenantNotificationKind(models.TextChoices):
+    """Só `APPOINTMENT_CANCELED_BY_CLIENT` é gerado hoje. As demais chaves
+    ficam aqui como roadmap já modelado — pedido do usuário em 2026-07-31 de,
+    no futuro, gerar notificação pra toda mudança relevante na agenda (novo
+    agendamento, reagendamento etc.), ver 01-REQUISITOS.md."""
+
+    APPOINTMENT_CANCELED_BY_CLIENT = "appointment_canceled_by_client", "Cliente cancelou agendamento"
+
+
+class TenantNotification(TenantModel):
+    """Alerta operacional de UM salão (diferente de `Announcement`, que é
+    aviso da plataforma pra TODOS os tenants) — nasce de um evento dentro do
+    próprio tenant. Leitura é direto no registro (`is_read`/`read_at`), sem
+    tabela de join por usuário como `AnnouncementRead`: aqui só o(s)
+    tenant_admin(s) do próprio salão veem, não precisa rastrear por usuário."""
+
+    kind = models.CharField("tipo", max_length=40, choices=TenantNotificationKind.choices)
+    title = models.CharField("título", max_length=200)
+    message = models.TextField("mensagem")
+    appointment = models.ForeignKey(
+        "scheduling.Appointment",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="notifications",
+    )
+    is_read = models.BooleanField("lida", default=False)
+    read_at = models.DateTimeField("lida em", null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "notificação"
+        verbose_name_plural = "notificações"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return self.title

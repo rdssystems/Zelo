@@ -11,7 +11,7 @@
     <h2 class="font-display text-headline-md text-on-surface mb-2">Fornecedores</h2>
     <p class="text-on-surface-variant max-w-2xl">Cadastre quem fornece seus produtos — use como fornecedor preferido no produto ou vincule a uma compra específica.</p>
   </div>
-  <button class="shrink-0 flex items-center gap-2 bg-primary text-on-primary font-semibold text-lg px-8 py-3 rounded-full hover:opacity-90 transition-opacity shadow-sm active:scale-95"
+  <button class="shrink-0 flex items-center gap-2 bg-primary text-on-primary font-semibold text-lg px-8 py-3 rounded-pill hover:opacity-90 transition-opacity shadow-sm active:scale-95"
           hx-get="{% url 'inventory:supplier_create' %}" hx-target="#modal-slot" hx-swap="innerHTML">
     <span class="material-symbols-outlined">add</span>
     Novo Fornecedor

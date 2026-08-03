@@ -67,7 +67,7 @@
       <div>
         <label class="block text-label-caps uppercase text-outline mb-1" for="id_photo">Foto</label>
         {% if employee.photo %}<img class="w-16 h-16 rounded-full object-cover mb-2" src="{{ employee.photo.url }}" alt="Foto atual"/>{% endif %}
-        <input class="block w-full text-sm text-on-surface-variant file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:bg-primary-container file:text-on-primary-container hover:file:opacity-90" id="id_photo" name="photo" type="file" accept="image/*"/>
+        <input class="block w-full text-sm text-on-surface-variant file:mr-4 file:py-2 file:px-4 file:rounded-pill file:border-0 file:bg-primary-container file:text-on-primary-container hover:file:opacity-90" id="id_photo" name="photo" type="file" accept="image/*"/>
       </div>
       <div class="pt-4 border-t border-surface-variant" x-data="{ ctype: '{{ form.default_commission_type.value|default:'percentage' }}' }">
         <h4 class="text-label-caps uppercase text-outline mb-4">Comissão padrão</h4>
@@ -89,7 +89,7 @@
         </div>
       </div>
       <div class="pt-4 flex justify-end">
-        <button class="px-8 py-3 rounded-full bg-primary text-on-primary font-semibold hover:opacity-90 transition-opacity active:scale-95" type="submit">
+        <button class="px-8 py-3 rounded-pill bg-primary text-on-primary font-semibold hover:opacity-90 transition-opacity active:scale-95" type="submit">
           {% if employee %}Salvar dados{% else %}Criar funcionário{% endif %}
         </button>
       </div>

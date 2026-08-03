@@ -215,6 +215,23 @@ _TINY_GIF = (
 )
 
 
+class TenantWhatsappNumberTest(TestCase):
+    """`Tenant.whatsapp_wa_me_number` — usado pra montar o link de aviso de
+    cancelamento (RF06c)."""
+
+    def test_cleans_formatting_and_adds_ddi(self):
+        tenant = Tenant.objects.create(name="Salão A", slug="salao-a", whatsapp="(11) 90000-0000")
+        self.assertEqual(tenant.whatsapp_wa_me_number, "5511900000000")
+
+    def test_keeps_existing_ddi(self):
+        tenant = Tenant.objects.create(name="Salão B", slug="salao-b", whatsapp="+55 11 90000-0000")
+        self.assertEqual(tenant.whatsapp_wa_me_number, "5511900000000")
+
+    def test_none_when_empty(self):
+        tenant = Tenant.objects.create(name="Salão C", slug="salao-c", whatsapp="")
+        self.assertIsNone(tenant.whatsapp_wa_me_number)
+
+
 class TenantSettingsPanelTest(TestCase):
     """RF25-RF27 — /painel/configuracoes/."""
 
@@ -248,9 +265,12 @@ class TenantSettingsPanelTest(TestCase):
         payload = {
             "name": "Salão A Renovado",
             "slug": "salao-a",
+            "theme": "salao",
             "whatsapp": "+5511999990000",
             "address": "Rua Nova, 100",
             "description": "Descrição atualizada",
+            "subscription_due_soon_days": "7",
+            "client_inactive_days": "60",
         }
         payload.update(self._hours_payload())
         payload.update(overrides)
@@ -280,6 +300,30 @@ class TenantSettingsPanelTest(TestCase):
         sunday = TenantBusinessHours.objects.get(tenant=self.tenant, weekday=6)
         self.assertTrue(sunday.is_closed)
         self.assertIsNone(sunday.start_time)
+
+    def test_whatsapp_cancel_redirect_defaults_true_and_can_be_turned_off(self):
+        self.assertTrue(self.tenant.whatsapp_cancel_redirect_enabled)
+        self.client.force_login(self.admin)
+        # checkbox ausente no payload = desmarcado
+        self.client.post("/painel/configuracoes/", self._valid_payload())
+        self.tenant.refresh_from_db()
+        self.assertFalse(self.tenant.whatsapp_cancel_redirect_enabled)
+
+    def test_whatsapp_cancel_redirect_stays_on_when_checkbox_sent(self):
+        self.client.force_login(self.admin)
+        self.client.post(
+            "/painel/configuracoes/",
+            self._valid_payload(whatsapp_cancel_redirect_enabled="on"),
+        )
+        self.tenant.refresh_from_db()
+        self.assertTrue(self.tenant.whatsapp_cancel_redirect_enabled)
+
+    def test_admin_changes_theme_to_barbearia(self):
+        self.assertEqual(self.tenant.theme, "salao")
+        self.client.force_login(self.admin)
+        self.client.post("/painel/configuracoes/", self._valid_payload(theme="barbearia"))
+        self.tenant.refresh_from_db()
+        self.assertEqual(self.tenant.theme, "barbearia")
 
     def test_slug_uniqueness_against_other_tenant(self):
         Tenant.objects.create(name="Salão B", slug="salao-b")
@@ -431,6 +475,55 @@ class PublicBusinessHoursTest(TestCase):
         self.assertNotContains(response, "Segunda-feira")
 
 
+class TenantThemeRenderingTest(TestCase):
+    """A troca de tema é config-only (paleta/tipografia embutida em
+    `_theme_tailwind_config.html`/`_theme_fonts.html`, incluída nos 4
+    templates "donos" de `tailwind.config`) — confirma que a cor/fonte
+    certa aparece no HTML renderizado, nos dois lados do app."""
+
+    @classmethod
+    def setUpTestData(cls):
+        User = get_user_model()
+        cls.tenant = Tenant.objects.create(name="Salão A", slug="salao-a")
+        cls.admin = User.objects.create_user(
+            email="dona@salao-a.com", password="x", role=User.Role.TENANT_ADMIN, tenant=cls.tenant,
+        )
+
+    def test_salao_theme_on_public_home(self):
+        response = self.client.get("/salao-a/")
+        self.assertContains(response, "#7d562d")
+        self.assertContains(response, "Playfair")
+        self.assertNotContains(response, "#fbba64")
+
+    def test_barbearia_theme_on_public_home(self):
+        self.tenant.theme = "barbearia"
+        self.tenant.save(update_fields=["theme"])
+        response = self.client.get("/salao-a/")
+        self.assertContains(response, "#fbba64")
+        self.assertContains(response, "Archivo")
+        self.assertNotContains(response, "#7d562d")
+
+    def test_barbearia_theme_on_public_booking_wizard(self):
+        self.tenant.theme = "barbearia"
+        self.tenant.save(update_fields=["theme"])
+        response = self.client.get("/salao-a/agendar/")
+        self.assertContains(response, "#fbba64")
+
+    def test_barbearia_theme_on_painel(self):
+        self.tenant.theme = "barbearia"
+        self.tenant.save(update_fields=["theme"])
+        self.client.force_login(self.admin)
+        response = self.client.get("/painel/servicos/")
+        self.assertContains(response, "#fbba64")
+        self.assertContains(response, "Archivo")
+
+    def test_salao_theme_on_painel_default(self):
+        self.client.force_login(self.admin)
+        response = self.client.get("/painel/servicos/")
+        self.assertContains(response, "#7d562d")
+        self.assertNotContains(response, "#fbba64")
+
+
 class TenantSettingsAPITest(TestCase):
     @classmethod
     def setUpTestData(cls):
@@ -507,6 +600,25 @@ class RegisterTenantDomainTest(TestCase):
         with self.assertRaises(ValidationError):
             register_tenant(name="   ", email="dona@x.com", password="senhaSegura123")
 
+    def test_defaults_to_salao_theme(self):
+        tenant, _ = register_tenant(
+            name="Espaço Beleza", email="dona2@espacobeleza.com", password="senhaSegura123",
+        )
+        self.assertEqual(tenant.theme, "salao")
+
+    def test_accepts_explicit_theme(self):
+        tenant, _ = register_tenant(
+            name="Barbearia do Zé", email="ze@barbearia.com", password="senhaSegura123",
+            theme="barbearia",
+        )
+        self.assertEqual(tenant.theme, "barbearia")
+
+
+class TenantThemeModelTest(TestCase):
+    def test_defaults_to_salao(self):
+        tenant = Tenant.objects.create(name="Salão X", slug="salao-x")
+        self.assertEqual(tenant.theme, "salao")
+
 
 @override_settings(CACHES=LOCMEM_CACHE)
 class SignUpViewTest(TestCase):
@@ -525,6 +637,7 @@ class SignUpViewTest(TestCase):
             "email": "dona@espacobeleza.com",
             "password1": "senhaSuperSegura123",
             "password2": "senhaSuperSegura123",
+            "theme": "salao",
             "accept_terms": "on",
         }
         payload.update(overrides)
@@ -554,6 +667,11 @@ class SignUpViewTest(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertFalse(Tenant.objects.filter(name="Espaço Beleza").exists())
+
+    def test_signup_persists_chosen_theme(self):
+        self.client.post("/cadastrar/", self._valid_payload(theme="barbearia"))
+        tenant = Tenant.objects.get(name="Espaço Beleza")
+        self.assertEqual(tenant.theme, "barbearia")
 
     def test_weak_password_rejected(self):
         response = self.client.post(
@@ -593,6 +711,7 @@ class SignUpRateLimitTest(TestCase):
             "email": "dona@espacobeleza.com",
             "password1": "senhaSuperSegura123",
             "password2": "senhaSuperSegura123",
+            "theme": "salao",
             "accept_terms": "on",
         }
         payload.update(overrides)

@@ -27,6 +27,7 @@ class Plan(models.Model):
 
 class SubscriptionStatus(models.TextChoices):
     TRIALING = "trialing", "Em teste"
+    PENDING = "pending", "Aguardando pagamento"
     ACTIVE = "active", "Ativa"
     OVERDUE = "overdue", "Inadimplente"
     CANCELED = "canceled", "Cancelada"
@@ -51,6 +52,10 @@ class Subscription(models.Model):
     )
     asaas_customer_id = models.CharField(max_length=60, blank=True)
     asaas_subscription_id = models.CharField(max_length=60, blank=True)
+    trial_ends_at = models.DateTimeField(
+        "fim do período de teste", null=True, blank=True,
+        help_text="14 dias corridos a partir do cadastro (register_tenant) — acesso completo até aqui.",
+    )
     current_period_start = models.DateField("início do período atual", null=True, blank=True)
     current_period_end = models.DateField("fim do período atual", null=True, blank=True)
     grace_period_days = models.PositiveSmallIntegerField("dias de tolerância", default=5)
@@ -67,8 +72,32 @@ class Subscription(models.Model):
 
     @property
     def is_recurring(self):
-        """Cobrança automática via Asaas (Etapa 9, ainda não implementada) —
-        quando existir, as datas do período são controladas pelo webhook, não
-        pelo superadmin, então o painel bloqueia edição manual (ver
+        """Cobrança automática via Asaas — quando existe, as datas do período
+        são controladas pelo webhook, não pelo superadmin, então o painel
+        bloqueia edição manual (ver
         `apps.billing.services.update_subscription_period`)."""
         return bool(self.asaas_subscription_id)
+
+
+class AsaasWebhookEvent(models.Model):
+    """Log de dedupe dos webhooks recebidos do Asaas — a Asaas reenvia o
+    mesmo evento se não receber 200 a tempo, então processar sem checar
+    duplicidade poderia reativar/cobrar duas vezes. `unique_together` é a
+    barreira: a 2ª tentativa de gravar o mesmo (payment_id, event_type) falha
+    e a view simplesmente responde 200 sem reprocessar."""
+
+    payment_id = models.CharField("id do payment no Asaas", max_length=60)
+    event_type = models.CharField("tipo do evento", max_length=40)
+    received_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "evento de webhook Asaas"
+        verbose_name_plural = "eventos de webhook Asaas"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["payment_id", "event_type"], name="unique_asaas_webhook_event"
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.event_type} — {self.payment_id}"

@@ -102,7 +102,7 @@ class AnnouncementPanelAccessTest(TestCase):
         )
         self.client.force_login(self.admin)
         response = self.client.get("/painel/servicos/")
-        self.assertContains(response, "Novidades")
+        self.assertContains(response, "Notificações")
         self.assertContains(response, ">1<")
 
     def test_employee_does_not_see_bell(self):
@@ -126,3 +126,147 @@ class AnnouncementPanelAccessTest(TestCase):
         response = self.client.post(f"/painel/avisos/{announcement.pk}/marcar-lida/")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(notif_ops.unread_count_for_user(self.admin), 0)
+
+
+class TenantNotificationDomainTest(TestCase):
+    """Alerta operacional do tenant (diferente de Announcement) — hoje só
+    gerado por cancelamento pelo cliente (ver apps.scheduling.services)."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.tenant_a, cls.admin_a = make_tenant_with_admin("salao-notif-a")
+        cls.tenant_b, cls.admin_b = make_tenant_with_admin("salao-notif-b")
+
+    def test_create_and_unread_count(self):
+        notif_ops.create_tenant_notification(
+            self.tenant_a, kind="appointment_canceled_by_client", title="T", message="M",
+        )
+        self.assertEqual(notif_ops.unread_tenant_notification_count(self.tenant_a), 1)
+
+    def test_isolated_by_tenant(self):
+        notif_ops.create_tenant_notification(
+            self.tenant_a, kind="appointment_canceled_by_client", title="T", message="M",
+        )
+        self.assertEqual(notif_ops.unread_tenant_notification_count(self.tenant_b), 0)
+
+    def test_mark_read(self):
+        notification = notif_ops.create_tenant_notification(
+            self.tenant_a, kind="appointment_canceled_by_client", title="T", message="M",
+        )
+        notif_ops.mark_tenant_notification_read(notification)
+        notification.refresh_from_db()
+        self.assertTrue(notification.is_read)
+        self.assertIsNotNone(notification.read_at)
+        self.assertEqual(notif_ops.unread_tenant_notification_count(self.tenant_a), 0)
+
+    def test_mark_all_read(self):
+        notif_ops.create_tenant_notification(
+            self.tenant_a, kind="appointment_canceled_by_client", title="A", message="M",
+        )
+        notif_ops.create_tenant_notification(
+            self.tenant_a, kind="appointment_canceled_by_client", title="B", message="M",
+        )
+        notif_ops.mark_all_tenant_notifications_read(self.tenant_a)
+        self.assertEqual(notif_ops.unread_tenant_notification_count(self.tenant_a), 0)
+
+    def test_new_since_watermark(self):
+        first = notif_ops.create_tenant_notification(
+            self.tenant_a, kind="appointment_canceled_by_client", title="A", message="M",
+        )
+        second = notif_ops.create_tenant_notification(
+            self.tenant_a, kind="appointment_canceled_by_client", title="B", message="M",
+        )
+        since_zero = list(notif_ops.new_tenant_notifications_since(self.tenant_a, 0))
+        self.assertEqual(since_zero, [first, second])
+        since_first = list(notif_ops.new_tenant_notifications_since(self.tenant_a, first.pk))
+        self.assertEqual(since_first, [second])
+
+
+class TenantNotificationPanelTest(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.tenant_a, cls.admin_a = make_tenant_with_admin("salao-notifpanel-a")
+        cls.tenant_b, cls.admin_b = make_tenant_with_admin("salao-notifpanel-b")
+
+    def test_bell_count_merges_announcements_and_tenant_notifications(self):
+        superadmin = make_superadmin()
+        notif_ops.create_announcement(title="Novo", message="msg", created_by=superadmin)
+        notif_ops.create_tenant_notification(
+            self.tenant_a, kind="appointment_canceled_by_client", title="T", message="M",
+        )
+        self.client.force_login(self.admin_a)
+        response = self.client.get("/painel/servicos/")
+        self.assertContains(response, ">2<")
+
+    def test_notification_list_shows_agenda_section(self):
+        notif_ops.create_tenant_notification(
+            self.tenant_a, kind="appointment_canceled_by_client",
+            title="Maria cancelou", message="Detalhe do cancelamento",
+        )
+        self.client.force_login(self.admin_a)
+        response = self.client.get("/painel/avisos/")
+        self.assertContains(response, "Maria cancelou")
+        self.assertContains(response, "Agenda")
+
+    def test_notification_list_does_not_leak_other_tenant(self):
+        notif_ops.create_tenant_notification(
+            self.tenant_b, kind="appointment_canceled_by_client",
+            title="Alerta do outro salão", message="M",
+        )
+        self.client.force_login(self.admin_a)
+        response = self.client.get("/painel/avisos/")
+        self.assertNotContains(response, "Alerta do outro salão")
+
+    def test_mark_tenant_notification_read_via_panel(self):
+        notification = notif_ops.create_tenant_notification(
+            self.tenant_a, kind="appointment_canceled_by_client", title="T", message="M",
+        )
+        self.client.force_login(self.admin_a)
+        response = self.client.post(f"/painel/avisos/agenda/{notification.pk}/marcar-lida/")
+        self.assertEqual(response.status_code, 200)
+        notification.refresh_from_db()
+        self.assertTrue(notification.is_read)
+
+    def test_cannot_mark_other_tenant_notification_read(self):
+        notification = notif_ops.create_tenant_notification(
+            self.tenant_b, kind="appointment_canceled_by_client", title="T", message="M",
+        )
+        self.client.force_login(self.admin_a)
+        response = self.client.post(f"/painel/avisos/agenda/{notification.pk}/marcar-lida/")
+        self.assertEqual(response.status_code, 404)
+
+    def test_mark_all_read_clears_both_kinds(self):
+        superadmin = make_superadmin()
+        notif_ops.create_announcement(title="Novo", message="msg", created_by=superadmin)
+        notif_ops.create_tenant_notification(
+            self.tenant_a, kind="appointment_canceled_by_client", title="T", message="M",
+        )
+        self.client.force_login(self.admin_a)
+        response = self.client.post("/painel/avisos/marcar-todas-lidas/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(notif_ops.unread_count_for_user(self.admin_a), 0)
+        self.assertEqual(notif_ops.unread_tenant_notification_count(self.tenant_a), 0)
+
+    def test_toast_poll_requires_login(self):
+        response = self.client.get("/painel/avisos/toast/")
+        self.assertEqual(response.status_code, 302)
+
+    def test_toast_poll_shows_new_notification_once(self):
+        notif_ops.create_tenant_notification(
+            self.tenant_a, kind="appointment_canceled_by_client",
+            title="Cliente cancelou", message="Detalhe",
+        )
+        self.client.force_login(self.admin_a)
+        first = self.client.get("/painel/avisos/toast/")
+        self.assertContains(first, "Cliente cancelou")
+        second = self.client.get("/painel/avisos/toast/")
+        self.assertNotContains(second, "Cliente cancelou")
+
+    def test_toast_poll_does_not_leak_other_tenant(self):
+        notif_ops.create_tenant_notification(
+            self.tenant_b, kind="appointment_canceled_by_client",
+            title="Alerta do outro salão", message="M",
+        )
+        self.client.force_login(self.admin_a)
+        response = self.client.get("/painel/avisos/toast/")
+        self.assertNotContains(response, "Alerta do outro salão")

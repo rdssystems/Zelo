@@ -109,8 +109,25 @@ class BookingFlowEndToEndTest(TestCase):
         self.assertEqual(appointment.price_at_booking, self.service.price)
 
         success_response = self.client.get(response.url)
-        self.assertContains(success_response, "Agendamento Confirmado")
+        self.assertContains(success_response, "Agendamento Enviado")
         self.assertContains(success_response, "Corte")
+
+    def test_full_flow_auto_confirms_when_tenant_enables_it(self):
+        self.tenant.auto_confirm_appointments = True
+        self.tenant.save(update_fields=["auto_confirm_appointments"])
+        identify_url = self._identify_url(self.tomorrow)
+
+        response = self.client.post(
+            identify_url, {"phone": "11987654322", "name": "Joana Cliente"}
+        )
+        confirm_url = response.url
+        response = self.client.post(confirm_url, {"phone": "11987654322"})
+
+        appointment = Appointment.objects.get(client__phone="11987654322")
+        self.assertEqual(appointment.status, AppointmentStatus.CONFIRMED)
+
+        success_response = self.client.get(response.url)
+        self.assertContains(success_response, "Agendamento Confirmado")
 
     def test_repeated_phone_recovers_client_instead_of_duplicating(self):
         existing = Client.objects.create(
@@ -258,6 +275,58 @@ class MyAppointmentsTest(TestCase):
         self.assertEqual(response.status_code, 404)
         other_appt.refresh_from_db()
         self.assertEqual(other_appt.status, AppointmentStatus.PENDING)
+
+    def test_cancel_marks_canceled_by_client_and_notifies_tenant(self):
+        from apps.notifications.models import TenantNotification
+
+        self.client.post(f"/{self.tenant.slug}/meus-agendamentos/", {"phone": "11955556666"})
+        self.client.post(f"/{self.tenant.slug}/meus-agendamentos/{self.appointment.pk}/cancelar/")
+        self.appointment.refresh_from_db()
+        self.assertTrue(self.appointment.canceled_by_client)
+        self.assertTrue(TenantNotification.objects.filter(tenant=self.tenant).exists())
+
+    def test_cancel_confirm_shows_whatsapp_redirect_when_enabled_and_configured(self):
+        self.tenant.whatsapp = "11988887777"
+        self.tenant.save(update_fields=["whatsapp"])
+        self.client.post(f"/{self.tenant.slug}/meus-agendamentos/", {"phone": "11955556666"})
+        response = self.client.get(
+            f"/{self.tenant.slug}/meus-agendamentos/{self.appointment.pk}/cancelar/confirmar/"
+        )
+        self.assertContains(response, "wa.me/5511988887777")
+        self.assertContains(response, "window.open(")
+
+    def test_cancel_confirm_no_redirect_without_tenant_whatsapp(self):
+        # cls.tenant nasce sem whatsapp cadastrado (make_tenant não seta)
+        self.client.post(f"/{self.tenant.slug}/meus-agendamentos/", {"phone": "11955556666"})
+        response = self.client.get(
+            f"/{self.tenant.slug}/meus-agendamentos/{self.appointment.pk}/cancelar/confirmar/"
+        )
+        self.assertNotContains(response, "wa.me/")
+
+    def test_cancel_confirm_no_redirect_when_toggle_disabled(self):
+        self.tenant.whatsapp = "11988887777"
+        self.tenant.whatsapp_cancel_redirect_enabled = False
+        self.tenant.save(update_fields=["whatsapp", "whatsapp_cancel_redirect_enabled"])
+        self.client.post(f"/{self.tenant.slug}/meus-agendamentos/", {"phone": "11955556666"})
+        response = self.client.get(
+            f"/{self.tenant.slug}/meus-agendamentos/{self.appointment.pk}/cancelar/confirmar/"
+        )
+        self.assertNotContains(response, "wa.me/")
+
+    def test_pending_appointment_shows_awaiting_confirmation_badge(self):
+        response = self.client.post(
+            f"/{self.tenant.slug}/meus-agendamentos/", {"phone": "11955556666"}
+        )
+        self.assertContains(response, "Aguardando confirmação")
+
+    def test_confirmed_appointment_shows_confirmed_badge(self):
+        self.appointment.status = AppointmentStatus.CONFIRMED
+        self.appointment.save(update_fields=["status"])
+        response = self.client.post(
+            f"/{self.tenant.slug}/meus-agendamentos/", {"phone": "11955556666"}
+        )
+        self.assertContains(response, "Confirmado")
+        self.assertNotContains(response, "Aguardando confirmação")
 
 
 @override_settings(CACHES=LOCMEM_CACHE)

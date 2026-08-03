@@ -5,10 +5,11 @@
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <title>{% block title %}Agendar — {{ tenant.name }}{% endblock %}</title>
+{% include "_favicon.html" %}
 <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
 <link href="https://fonts.googleapis.com" rel="preconnect"/>
 <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Playfair+Display:wght@600;700&amp;display=swap" rel="stylesheet"/>
+{% include "_theme_fonts.html" %}
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
 <script src="https://unpkg.com/htmx.org@2.0.4"></script>
 <style>
@@ -19,22 +20,7 @@
 <script id="tailwind-config">
   tailwind.config = {
     theme: { extend: {
-      colors: {
-        "surface": "#fff8f5", "surface-dim": "#e2d8d2", "background": "#fff8f5",
-        "surface-container-lowest": "#ffffff", "surface-container-low": "#fcf2eb",
-        "surface-container": "#f6ece6", "surface-container-high": "#f0e6e0",
-        "surface-variant": "#eae1db",
-        "on-surface": "#1f1b17", "on-surface-variant": "#50453b", "on-background": "#1f1b17",
-        "inverse-surface": "#342f2c",
-        "outline": "#82756a", "outline-variant": "#d4c4b7",
-        "primary": "#7d562d", "on-primary": "#ffffff",
-        "primary-container": "#d4a373", "on-primary-container": "#5b3912",
-        "secondary": "#72594d", "on-secondary": "#ffffff",
-        "secondary-container": "#fedbcc", "on-secondary-container": "#785f53",
-        "error": "#ba1a1a", "on-error": "#ffffff",
-        "error-container": "#ffdad6", "on-error-container": "#93000a"
-      },
-      fontFamily: { "display": ["Playfair Display", "serif"], "sans": ["Inter", "sans-serif"] }
+      {% include "_theme_tailwind_config.html" %}
     } }
   }
 </script>

@@ -5,6 +5,7 @@ from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from django.test import TestCase
+from django.utils import timezone
 
 from apps.tenants.models import Tenant
 
@@ -669,3 +670,97 @@ class ClientFormAlpineRegressionTest(TestCase):
         response = self.client.get(f"/painel/clientes/{client_.pk}/editar/")
         found = self._assert_all_x_data_balanced(response.content.decode())
         self.assertGreaterEqual(found, 1)
+
+
+class DueSoonConfigurableWindowTest(TestCase):
+    """`Client.subscription_is_due_soon` usava `7` fixo — agora lê
+    `Tenant.subscription_due_soon_days` (Configurações)."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.tenant, cls.admin = make_tenant_with_admin("salao-a")
+
+    def test_respects_shorter_configured_window(self):
+        self.tenant.subscription_due_soon_days = 3
+        self.tenant.save(update_fields=["subscription_due_soon_days"])
+        client_ = Client.objects.create(
+            tenant=self.tenant, phone="11900000001", name="Maria", is_subscriber=True,
+            subscription_due_date=datetime.date.today() + datetime.timedelta(days=5),
+        )
+        self.assertFalse(client_.subscription_is_due_soon)
+
+    def test_respects_longer_configured_window(self):
+        self.tenant.subscription_due_soon_days = 15
+        self.tenant.save(update_fields=["subscription_due_soon_days"])
+        client_ = Client.objects.create(
+            tenant=self.tenant, phone="11900000002", name="Joana", is_subscriber=True,
+            subscription_due_date=datetime.date.today() + datetime.timedelta(days=10),
+        )
+        self.assertTrue(client_.subscription_is_due_soon)
+
+
+class ClientInactiveTest(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.tenant, cls.admin = make_tenant_with_admin("salao-a")
+        cls.tenant.client_inactive_days = 30
+        cls.tenant.save(update_fields=["client_inactive_days"])
+
+    def test_recent_client_not_inactive(self):
+        client_ = Client.objects.create(tenant=self.tenant, phone="11900000003", name="Bia")
+        self.assertFalse(client_.is_inactive)
+
+    def test_never_visited_client_uses_created_at_as_reference(self):
+        client_ = Client.objects.create(tenant=self.tenant, phone="11900000004", name="Carla")
+        Client.objects.filter(pk=client_.pk).update(
+            created_at=timezone.now() - datetime.timedelta(days=40)
+        )
+        client_.refresh_from_db()
+        self.assertTrue(client_.is_inactive)
+
+    def test_just_under_threshold_not_yet_inactive(self):
+        client_ = Client.objects.create(tenant=self.tenant, phone="11900000005", name="Duda")
+        Client.objects.filter(pk=client_.pk).update(
+            created_at=timezone.now() - datetime.timedelta(days=29)
+        )
+        client_.refresh_from_db()
+        self.assertFalse(client_.is_inactive)
+
+
+class SubscriptionWhatsAppCampaignPanelTest(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.tenant_a, cls.admin_a = make_tenant_with_admin("salao-a")
+        cls.tenant_b, cls.admin_b = make_tenant_with_admin("salao-b")
+        cls.overdue = Client.objects.create(
+            tenant=cls.tenant_a, phone="11911110001", name="Vencida", is_subscriber=True,
+            subscription_due_date=datetime.date.today() - datetime.timedelta(days=2),
+        )
+        cls.due_soon = Client.objects.create(
+            tenant=cls.tenant_a, phone="11911110002", name="AVencer", is_subscriber=True,
+            subscription_due_date=datetime.date.today() + datetime.timedelta(days=2),
+        )
+        cls.not_subscriber = Client.objects.create(
+            tenant=cls.tenant_a, phone="11911110003", name="NaoMensalista",
+        )
+        cls.anonymized = Client.objects.create(
+            tenant=cls.tenant_a, phone="removido-999", name="Cliente removido (LGPD)",
+            is_subscriber=True, subscription_due_date=datetime.date.today() - datetime.timedelta(days=1),
+        )
+        cls.other_tenant_overdue = Client.objects.create(
+            tenant=cls.tenant_b, phone="11922220001", name="OutroSalao", is_subscriber=True,
+            subscription_due_date=datetime.date.today() - datetime.timedelta(days=2),
+        )
+
+    def test_login_required(self):
+        response = self.client.get("/painel/clientes/mensalistas/whatsapp/")
+        self.assertEqual(response.status_code, 302)
+
+    def test_splits_overdue_and_due_soon_scoped_to_tenant(self):
+        self.client.force_login(self.admin_a)
+        response = self.client.get("/painel/clientes/mensalistas/whatsapp/")
+        self.assertContains(response, "Vencida")
+        self.assertContains(response, "AVencer")
+        self.assertNotContains(response, "NaoMensalista")
+        self.assertNotContains(response, "Cliente removido (LGPD)")
+        self.assertNotContains(response, "OutroSalao")

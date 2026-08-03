@@ -15,9 +15,10 @@
         Esta ação não pode ser desfeita.
       </p>
       <div class="flex justify-end gap-3">
-        <button class="px-5 py-2.5 rounded-full border border-outline text-on-surface-variant hover:bg-surface-container transition-colors text-sm" type="button"
+        <button class="px-5 py-2.5 rounded-pill border border-outline text-on-surface-variant hover:bg-surface-container transition-colors text-sm" type="button"
                 onclick="document.getElementById('modal-slot').innerHTML = ''">Manter</button>
-        <button class="px-6 py-2.5 rounded-full bg-error text-on-error font-semibold hover:opacity-90 transition-opacity active:scale-95 text-sm"
+        <button class="px-6 py-2.5 rounded-pill bg-error text-on-error font-semibold hover:opacity-90 transition-opacity active:scale-95 text-sm"
+                {% if cancel_whatsapp_url %}onclick="window.open('{{ cancel_whatsapp_url|escapejs }}', '_blank')"{% endif %}
                 hx-post="{{ action_url }}" hx-target="#appointments-list" hx-swap="outerHTML">
           Cancelar agendamento
         </button>

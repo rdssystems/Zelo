@@ -5,10 +5,13 @@
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <title>Cadastrar salão — Zelo</title>
+{% include "_favicon.html" %}
 <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
 <link href="https://fonts.googleapis.com" rel="preconnect"/>
 <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Playfair+Display:wght@600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>.material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24; }</style>
 <script>
   tailwind.config = { theme: { extend: {
     colors: {
@@ -57,6 +60,26 @@
             <label class="block text-xs font-semibold uppercase tracking-widest text-outline mb-1" for="id_password2">Confirmar senha</label>
             <input class="block w-full px-0 py-2 bg-transparent border-0 border-b {% if form.password2.errors %}border-error{% else %}border-outline-variant{% endif %} focus:ring-0 focus:border-primary text-lg" id="id_password2" name="password2" type="password" autocomplete="new-password" required/>
             {% if form.password2.errors %}<p class="text-error text-sm mt-1">{{ form.password2.errors|join:" " }}</p>{% endif %}
+          </div>
+          <div>
+            <label class="block text-xs font-semibold uppercase tracking-widest text-outline mb-2">Que tipo de negócio você tem?</label>
+            <div class="grid grid-cols-2 gap-3">
+              <label class="cursor-pointer">
+                <input class="peer sr-only" name="theme" type="radio" value="salao" {% if form.theme.value|default:"salao" == "salao" %}checked{% endif %}/>
+                <div class="flex flex-col items-center gap-1 border-2 border-outline-variant peer-checked:border-primary peer-checked:bg-primary/10 rounded-xl p-4 text-center transition-colors">
+                  <span class="material-symbols-outlined">spa</span>
+                  <span class="text-sm font-medium">Salão de Beleza</span>
+                </div>
+              </label>
+              <label class="cursor-pointer">
+                <input class="peer sr-only" name="theme" type="radio" value="barbearia" {% if form.theme.value == "barbearia" %}checked{% endif %}/>
+                <div class="flex flex-col items-center gap-1 border-2 border-outline-variant peer-checked:border-primary peer-checked:bg-primary/10 rounded-xl p-4 text-center transition-colors">
+                  <span class="material-symbols-outlined">content_cut</span>
+                  <span class="text-sm font-medium">Barbearia</span>
+                </div>
+              </label>
+            </div>
+            {% if form.theme.errors %}<p class="text-error text-sm mt-1">{{ form.theme.errors|join:" " }}</p>{% endif %}
           </div>
           <div>
             <label class="flex items-start gap-3 cursor-pointer">

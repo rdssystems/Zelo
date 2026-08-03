@@ -5,11 +5,11 @@
   <div class="flex items-center justify-between mb-6">
     <span class="font-display text-3xl text-primary">R$ {{ client.credit_balance }}</span>
     <div class="flex gap-2">
-      <button class="px-4 py-2 rounded-full bg-primary text-on-primary text-sm font-semibold hover:opacity-90 transition-opacity"
+      <button class="px-4 py-2 rounded-pill bg-primary text-on-primary text-sm font-semibold hover:opacity-90 transition-opacity"
               hx-get="{% url 'clients:credit_add_confirm' client.pk %}" hx-target="#modal-slot" hx-swap="innerHTML">
         Creditar
       </button>
-      <button class="px-4 py-2 rounded-full border border-outline text-on-surface-variant text-sm font-semibold hover:bg-surface-container transition-colors"
+      <button class="px-4 py-2 rounded-pill border border-outline text-on-surface-variant text-sm font-semibold hover:bg-surface-container transition-colors"
               hx-get="{% url 'clients:credit_remove_confirm' client.pk %}" hx-target="#modal-slot" hx-swap="innerHTML">
         Remover
       </button>

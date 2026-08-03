@@ -65,7 +65,7 @@
             <td class="py-4 px-6 text-sm text-on-surface-variant">{{ product.category.name|default:"—" }}</td>
             <td class="py-4 px-6 text-on-surface">R$ {{ product.sale_price }}</td>
             <td class="py-4 px-6 text-center">
-              <span class="inline-flex items-center justify-center px-3 py-1 rounded-full text-label-caps
+              <span class="inline-flex items-center justify-center px-3 py-1 rounded-pill text-label-caps
                            {% if product.is_low_stock %}bg-error text-on-error font-bold{% else %}bg-secondary-container/50 text-on-secondary-container{% endif %}">
                 {{ product.current_stock }}
               </span>
@@ -73,9 +73,9 @@
             <td class="py-4 px-6 text-center text-sm text-on-surface-variant">{{ product.min_stock_alert }}</td>
             <td class="py-4 px-6 text-center">
               {% if product.is_active %}
-              <span class="inline-flex items-center px-3 py-1 rounded-full bg-[#e8f5e9] text-[#2e7d32] text-label-caps uppercase">Ativo</span>
+              <span class="inline-flex items-center px-3 py-1 rounded-pill bg-[#e8f5e9] text-[#2e7d32] text-label-caps uppercase">Ativo</span>
               {% else %}
-              <span class="inline-flex items-center px-3 py-1 rounded-full bg-error-container text-on-error-container text-label-caps uppercase">Inativo</span>
+              <span class="inline-flex items-center px-3 py-1 rounded-pill bg-error-container text-on-error-container text-label-caps uppercase">Inativo</span>
               {% endif %}
             </td>
             <td class="py-4 px-6">

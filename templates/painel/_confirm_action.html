@@ -11,9 +11,9 @@
       </div>
       <p class="text-on-surface-variant mb-8">{{ message }}</p>
       <div class="flex justify-end gap-4">
-        <button class="px-6 py-3 rounded-full border border-outline text-on-surface-variant hover:bg-surface-container transition-colors" type="button"
+        <button class="px-6 py-3 rounded-pill border border-outline text-on-surface-variant hover:bg-surface-container transition-colors" type="button"
                 onclick="document.getElementById('modal-slot').innerHTML = ''">Cancelar</button>
-        <button class="px-8 py-3 rounded-full bg-primary text-on-primary font-semibold hover:opacity-90 transition-opacity active:scale-95"
+        <button class="px-8 py-3 rounded-pill bg-primary text-on-primary font-semibold hover:opacity-90 transition-opacity active:scale-95"
                 hx-post="{{ action_url }}" hx-target="{{ target }}" hx-swap="outerHTML">
           {{ confirm_label|default:"Confirmar" }}
         </button>

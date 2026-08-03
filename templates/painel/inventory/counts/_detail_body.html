@@ -10,14 +10,14 @@
     </div>
     <div class="shrink-0 flex items-center gap-3">
       {% if count.status == "in_progress" %}
-      <span class="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-secondary-container text-on-secondary-container">Em andamento</span>
-      <button class="flex items-center gap-2 bg-primary text-on-primary font-semibold px-6 py-3 rounded-full hover:opacity-90 transition-opacity shadow-sm active:scale-95"
+      <span class="inline-block px-3 py-1 rounded-pill text-xs font-semibold bg-secondary-container text-on-secondary-container">Em andamento</span>
+      <button class="flex items-center gap-2 bg-primary text-on-primary font-semibold px-6 py-3 rounded-pill hover:opacity-90 transition-opacity shadow-sm active:scale-95"
               hx-get="{% url 'inventory:count_close_confirm' count.pk %}" hx-target="#modal-slot" hx-swap="innerHTML">
         <span class="material-symbols-outlined">fact_check</span>
         Fechar contagem
       </button>
       {% else %}
-      <span class="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-surface-variant text-on-surface-variant">Concluída</span>
+      <span class="inline-block px-3 py-1 rounded-pill text-xs font-semibold bg-surface-variant text-on-surface-variant">Concluída</span>
       {% endif %}
     </div>
   </div>

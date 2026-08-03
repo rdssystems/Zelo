@@ -7,11 +7,13 @@ from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils import timezone
 
-from apps.accounts.decorators import superadmin_required
+from apps.accounts.decorators import superadmin_required, tenant_admin_required
 from apps.accounts.models import User
+from apps.tenants.forms import TenantDocumentForm
 from apps.tenants.models import Tenant
 from apps.tenants.services import delete_tenant_account
 
+from . import asaas_client
 from . import services as billing_ops
 from .forms import (
     PlanForm,
@@ -21,6 +23,42 @@ from .forms import (
     SubscriptionStatusForm,
 )
 from .models import Plan, Subscription, SubscriptionStatus
+
+# Conteúdo de marketing dos planos (não é dado de negócio, não precisa virar
+# model — só 3 planos conhecidos, ver 01-REQUISITOS.md §4.2). Chave = nome do
+# `Plan` no banco (seed em `apps/billing/migrations`).
+PLAN_HIGHLIGHTS = {
+    "Essencial": [
+        "Até 2 funcionários",
+        "Estoque básico (produto + baixa manual)",
+    ],
+    "Profissional": [
+        "Até 6 funcionários",
+        "Estoque profissional completo (fornecedor, lote/validade, custo médio, inventário)",
+        "Relatórios avançados (em breve)",
+    ],
+    "Ilimitado": [
+        "Funcionários ilimitados",
+        "Estoque profissional completo",
+        "Relatórios avançados (em breve)",
+        "Notificação automática por WhatsApp (em breve)",
+        "Suporte prioritário",
+    ],
+}
+
+PLAN_COMMON_BENEFITS = [
+    "Agenda online 24h, sem precisar ligar pro salão",
+    "Sem app pro cliente final — identificação só por telefone",
+    "Cálculo de comissão automático, por funcionário e por serviço",
+    "Caixa integrado a cada atendimento",
+    "Cliente mensalista e carteira de crédito",
+    "Cancelamento e reagendamento sem perder o horário do profissional",
+    "Página pública personalizável (logo, capa, cores)",
+    "Histórico e observações por cliente",
+    "Dados isolados e seguros — um salão nunca vê dado de outro",
+    "Backup diário automático dos seus dados",
+    "Atualizações incluídas, sem custo extra",
+]
 
 # ---------------------------------------------------------------------------
 # Dashboard — /plataforma/
@@ -291,3 +329,124 @@ def subscriber_delete(request, tenant_id):
     response = HttpResponse()
     response.headers["HX-Redirect"] = reverse("plataforma:subscriber_list")
     return response
+
+
+# ---------------------------------------------------------------------------
+# Painel do tenant — /painel/plano/
+# ---------------------------------------------------------------------------
+
+
+@tenant_admin_required(allow_when_blocked=True)
+def my_plan(request):
+    subscription = Subscription.objects.select_related("plan").get(tenant=request.tenant)
+    plan_cards = [
+        {"plan": plan, "highlights": PLAN_HIGHLIGHTS.get(plan.name, [])}
+        for plan in Plan.objects.filter(is_active=True)
+    ]
+    days_left = None
+    if subscription.status != SubscriptionStatus.ACTIVE and subscription.trial_ends_at:
+        # `.date()` direto num datetime aware extrai a data em UTC, não na
+        # TIME_ZONE do projeto — usar `localtime()` primeiro (mesmo ajuste
+        # em `apps/billing/context_processors.py::sidebar_plan`).
+        days_left = max(
+            0, (timezone.localtime(subscription.trial_ends_at).date() - timezone.localdate()).days
+        )
+    grace_days_left = None
+    if subscription.status == SubscriptionStatus.OVERDUE:
+        deadline = billing_ops.grace_deadline(subscription)
+        if deadline is not None:
+            grace_days_left = (deadline - timezone.localdate()).days
+    return render(
+        request,
+        "painel/billing/my_plan.html",
+        {
+            "active_nav": "plan",
+            "subscription": subscription,
+            "plan_cards": plan_cards,
+            "common_benefits": PLAN_COMMON_BENEFITS,
+            "days_left": days_left,
+            "grace_days_left": grace_days_left,
+            "panel_blocked": billing_ops.subscription_blocks_panel_access(request.tenant),
+            "show_welcome": request.GET.get("ativado") == "1",
+        },
+    )
+
+
+@tenant_admin_required(allow_when_blocked=True)
+def select_plan_view(request, plan_id):
+    if request.method != "POST":
+        return HttpResponse(status=405)
+    plan = get_object_or_404(Plan, pk=plan_id, is_active=True)
+    subscription = Subscription.objects.get(tenant=request.tenant)
+    try:
+        billing_ops.select_plan(subscription, plan)
+    except ValidationError as exc:
+        messages.error(request, " ".join(exc.messages))
+        return redirect("billing:my_plan")
+    return redirect("billing:checkout")
+
+
+@tenant_admin_required(allow_when_blocked=True)
+def checkout_view(request):
+    subscription = Subscription.objects.select_related("plan").get(tenant=request.tenant)
+    if not subscription.plan:
+        return redirect("billing:my_plan")
+
+    invoice_url = None
+    document_form = None
+    error = None
+    try:
+        invoice_url = billing_ops.get_or_create_checkout_url(
+            subscription, admin_email=request.user.email
+        )
+    except ValidationError as exc:
+        if not request.tenant.document:
+            document_form = TenantDocumentForm(instance=request.tenant)
+        else:
+            error = " ".join(exc.messages)
+    except asaas_client.AsaasNotConfigured:
+        error = (
+            "O pagamento online ainda não foi ativado pela plataforma "
+            "(credenciais do Asaas pendentes) — fale com o suporte pra assinar."
+        )
+    except asaas_client.AsaasError as exc:
+        error = str(exc)
+
+    return render(
+        request,
+        "painel/billing/checkout.html",
+        {
+            "active_nav": "plan",
+            "subscription": subscription,
+            "invoice_url": invoice_url,
+            "document_form": document_form,
+            "error": error,
+        },
+    )
+
+
+@tenant_admin_required(allow_when_blocked=True)
+def submit_document_view(request):
+    if request.method != "POST":
+        return HttpResponse(status=405)
+    form = TenantDocumentForm(request.POST, instance=request.tenant)
+    if form.is_valid():
+        form.save()
+    else:
+        messages.error(request, " ".join(form.errors.get("document", ["CPF/CNPJ inválido."])))
+    return redirect("billing:checkout")
+
+
+@tenant_admin_required(allow_when_blocked=True)
+def checkout_status(request):
+    """Polling HTMX (a cada poucos segundos, ver checkout.html) enquanto a
+    confirmação do pagamento não chega pelo webhook — evita o admin do salão
+    ficar preso numa tela sem saber se já pagou."""
+    subscription = Subscription.objects.select_related("plan").get(tenant=request.tenant)
+    if subscription.status == SubscriptionStatus.ACTIVE:
+        response = render(
+            request, "painel/billing/_status_pill.html", {"subscription": subscription}
+        )
+        response.headers["HX-Redirect"] = reverse("billing:my_plan") + "?ativado=1"
+        return response
+    return render(request, "painel/billing/_status_pill.html", {"subscription": subscription})

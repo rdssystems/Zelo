@@ -3,7 +3,14 @@
   <div class="bg-surface-container-lowest rounded-2xl p-4 border border-surface-variant flex items-center justify-between gap-3">
     <div>
       <p class="font-semibold text-on-surface">{{ appointment.service.name }}</p>
-      <p class="text-sm text-on-surface-variant">{{ appointment.date|date:"d/m/Y" }} às {{ appointment.start_time|time:"H:i" }} — com {{ appointment.employee.full_name }}</p>
+      <p class="text-sm text-on-surface-variant mb-2">{{ appointment.date|date:"d/m/Y" }} às {{ appointment.start_time|time:"H:i" }} — com {{ appointment.employee.full_name }}</p>
+      {% if appointment.status == "pending" %}
+      <span class="inline-flex items-center px-3 py-1 rounded-pill bg-surface-variant text-on-surface-variant text-label-caps uppercase">Aguardando confirmação</span>
+      {% elif appointment.status == "confirmed" %}
+      <span class="inline-flex items-center px-3 py-1 rounded-pill bg-[#e8f5e9] text-[#2e7d32] text-label-caps uppercase">Confirmado</span>
+      {% elif appointment.status == "in_progress" %}
+      <span class="inline-flex items-center px-3 py-1 rounded-pill bg-primary-container text-on-primary-container text-label-caps uppercase">Em atendimento</span>
+      {% endif %}
     </div>
     <button class="p-2 text-outline hover:text-error hover:bg-error-container/40 rounded-full transition-colors shrink-0" title="Cancelar"
             hx-get="{% url 'public:cancel_appointment_confirm' tenant.slug appointment.pk %}" hx-target="#modal-slot" hx-swap="innerHTML">

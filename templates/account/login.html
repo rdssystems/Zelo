@@ -1,0 +1,18 @@
+{% load i18n %}
+<!DOCTYPE html>
+<html class="light" lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<meta http-equiv="refresh" content="0; url={% url 'login' %}"/>
+<title>Entrar — Zelo</title>
+{% include "_favicon.html" %}
+</head>
+<body>
+  <!-- O login por e-mail/senha do Zelo é o `LoginView` padrão do Django em
+       /painel/login/ (ver config/urls.py) — o allauth só cuida do Google.
+       Essa página só existe como rede de segurança caso algum fluxo interno
+       do allauth aponte pra cá; redireciona na hora pra tela de verdade. -->
+  <p><a href="{% url 'login' %}">Continuar para o login</a></p>
+</body>
+</html>

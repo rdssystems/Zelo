@@ -1,0 +1,19 @@
+{% if sidebar_plan_label %}
+<p class="text-xs text-outline mt-0.5">
+  {% if sidebar_plan_label == "Gratuito" %}
+    Gratuito
+    {% if sidebar_plan_expired %}
+      · expirado
+    {% elif sidebar_plan_days_left is not None %}
+      · {{ sidebar_plan_days_left }} dia{{ sidebar_plan_days_left|pluralize }} restante{{ sidebar_plan_days_left|pluralize }}
+    {% endif %}
+  {% else %}
+    {{ sidebar_plan_label }}
+    {% if sidebar_plan_days_left is not None %}
+      · {{ sidebar_plan_days_left }} dia{{ sidebar_plan_days_left|pluralize }} restante{{ sidebar_plan_days_left|pluralize }}
+    {% else %}
+      · período sem data definida
+    {% endif %}
+  {% endif %}
+</p>
+{% endif %}

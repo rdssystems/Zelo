@@ -89,6 +89,16 @@ dependência de terceiro.
   porque o projeto tem multi-tenant + dado financeiro.
 - **`frontend-design`** (já instalada) — usar nas etapas de página pública e painel.
 
+## Infraestrutura da VPS (servidor compartilhado)
+
+O deploy acontece num VPS **compartilhado com outros produtos** (não exclusivo do Zelo).
+Inventário completo (hardware, containers, firewall, capacidade) e instruções de acesso ficam
+em `VPS-INFRAESTRUTURA-ATUAL.md` na raiz do projeto — **arquivo local, não versionado**
+(contém IP/porta/topologia). Antes de qualquer tarefa de infraestrutura/deploy/SSH nesse
+servidor, ler esse arquivo inteiro primeiro; depois de qualquer mudança feita na VPS,
+atualizá-lo. Se o arquivo não existir na sua sessão, perguntar ao usuário os dados de acesso
+antes de assumir.
+
 ## Comandos úteis
 ```bash
 docker compose up -d

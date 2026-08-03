@@ -5,26 +5,27 @@
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <title>{{ tenant.name }}</title>
+{% include "_favicon.html" %}
 <script src="https://cdn.tailwindcss.com"></script>
 <link href="https://fonts.googleapis.com" rel="preconnect"/>
 <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Playfair+Display:wght@600;700&amp;display=swap" rel="stylesheet"/>
+{% include "_theme_fonts.html" %}
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
 <style>
   .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24; }
+  {% if request.tenant.theme == "barbearia" %}
+  .glass-panel { background: rgba(23, 19, 15, 0.75); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid rgba(157, 142, 126, 0.3); }
+  .elegant-shadow { box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.5); }
+  {% else %}
   .glass-panel { background: rgba(255, 248, 245, 0.75); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid rgba(212, 196, 183, 0.4); }
   .elegant-shadow { box-shadow: 0 20px 40px -10px rgba(125, 86, 45, 0.15); }
+  {% endif %}
   @keyframes fadeInUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
 </style>
 <script>
   tailwind.config = { theme: { extend: {
-    colors: {
-      "surface": "#fff8f5", "on-surface": "#1f1b17", "on-surface-variant": "#50453b",
-      "surface-container-high": "#f0e6e0", "surface-container-lowest": "#ffffff",
-      "primary": "#7d562d", "on-primary": "#ffffff", "primary-container": "#d4a373",
-      "surface-tint": "#7d562d"
-    },
-    fontFamily: { "display": ["Playfair Display", "serif"], "sans": ["Inter", "sans-serif"] }
+    {% include "_theme_tailwind_config.html" %},
+    "surface-tint": "{% if request.tenant.theme == 'barbearia' %}#fbba64{% else %}#7d562d{% endif %}"
   } } }
 </script>
 </head>
@@ -56,7 +57,7 @@
     <p class="text-lg text-on-surface-variant/80 font-light mb-8 italic">{{ tenant.description }}</p>
     {% endif %}
     {% if tenant.address %}
-    <div class="flex items-center gap-2 text-on-surface-variant mb-6 bg-surface-container-high/50 px-6 py-3 rounded-full">
+    <div class="flex items-center gap-2 text-on-surface-variant mb-6 bg-surface-container-high/50 px-6 py-3 rounded-pill">
       <span class="material-symbols-outlined text-xl text-primary">location_on</span>
       <span class="text-sm tracking-wide">{{ tenant.address }}</span>
     </div>
@@ -78,7 +79,7 @@
       </div>
     </details>
     {% endif %}
-    <a class="w-full md:w-auto min-w-[280px] bg-primary text-on-primary uppercase tracking-wide font-semibold py-5 px-8 rounded-full shadow-[0_8px_24px_rgba(125,86,45,0.2)] hover:bg-surface-tint hover:shadow-[0_12px_32px_rgba(125,86,45,0.3)] transition-all duration-300 active:scale-95 flex items-center justify-center gap-3"
+    <a class="w-full md:w-auto min-w-[280px] bg-primary text-on-primary uppercase tracking-wide font-semibold py-5 px-8 rounded-pill shadow-[0_8px_24px_rgba(125,86,45,0.2)] hover:bg-surface-tint hover:shadow-[0_12px_32px_rgba(125,86,45,0.3)] transition-all duration-300 active:scale-95 flex items-center justify-center gap-3"
        href="{% url 'public:booking_service' tenant.slug %}">
       <span class="material-symbols-outlined">calendar_month</span>
       Agendar horário
@@ -91,7 +92,7 @@
 </main>
 
 {% if tenant.whatsapp %}
-<a class="fixed bottom-8 right-8 z-50 flex items-center justify-center gap-3 bg-surface-container-lowest text-primary shadow-[0_12px_40px_-8px_rgba(125,86,45,0.15)] border border-primary/10 rounded-full pl-6 pr-4 py-3 hover:scale-105 transition-transform"
+<a class="fixed bottom-8 right-8 z-50 flex items-center justify-center gap-3 bg-surface-container-lowest text-primary shadow-[0_12px_40px_-8px_rgba(125,86,45,0.15)] border border-primary/10 rounded-pill pl-6 pr-4 py-3 hover:scale-105 transition-transform"
    href="https://wa.me/{{ tenant.whatsapp|cut:'+'|cut:' '|cut:'-'|cut:'('|cut:')' }}" target="_blank" rel="noopener">
   <span class="text-sm font-medium hidden sm:inline">Fale conosco</span>
   <div class="bg-[#25D366] text-white p-3 rounded-full flex items-center justify-center shadow-md">

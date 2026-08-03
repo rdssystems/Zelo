@@ -68,11 +68,37 @@ class Client(TenantModel):
 
     @property
     def subscription_is_due_soon(self):
-        """Vence nos próximos 7 dias (inclusive hoje)."""
+        """Vence dentro da janela configurada em
+        `Tenant.subscription_due_soon_days` (Configurações, decisão do
+        usuário em 2026-07-31 — antes era um `7` fixo aqui)."""
         if not (self.is_subscriber and self.subscription_due_date):
             return False
         today = datetime.date.today()
-        return today <= self.subscription_due_date <= today + datetime.timedelta(days=7)
+        window = self.tenant.subscription_due_soon_days
+        return today <= self.subscription_due_date <= today + datetime.timedelta(days=window)
+
+    @property
+    def last_appointment_date(self):
+        """Data do último atendimento concluído — import local pra evitar
+        importar `apps.scheduling` no carregamento do app (mesmo padrão de
+        `apps/clients/services.py`)."""
+        from apps.scheduling.models import AppointmentStatus
+
+        last = (
+            self.appointments.filter(status=AppointmentStatus.COMPLETED)
+            .order_by("-date")
+            .first()
+        )
+        return last.date if last else None
+
+    @property
+    def is_inactive(self):
+        """Sem atendimento concluído há `Tenant.client_inactive_days` dias
+        (Configurações) — conta a partir do cadastro se o cliente nunca
+        voltou."""
+        reference_date = self.last_appointment_date or self.created_at.date()
+        days_since = (datetime.date.today() - reference_date).days
+        return days_since >= self.tenant.client_inactive_days
 
 
 class ClientCreditTransaction(TenantModel):

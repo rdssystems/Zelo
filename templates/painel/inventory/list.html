@@ -9,22 +9,22 @@
     <p class="text-on-surface-variant max-w-2xl">Gerencie seus produtos, acompanhe níveis críticos e registre movimentações de entrada e saída com precisão.</p>
   </div>
   <div class="shrink-0 flex flex-wrap items-center gap-3">
-    <a class="flex items-center gap-2 border border-outline text-on-surface-variant font-semibold px-4 py-2.5 md:px-6 md:py-3 rounded-full hover:bg-surface-container transition-colors"
+    <a class="flex items-center gap-2 border border-outline text-on-surface-variant font-semibold px-4 py-2.5 md:px-6 md:py-3 rounded-pill hover:bg-surface-container transition-colors"
        href="{% url 'inventory:count_list' %}">
       <span class="material-symbols-outlined">playlist_add_check</span>
       Inventário
     </a>
-    <a class="flex items-center gap-2 border border-outline text-on-surface-variant font-semibold px-4 py-2.5 md:px-6 md:py-3 rounded-full hover:bg-surface-container transition-colors"
+    <a class="flex items-center gap-2 border border-outline text-on-surface-variant font-semibold px-4 py-2.5 md:px-6 md:py-3 rounded-pill hover:bg-surface-container transition-colors"
        href="{% url 'inventory:supplier_list' %}">
       <span class="material-symbols-outlined">local_shipping</span>
       Fornecedores
     </a>
-    <a class="flex items-center gap-2 border border-outline text-on-surface-variant font-semibold px-4 py-2.5 md:px-6 md:py-3 rounded-full hover:bg-surface-container transition-colors"
+    <a class="flex items-center gap-2 border border-outline text-on-surface-variant font-semibold px-4 py-2.5 md:px-6 md:py-3 rounded-pill hover:bg-surface-container transition-colors"
        href="{% url 'inventory:category_list' %}">
       <span class="material-symbols-outlined">category</span>
       Categorias
     </a>
-    <button class="flex items-center gap-2 bg-primary text-on-primary font-semibold px-5 py-2.5 md:text-lg md:px-8 md:py-3 rounded-full hover:opacity-90 transition-opacity shadow-sm active:scale-95"
+    <button class="flex items-center gap-2 bg-primary text-on-primary font-semibold px-5 py-2.5 md:text-lg md:px-8 md:py-3 rounded-pill hover:opacity-90 transition-opacity shadow-sm active:scale-95"
             hx-get="{% url 'inventory:create' %}" hx-target="#modal-slot" hx-swap="innerHTML">
       <span class="material-symbols-outlined">add</span>
       Novo Produto

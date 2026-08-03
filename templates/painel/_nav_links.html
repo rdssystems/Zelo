@@ -31,5 +31,8 @@
 <a class="flex items-center gap-4 px-4 py-3 rounded-lg {% if active == 'settings' %}text-primary font-bold border-r-4 border-primary bg-primary-container/10{% else %}text-on-surface-variant font-medium hover:bg-surface-container-high group{% endif %} transition-colors" href="{% url 'tenants:settings' %}">
   <span class="material-symbols-outlined {% if active != 'settings' %}text-outline group-hover:text-primary{% endif %} transition-colors" {% if active == 'settings' %}style="font-variation-settings: 'FILL' 1;"{% endif %}>settings</span><span>Configurações</span>
 </a>
+<a class="flex items-center gap-4 px-4 py-3 rounded-lg {% if active == 'plan' %}text-primary font-bold border-r-4 border-primary bg-primary-container/10{% else %}text-on-surface-variant font-medium hover:bg-surface-container-high group{% endif %} transition-colors" href="{% url 'billing:my_plan' %}">
+  <span class="material-symbols-outlined {% if active != 'plan' %}text-outline group-hover:text-primary{% endif %} transition-colors" {% if active == 'plan' %}style="font-variation-settings: 'FILL' 1;"{% endif %}>workspace_premium</span><span>Meu Plano</span>
+</a>
 {% endif %}
 {% endwith %}

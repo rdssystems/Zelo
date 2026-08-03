@@ -1,4 +1,5 @@
 import datetime
+from urllib.parse import quote
 
 from django.core.exceptions import ValidationError
 from django.http import Http404, HttpResponse
@@ -317,6 +318,24 @@ def _get_verified_appointment(request, tenant, appointment_id):
     return appointment
 
 
+def _cancel_whatsapp_url(tenant, appointment):
+    """RF06c: cliente cancelando pela página pública é redirecionado pro
+    WhatsApp do salão com um aviso pronto (editável dentro do próprio
+    WhatsApp) — `None` se o salão desligou a opção em Configurações ou não
+    tem WhatsApp cadastrado."""
+    if not tenant.whatsapp_cancel_redirect_enabled:
+        return None
+    number = tenant.whatsapp_wa_me_number
+    if not number:
+        return None
+    message = (
+        f"Olá! Sou {appointment.client.name} e decidi cancelar meu agendamento de "
+        f"{appointment.service.name} marcado para {appointment.date.strftime('%d/%m/%Y')} "
+        f"às {appointment.start_time.strftime('%H:%M')}. Só avisando por aqui!"
+    )
+    return f"https://wa.me/{number}?text={quote(message)}"
+
+
 def cancel_appointment_confirm(request, tenant_slug, appointment_id):
     appointment = _get_verified_appointment(request, request.tenant, appointment_id)
     return render(
@@ -328,6 +347,7 @@ def cancel_appointment_confirm(request, tenant_slug, appointment_id):
             "action_url": reverse(
                 "public:cancel_appointment", args=[tenant_slug, appointment.pk]
             ),
+            "cancel_whatsapp_url": _cancel_whatsapp_url(request.tenant, appointment),
         },
     )
 
@@ -337,7 +357,7 @@ def cancel_appointment_view(request, tenant_slug, appointment_id):
         return HttpResponse(status=405)
     appointment = _get_verified_appointment(request, request.tenant, appointment_id)
     try:
-        cancel_appointment(appointment)
+        cancel_appointment(appointment, canceled_by_client=True)
     except ValidationError:
         pass
     appointments = upcoming_appointments_for_client(appointment.client)

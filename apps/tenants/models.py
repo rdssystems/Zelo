@@ -19,6 +19,48 @@ def validate_slug_not_reserved(value):
         )
 
 
+def _check_digit(digits, weights):
+    total = sum(d * w for d, w in zip(digits, weights))
+    rest = total % 11
+    return 0 if rest < 2 else 11 - rest
+
+
+def validate_cpf_cnpj(value):
+    """CPF (11 dígitos) ou CNPJ (14 dígitos), com verificação real de dígito
+    verificador — exigido pelo Asaas (`cpfCnpj`) pra criar o cliente da
+    assinatura (`apps/billing/asaas_client.py::create_customer`)."""
+    digits_str = "".join(ch for ch in value if ch.isdigit())
+    digits = [int(ch) for ch in digits_str]
+
+    if len(digits) == 11:
+        if digits_str == digits_str[0] * 11:
+            raise ValidationError("CPF inválido.")
+        d1 = _check_digit(digits[:9], range(10, 1, -1))
+        d2 = _check_digit(digits[:9] + [d1], range(11, 1, -1))
+        if [d1, d2] != digits[9:]:
+            raise ValidationError("CPF inválido.")
+    elif len(digits) == 14:
+        if digits_str == digits_str[0] * 14:
+            raise ValidationError("CNPJ inválido.")
+        d1 = _check_digit(digits[:12], [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2])
+        d2 = _check_digit(digits[:12] + [d1], [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2])
+        if [d1, d2] != digits[12:]:
+            raise ValidationError("CNPJ inválido.")
+    else:
+        raise ValidationError("Informe um CPF (11 dígitos) ou CNPJ (14 dígitos) válido.")
+
+
+class TenantTheme(models.TextChoices):
+    """Tema visual do tenant (decisão do usuário em 2026-08-01) — escolhido no
+    cadastro (dois botões) e editável depois em Configurações. Só afeta
+    aparência (paleta/tipografia via `templates/_theme_tailwind_config.html`
+    e `templates/_theme_fonts.html`) — nenhuma regra de negócio muda entre
+    os dois."""
+
+    SALAO = "salao", "Salão de beleza"
+    BARBEARIA = "barbearia", "Barbearia"
+
+
 class Tenant(models.Model):
     """Um salão de estética (cliente da plataforma)."""
 
@@ -28,12 +70,46 @@ class Tenant(models.Model):
         "slug", max_length=60, unique=True, validators=[validate_slug_not_reserved]
     )
     whatsapp = models.CharField("WhatsApp", max_length=20, blank=True)
+    document = models.CharField(
+        "CPF/CNPJ", max_length=18, blank=True, validators=[validate_cpf_cnpj],
+        help_text="Exigido só na hora de assinar um plano pago (Asaas precisa pra criar o cliente).",
+    )
     address = models.CharField("endereço", max_length=255, blank=True)
     description = models.TextField("descrição", blank=True)
     logo = models.ImageField(upload_to="tenants/logos/", blank=True, null=True)
     cover_image = models.ImageField(upload_to="tenants/covers/", blank=True, null=True)
     background_image = models.ImageField(
         upload_to="tenants/backgrounds/", blank=True, null=True
+    )
+    theme = models.CharField(
+        "tema visual", max_length=20, choices=TenantTheme.choices, default=TenantTheme.SALAO,
+        help_text="Escolhido no cadastro, editável em Configurações — muda a paleta e "
+        "tipografia do app público e do painel.",
+    )
+    # Limiares configuráveis em Configurações (decisão do usuário em
+    # 2026-07-31) — usados por `apps.clients.models.Client` pra marcar
+    # mensalista "a vencer" e cliente "inativo" na lista/campanha de WhatsApp.
+    subscription_due_soon_days = models.PositiveSmallIntegerField(
+        "aviso de mensalidade a vencer (dias)", default=7,
+        help_text="Mensalista aparece como \"vence em breve\" quando faltar esse tanto de "
+        "dias (ou menos) pro vencimento.",
+    )
+    client_inactive_days = models.PositiveSmallIntegerField(
+        "cliente inativo após (dias)", default=60,
+        help_text="Sem nenhum atendimento concluído há esse tanto de dias (contado do "
+        "cadastro se o cliente nunca voltou), aparece marcado como inativo na lista.",
+    )
+    whatsapp_cancel_redirect_enabled = models.BooleanField(
+        "redirecionar cliente pro WhatsApp ao cancelar", default=True,
+        help_text="Ao cancelar um agendamento na página pública, abre o WhatsApp do salão "
+        "com um aviso pronto (editável) pro cliente só clicar em enviar. Exige WhatsApp "
+        "cadastrado acima.",
+    )
+    auto_confirm_appointments = models.BooleanField(
+        "confirmar agendamento automaticamente", default=False,
+        help_text="Desmarcado (padrão): todo agendamento nasce pendente, precisa o salão "
+        "confirmar na Agenda — a página do cliente mostra \"Agendamento enviado\" até lá. "
+        "Marcado: agendamento já nasce confirmado, sem esperar o salão.",
     )
     is_active = models.BooleanField("ativo", default=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -45,6 +121,20 @@ class Tenant(models.Model):
 
     def __str__(self):
         return self.name
+
+    @property
+    def whatsapp_wa_me_number(self):
+        """Só dígitos, com DDI — usado pra montar link `wa.me` (ex.: aviso de
+        cancelamento do cliente). `None` sem WhatsApp cadastrado. Mesma ideia
+        de `apps.clients.models.Client.whatsapp_url`, mas o campo aqui não é
+        normalizado na entrada (`Tenant.whatsapp` aceita qualquer formato),
+        então limpa a formatação e garante o `55` na frente aqui mesmo."""
+        digits = "".join(ch for ch in self.whatsapp if ch.isdigit())
+        if not digits:
+            return None
+        if not digits.startswith("55"):
+            digits = f"55{digits}"
+        return digits
 
 
 class TenantQuerySet(models.QuerySet):

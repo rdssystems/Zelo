@@ -17,7 +17,7 @@
     <label class="text-sm text-on-surface-variant">Até</label>
     <input class="bg-transparent border-0 border-b border-outline-variant text-on-surface focus:ring-0 focus:border-primary" name="end" type="date" value="{{ end|date:'Y-m-d' }}"/>
   </div>
-  <button class="ml-auto px-6 py-2 rounded-full bg-primary-container text-on-primary-container font-semibold text-sm hover:opacity-90 transition-opacity" type="submit">Filtrar</button>
+  <button class="ml-auto px-6 py-2 rounded-pill bg-primary-container text-on-primary-container font-semibold text-sm hover:opacity-90 transition-opacity" type="submit">Filtrar</button>
 </form>
 
 <section class="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-8">
@@ -45,9 +45,9 @@
       <div class="flex items-center gap-4">
         <span class="font-semibold text-on-surface">R$ {{ commission.calculated_amount }}</span>
         {% if commission.status == "paid" %}
-        <span class="inline-flex items-center px-3 py-1 rounded-full bg-[#e8f5e9] text-[#2e7d32] text-label-caps uppercase">Paga</span>
+        <span class="inline-flex items-center px-3 py-1 rounded-pill bg-[#e8f5e9] text-[#2e7d32] text-label-caps uppercase">Paga</span>
         {% else %}
-        <span class="inline-flex items-center px-3 py-1 rounded-full bg-surface-variant text-on-surface-variant text-label-caps uppercase">Pendente</span>
+        <span class="inline-flex items-center px-3 py-1 rounded-pill bg-surface-variant text-on-surface-variant text-label-caps uppercase">Pendente</span>
         {% endif %}
       </div>
     </div>

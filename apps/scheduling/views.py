@@ -174,6 +174,29 @@ def _agenda_response(request, date):
 
 
 @tenant_admin_required
+def agenda_items_poll(request):
+    """`hx-trigger="every Ns"` embutido no próprio `#agenda-items`
+    (`_items.html`) — devolve só o partial, sem o reset de `#modal-slot` que
+    `_agenda_response` faz (senão fecharia qualquer modal aberto no meio de
+    uma ação a cada ciclo de polling)."""
+    date = _parse_date(request.GET.get("date"))
+    employee_id = _employee_filter_id(request)
+    appointments = (
+        Appointment.objects.for_tenant(request.tenant)
+        .filter(date=date)
+        .select_related("client", "employee", "service")
+        .order_by("start_time")
+    )
+    if employee_id:
+        appointments = appointments.filter(employee_id=employee_id)
+    return render(
+        request,
+        "painel/scheduling/_items.html",
+        {"appointments": appointments, "selected_date": date, "selected_employee_id": employee_id},
+    )
+
+
+@tenant_admin_required
 def agenda_list(request):
     date = _parse_date(request.GET.get("date"))
     employee_id = _employee_filter_id(request)
@@ -390,6 +413,17 @@ def _week_response(request, week_start, employee_id):
 
 
 @tenant_admin_required
+def agenda_week_poll(request):
+    """Mesma ideia de `agenda_items_poll`, pra grade semanal — sem o reset
+    de `#modal-slot`."""
+    any_date = _parse_date(request.GET.get("week"))
+    week_start = _week_start_for(any_date)
+    employee_id = _employee_filter_id(request)
+    context = _week_grid_context(request, week_start, employee_id)
+    return render(request, "painel/scheduling/_week_grid.html", context)
+
+
+@tenant_admin_required
 def agenda_week(request):
     any_date = _parse_date(request.GET.get("week"))
     week_start = _week_start_for(any_date)
@@ -464,6 +498,40 @@ def my_agenda(request):
             "prev_date": date - datetime.timedelta(days=1),
             "next_date": date + datetime.timedelta(days=1),
             "active_nav": "my_agenda",
+        },
+    )
+
+
+def _default_confirm_message(appointment):
+    """Texto de partida da confirmação por WhatsApp — copy, não regra de
+    negócio (mesmo tratamento de `apps.billing.views.PLAN_HIGHLIGHTS` e
+    `apps.clients.views._default_campaign_message`)."""
+    return (
+        f"Olá, {appointment.client.name}! Seu horário de {appointment.service.name} no dia "
+        f"{appointment.date.strftime('%d/%m')} às {appointment.start_time.strftime('%H:%M')} "
+        f"com {appointment.employee.full_name} está confirmado. Te esperamos!"
+    )
+
+
+@tenant_admin_required
+def appointment_confirm_prepare(request, pk):
+    """Modal aberto ao clicar "Confirmar" num agendamento pendente — em vez
+    de confirmar na hora, mostra uma mensagem de WhatsApp pronta (editável)
+    pro cliente. O botão do modal confirma de verdade (POST em
+    `scheduling:confirm`) e abre o WhatsApp com a mensagem, os dois na mesma
+    ação (ver `_appointment_confirm_modal.html`)."""
+    appointment = _get_appointment(request, pk)
+    return_qs, target = _agenda_return_qs_and_target(request)
+    client = appointment.client
+    return render(
+        request,
+        "painel/scheduling/_appointment_confirm_modal.html",
+        {
+            "appointment": appointment,
+            "whatsapp_phone": client.phone if client.phone.isdigit() else "",
+            "confirm_message": _default_confirm_message(appointment),
+            "confirm_url": f"{reverse('scheduling:confirm', args=[appointment.pk])}?{return_qs}",
+            "target": target,
         },
     )
 

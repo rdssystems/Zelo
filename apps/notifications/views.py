@@ -3,11 +3,11 @@ from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, render
 from django.template.loader import render_to_string
 
-from apps.accounts.decorators import superadmin_required
+from apps.accounts.decorators import superadmin_required, tenant_admin_required
 
 from . import services as notif_ops
 from .forms import AnnouncementForm
-from .models import Announcement
+from .models import Announcement, TenantNotification
 
 # ---------------------------------------------------------------------------
 # Superadmin (CRUD) — /plataforma/avisos/
@@ -89,19 +89,27 @@ def announcement_toggle(request, pk):
 
 
 def _bell_html(request):
+    announcements_count = notif_ops.unread_count_for_user(request.user)
+    agenda_count = notif_ops.unread_tenant_notification_count(request.tenant)
     return render_to_string(
         "painel/notifications/_bell.html",
-        {"unread_announcements_count": notif_ops.unread_count_for_user(request.user), "oob": True},
+        {"unread_bell_count": announcements_count + agenda_count, "oob": True},
         request=request,
     )
+
+
+def _list_context(request):
+    return {
+        "announcements": notif_ops.unread_announcements_for_user(request.user),
+        "agenda_notifications": notif_ops.unread_tenant_notifications(request.tenant),
+    }
 
 
 @login_required
 def notification_list(request):
     if request.user.role != "tenant_admin":
         return HttpResponse(status=403)
-    announcements = notif_ops.unread_announcements_for_user(request.user)
-    return render(request, "painel/notifications/_list.html", {"announcements": announcements})
+    return render(request, "painel/notifications/_list.html", _list_context(request))
 
 
 @login_required
@@ -112,11 +120,21 @@ def mark_read(request, pk):
         return HttpResponse(status=405)
     announcement = get_object_or_404(Announcement, pk=pk)
     notif_ops.mark_read(announcement, request.user)
-    list_html = render_to_string(
-        "painel/notifications/_list.html",
-        {"announcements": notif_ops.unread_announcements_for_user(request.user)},
-        request=request,
+    list_html = render_to_string("painel/notifications/_list.html", _list_context(request), request=request)
+    return HttpResponse(list_html + _bell_html(request))
+
+
+@login_required
+def mark_tenant_notification_read(request, pk):
+    if request.user.role != "tenant_admin":
+        return HttpResponse(status=403)
+    if request.method != "POST":
+        return HttpResponse(status=405)
+    notification = get_object_or_404(
+        TenantNotification.objects.for_tenant(request.tenant), pk=pk
     )
+    notif_ops.mark_tenant_notification_read(notification)
+    list_html = render_to_string("painel/notifications/_list.html", _list_context(request), request=request)
     return HttpResponse(list_html + _bell_html(request))
 
 
@@ -127,7 +145,29 @@ def mark_all_read(request):
     if request.method != "POST":
         return HttpResponse(status=405)
     notif_ops.mark_all_read(request.user)
-    list_html = render_to_string(
-        "painel/notifications/_list.html", {"announcements": []}, request=request
-    )
+    notif_ops.mark_all_tenant_notifications_read(request.tenant)
+    list_html = render_to_string("painel/notifications/_list.html", _list_context(request), request=request)
     return HttpResponse(list_html + _bell_html(request))
+
+
+# ---------------------------------------------------------------------------
+# Polling do "aviso no cantinho" — /painel/avisos/toast/
+# ---------------------------------------------------------------------------
+
+
+@tenant_admin_required
+def agenda_toast_poll(request):
+    """`hx-trigger="every Ns"` em `painel/base.html` — devolve só as
+    notificações operacionais ainda não exibidas nesta sessão (watermark por
+    `pk`, não por `is_read`: o admin pode ver o toast e ele continuar não
+    lido no sininho até ele marcar de verdade)."""
+    last_seen_id = request.session.get("agenda_toast_last_id", 0)
+    new_notifications = list(notif_ops.new_tenant_notifications_since(request.tenant, last_seen_id))
+    if new_notifications:
+        request.session["agenda_toast_last_id"] = new_notifications[-1].pk
+    html = render_to_string(
+        "painel/notifications/_toast_poll.html",
+        {"notifications": new_notifications},
+        request=request,
+    )
+    return HttpResponse(html + _bell_html(request))

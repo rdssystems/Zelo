@@ -16,9 +16,9 @@
         O horário de {{ appointment.employee.full_name }} volta a ficar livre. Esta ação não pode ser desfeita.
       </p>
       <div class="flex justify-end gap-4">
-        <button class="px-6 py-3 rounded-full border border-outline text-on-surface-variant hover:bg-surface-container transition-colors" type="button"
+        <button class="px-6 py-3 rounded-pill border border-outline text-on-surface-variant hover:bg-surface-container transition-colors" type="button"
                 onclick="document.getElementById('modal-slot').innerHTML = ''">Cancelar</button>
-        <button class="px-8 py-3 rounded-full bg-error text-on-error font-semibold hover:opacity-90 transition-opacity active:scale-95"
+        <button class="px-8 py-3 rounded-pill bg-error text-on-error font-semibold hover:opacity-90 transition-opacity active:scale-95"
                 hx-post="{% url 'finance:comanda_service_remove' appointment.pk %}" hx-target="#cash-items" hx-swap="outerHTML">
           Remover
         </button>

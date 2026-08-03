@@ -13,7 +13,7 @@ from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.utils.text import slugify
 
-from .models import RESERVED_TENANT_SLUGS, Tenant, TenantBusinessHours, Weekday
+from .models import RESERVED_TENANT_SLUGS, Tenant, TenantBusinessHours, TenantTheme, Weekday
 
 User = get_user_model()
 
@@ -82,20 +82,23 @@ def set_business_hours(tenant, days):
 
 
 @transaction.atomic
-def register_tenant(*, name, email, password):
+def register_tenant(*, name, email, password, theme=TenantTheme.SALAO):
     """Cria o `Tenant` e o `User` (role=tenant_admin) do dono do salão.
 
     `password=None` cria o usuário com senha inutilizável (`set_password`
     trata `None` assim) — usado pelo cadastro automático via Google
     (`apps.accounts.adapters.ZeloSocialAccountAdapter.save_user`), onde o
-    login é sempre via OAuth, nunca por senha."""
+    login é sempre via OAuth, nunca por senha. Esse caminho não passa
+    `theme` (não tem formulário pra escolher) — cai no default `salao`; o
+    dono troca depois em Configurações se quiser (decisão do usuário em
+    2026-08-01, evita uma tela extra só pro fluxo Google)."""
     name = str(name).strip()
     if not name:
         raise ValidationError({"name": "O nome do estabelecimento é obrigatório."})
     if User.objects.filter(email__iexact=email).exists():
         raise ValidationError({"email": "Já existe uma conta com este e-mail."})
 
-    tenant = Tenant.objects.create(name=name, slug=_generate_unique_slug(name))
+    tenant = Tenant.objects.create(name=name, slug=_generate_unique_slug(name), theme=theme)
     user = User.objects.create_user(
         email=email,
         password=password,

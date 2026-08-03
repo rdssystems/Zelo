@@ -24,6 +24,7 @@ class TenantSettingsSerializer(serializers.ModelSerializer):
             "id",
             "name",
             "slug",
+            "theme",
             "whatsapp",
             "address",
             "description",
@@ -31,6 +32,10 @@ class TenantSettingsSerializer(serializers.ModelSerializer):
             "logo",
             "cover_image",
             "background_image",
+            "subscription_due_soon_days",
+            "client_inactive_days",
+            "whatsapp_cancel_redirect_enabled",
+            "auto_confirm_appointments",
             "is_active",
             "created_at",
         ]

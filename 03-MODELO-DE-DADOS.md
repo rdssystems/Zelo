@@ -60,13 +60,36 @@ erDiagram
 | name | string | Nome fantasia do salão |
 | slug | string, único | Usado na URL pública `/​<slug>/` |
 | whatsapp | string | |
+| document | string, blank | CPF ou CNPJ, validado com dígito verificador real (`apps.tenants.models.validate_cpf_cnpj`) — só pedido na hora de assinar um plano (`/painel/plano/`), é o que o Asaas exige pra criar o cliente da cobrança |
 | address | string | |
 | description | text | opcional |
 | logo | image | |
 | cover_image | image | capa exibida no topo do card da página pública, atrás da logo |
 | background_image | image | fundo da página pública |
+| theme | enum: salao, barbearia — default salao | ✅ *(2026-08-01, RF26e)* Escolhido no cadastro, editável em Configurações — só aparência (paleta/tipografia), ver detalhe abaixo |
+| subscription_due_soon_days | int, default 7 | Configurações — janela (dias) pra `Client.subscription_is_due_soon` |
+| client_inactive_days | int, default 60 | Configurações — limiar (dias sem atendimento concluído) pra `Client.is_inactive` |
+| whatsapp_cancel_redirect_enabled | bool, default True | ✅ *(2026-07-31)* Configurações (RF26c) — liga/desliga o redirecionamento do cliente pro WhatsApp do salão ao cancelar (RF06f) |
+| auto_confirm_appointments | bool, default False | ✅ *(2026-07-31)* Configurações (RF26d) — agendamento nasce `confirmed` em vez de `pending` (RF06i) |
 | is_active | bool | desativado manualmente pelo superadmin |
 | created_at | datetime | |
+
+**`whatsapp_wa_me_number` (property, não é campo de banco):** `Tenant.whatsapp` limpo de
+formatação + `55` na frente, pra montar link `wa.me` — `None` sem WhatsApp cadastrado. Usado no
+RF06f; o campo `whatsapp` em si não tem validação/normalização na entrada.
+
+**Mecanismo do `theme` (RF26e):** nenhuma lógica de negócio depende dele, é puramente visual.
+Toda página Tailwind carrega sua paleta/tipografia de um `<script id="tailwind-config">` embutido
+no `<head>` — só **4 templates "donos"** desse bloco de verdade: `painel/base.html` (o resto do
+painel herda via `{% extends %}`), `public/_wizard_base.html` (fluxo de agendamento inteiro herda),
+`public/home.html` e `public/booking/success.html` (standalone). Os 4 incluem
+`templates/_theme_tailwind_config.html` (cores + `fontFamily` + `fontSize` + `borderRadius`,
+condicional em `request.tenant.theme`) e `templates/_theme_fonts.html` (`<link>` do Google Fonts
+correto) — trocar o tema não toca em nenhum outro template. Tema `barbearia` = paleta "Heritage &
+Steel" (fundo `#17130f`, destaque `#fbba64`, `Archivo Narrow` + `Hanken Grotesk`), validada antes
+no Google Stitch (`design-reference/barbearia/`). `plataforma/base.html` (painel do superadmin),
+`painel/login.html`, `painel/signup.html` e `templates/legal/` **não** são afetados — não há um
+tenant único resolvido nessas páginas.
 
 ### `TenantBusinessHours` 🔒 (horário de funcionamento do salão)
 Substituiu o antigo campo livre `business_hours_note` — 1 linha por dia da semana, sempre as 7
@@ -83,7 +106,9 @@ ver [[WorkingHours]] do funcionário pra isso).
 | _constraint_ | unique(tenant, weekday) | |
 
 ### `Plan`
-Plano de assinatura da plataforma — editável pelo superadmin em `/plataforma/planos/`.
+Plano de assinatura da plataforma — editável pelo superadmin em `/plataforma/planos/`, exibido
+e assinável pelo tenant em `/painel/plano/` (RF41/§4.2). 3 planos seedados via
+`billing/migrations/0005_seed_plans.py` (Essencial/Profissional/Ilimitado).
 
 | Campo | Tipo | Obs |
 |---|---|---|
@@ -94,23 +119,54 @@ Plano de assinatura da plataforma — editável pelo superadmin em `/plataforma/
 | order | int | ordem de exibição |
 | created_at | datetime | |
 
+⚠️ Diferenciação entre planos (nº de funcionários, estoque profissional) hoje é **só texto de
+marketing** (`apps.billing.views.PLAN_HIGHLIGHTS`), exibido na vitrine — nenhum campo de limite
+real existe ainda, nenhum tenant é bloqueado por plano. Campos propostos, ainda não criados:
+
+| Campo proposto | Tipo | Obs |
+|---|---|---|
+| max_employees | int, null | limite de `Employee` ativo no tenant; null = ilimitado |
+| stock_professional_enabled | bool | libera fornecedor/lote/custo médio/inventário (RF43-46) — hoje todo tenant já tem acesso, sem gate nenhum |
+
 ### `Subscription` (billing / Asaas)
-Nasce automaticamente em `register_tenant` (status `trialing`, sem `plan`) — controle
-**manual** por enquanto (Etapa 9/Asaas adiada pelo usuário); os campos `asaas_*` já ficam
-reservados pra quando a integração automática existir.
+Nasce automaticamente em `register_tenant` com `trial_ends_at` = 14 dias corridos à frente
+(`apps.billing.services.TRIAL_DAYS`). Tenant assina self-service em `/painel/plano/`
+(`apps.billing.services.get_or_create_checkout_url`) — cria cliente + assinatura no Asaas e
+preenche `asaas_customer_id`/`asaas_subscription_id` de verdade; webhook
+(`POST /webhooks/asaas/`) atualiza `status` daí em diante. Superadmin continua podendo mudar
+tudo manualmente em `/plataforma/` (usado hoje porque `ASAAS_API_KEY` ainda está vazia no
+`.env` — ver `01-REQUISITOS.md` §4.2).
 
 | Campo | Tipo | Obs |
 |---|---|---|
 | tenant | FK Tenant (1:1) | |
-| plan | FK Plan, PROTECT, null=True | atribuído manualmente pelo superadmin |
-| asaas_customer_id | string | reservado (Etapa 9) |
-| asaas_subscription_id | string | reservado (Etapa 9) |
-| status | enum: trialing, active, overdue, canceled | mudado manualmente pelo superadmin |
-| grace_period_days | int | tolerância antes de bloquear acesso |
-| current_period_start | date, null | reinicia (= hoje) a cada troca de plano; editável manualmente pelo superadmin quando não há cobrança recorrente (`Subscription.is_recurring`) |
-| current_period_end | date, null | `current_period_start` + 30 dias corridos a cada troca de plano |
+| plan | FK Plan, PROTECT, null=True | escolhido pelo tenant (`billing:select_plan`) ou atribuído manualmente pelo superadmin |
+| asaas_customer_id | string | preenchido no 1º checkout (`asaas_client.create_customer`) |
+| asaas_subscription_id | string | preenchido no 1º checkout (`asaas_client.create_subscription`) |
+| status | enum: trialing, **pending**, active, overdue, canceled | `pending` = novo (checkout criado no Asaas, aguardando webhook confirmar o 1º pagamento) |
+| trial_ends_at | datetime, null | fim do trial de 14 dias, setado em `register_tenant`. RF30 ✅ *(2026-07-31)* — passado esse horário, `apps.billing.services.subscription_blocks_panel_access` bloqueia o painel (sem tolerância extra) se `status` continuar `trialing`; nenhum job muda o `status` sozinho, é só comparado a cada request |
+| grace_period_days | int, default 5 | RF30 ✅ — dias de carência após `current_period_end` antes de `apps.billing.services.subscription_blocks_panel_access` bloquear o painel de uma assinatura `overdue` |
+| current_period_start | date, null | atualizado pelo webhook (`PAYMENT_CONFIRMED`/`PAYMENT_RECEIVED`) ou manualmente pelo superadmin quando não há cobrança recorrente (`Subscription.is_recurring`) |
+| current_period_end | date, null | idem, `current_period_start` + 30 dias |
 | created_at | datetime | |
 | updated_at | datetime | |
+
+**Exibição no painel:** além de `/painel/plano/`, o plano atual + dias restantes aparecem no
+menu lateral inteiro (embaixo do e-mail/nome do salão), calculado a cada request por
+`apps.billing.context_processors.sidebar_plan` (não é campo de banco) — ver
+`01-REQUISITOS.md` §4.2.
+
+### `AsaasWebhookEvent`
+Log de dedupe do webhook — `unique_together(payment_id, event_type)` garante que um reenvio do
+Asaas (acontece se o endpoint não responde 200 a tempo) não reprocessa o mesmo evento duas
+vezes. Puramente técnico, não é exibido em nenhum painel.
+
+| Campo | Tipo | Obs |
+|---|---|---|
+| payment_id | string | id do `Payment` no Asaas |
+| event_type | string | ex: `PAYMENT_CONFIRMED` |
+| received_at | datetime | |
+| _constraint_ | unique(payment_id, event_type) | é essa constraint que faz a dedupe (`IntegrityError` capturado em `apps.billing.services._record_webhook_event`) |
 
 ### `Announcement`
 Aviso de atualização do app, criado pelo superadmin em `/plataforma/avisos/` — broadcast pra
@@ -133,6 +189,23 @@ Leitura é por **usuário** (não por tenant) — cada `tenant_admin` dispensa a
 | user | FK User, CASCADE | |
 | read_at | datetime | |
 | _constraint_ | unique(announcement, user) | |
+
+### `TenantNotification` 🔒 *(implementado em 2026-07-31 — RF06g)*
+Alerta operacional de **um** tenant — diferente de `Announcement` (broadcast pra todos). Nasce
+de um evento dentro do próprio salão; hoje só `apps.scheduling.services.cancel_appointment`
+gera um, quando `canceled_by_client=True`. Leitura é direto no registro (`is_read`/`read_at`),
+sem tabela de join por usuário — só o(s) `tenant_admin`(s) daquele salão veem.
+
+| Campo | Tipo | Obs |
+|---|---|---|
+| tenant | FK Tenant | |
+| kind | enum (`TenantNotificationKind`) | só `appointment_canceled_by_client` gerado hoje — enum já extensível pro roadmap de notificar toda mudança de agenda (RF06h) |
+| title | string | |
+| message | text | |
+| appointment | FK Appointment, SET_NULL, null=True | referência opcional — sobrevive se o agendamento for removido |
+| is_read | bool | |
+| read_at | datetime, null | |
+| created_at | datetime | |
 
 ### `User` (custom, `AbstractUser`)
 | Campo | Tipo | Obs |
@@ -206,6 +279,25 @@ Leitura é por **usuário** (não por tenant) — cada `tenant_admin` dispensa a
 | created_at | datetime | |
 | — unique_together | (tenant, phone) | mesmo telefone pode existir em tenants diferentes |
 
+**Propriedades computadas ✅ *(`subscription_is_due_soon` e `is_inactive` ajustados/criados em
+2026-07-31)*** — nenhuma é campo de banco:
+- `subscription_is_overdue` — `subscription_due_date < hoje`.
+- `subscription_is_due_soon` — vence dentro de `Tenant.subscription_due_soon_days` dias
+  (Configurações, default 7; antes era `7` fixo no código).
+- `last_appointment_date` — data do último `Appointment` com `status=completed` do cliente
+  (`None` se nunca teve um concluído).
+- `is_inactive` — sem atendimento concluído há `Tenant.client_inactive_days` dias
+  (Configurações, default 60); conta a partir de `created_at` se o cliente nunca voltou.
+  Badge "Inativo" na lista de Clientes (`templates/painel/clients/list.html`).
+
+**Campanha de cobrança por WhatsApp ✅ *(implementado em 2026-07-31, `/painel/clientes/
+mensalistas/whatsapp/`)*** — modal (botão "Cobrar mensalistas", ao lado de "Novo Cliente")
+lista mensalista vencido ou a vencer (selectbox), cada um com mensagem pronta (editável)
+gerada em `apps/clients/views.py::_default_campaign_message` (copy, não regra de negócio —
+mesmo tratamento de `apps.billing.views.PLAN_HIGHLIGHTS`); "Enviar e ir pro próximo" abre
+`wa.me/55<phone>?text=<mensagem>` num loop client-side (Alpine.js, sem round-trip por
+cliente). Só entram clientes com telefone válido (exclui anonimizado LGPD).
+
 ### `ClientCreditTransaction` 🔒 (ledger da carteira de crédito do cliente)
 Recarregar gera `CashTransaction` real (categoria `client_credit_topup`) — o dinheiro entrou de
 verdade. Usar o crédito depois (comanda) só abate saldo, NÃO gera nova `CashTransaction` (evita
@@ -235,6 +327,7 @@ contar receita duas vezes — decisão do usuário).
 | status | enum: pending, confirmed, in_progress, completed, canceled, no_show | `in_progress` = "Em Atendimento" (cliente chegou, comanda aberta no Caixa) |
 | price_at_booking | decimal | snapshot do preço no momento (preço pode mudar depois) |
 | notes | text | opcional |
+| canceled_by_client | bool, default False | ✅ *(2026-07-31)* true quando o próprio cliente cancelou pela página pública (RF06f) — distingue de cancelamento pelo admin, pro badge "Cancelado pelo cliente" na Agenda |
 | created_at | datetime | |
 | created_by | FK User, null | null se criado pelo cliente na página pública |
 

@@ -128,6 +128,73 @@ def _get_client(request, pk):
     return get_object_or_404(Client.objects.for_tenant(request.tenant), pk=pk)
 
 
+def _default_campaign_message(client, *, overdue):
+    """Texto de partida pro cliente editar antes de mandar — não é regra de
+    negócio (nada calcula em cima disso), só copy, mesmo tratamento de
+    `apps.billing.views.PLAN_HIGHLIGHTS`."""
+    due = (
+        client.subscription_due_date.strftime("%d/%m/%Y")
+        if client.subscription_due_date
+        else ""
+    )
+    if overdue:
+        return (
+            f"Olá, {client.name}! Vi aqui que sua mensalidade venceu em {due}. "
+            "Quando puder, dá uma passadinha pra regularizar — qualquer dúvida, é só chamar "
+            "por aqui!"
+        )
+    return (
+        f"Olá, {client.name}! Passando pra lembrar que sua mensalidade vence em {due}. "
+        "Já pode se programar — qualquer dúvida, é só chamar por aqui!"
+    )
+
+
+def _campaign_entry(client, *, overdue):
+    return {
+        "id": client.id,
+        "name": client.name,
+        "phone": client.phone,
+        "due_date": (
+            client.subscription_due_date.strftime("%d/%m/%Y")
+            if client.subscription_due_date
+            else ""
+        ),
+        "message": _default_campaign_message(client, overdue=overdue),
+    }
+
+
+@tenant_admin_required
+def subscription_whatsapp_campaign(request):
+    """Modal da campanha de cobrança/lembrete por WhatsApp (`/painel/clientes/
+    mensalistas/whatsapp/`) — lista mensalista vencido ou a vencer (janela de
+    `Tenant.subscription_due_soon_days`), cada um com número + mensagem
+    pronta (editável) pra abrir o WhatsApp um a um. Só entram clientes com
+    telefone válido pra link (`whatsapp_url`/`phone.isdigit()`) — anonimizado
+    via LGPD não tem como ser contatado."""
+    clients = [
+        c
+        for c in Client.objects.for_tenant(request.tenant)
+        .select_related("tenant")
+        .filter(is_subscriber=True)
+        if c.phone.isdigit()
+    ]
+    return render(
+        request,
+        "painel/clients/_whatsapp_campaign_modal.html",
+        {
+            "overdue_clients": [
+                _campaign_entry(c, overdue=True) for c in clients if c.subscription_is_overdue
+            ],
+            "due_soon_clients": [
+                _campaign_entry(c, overdue=False)
+                for c in clients
+                if c.subscription_is_due_soon
+            ],
+            "due_soon_days": request.tenant.subscription_due_soon_days,
+        },
+    )
+
+
 def _history_context(client):
     appointments = (
         client.appointments.select_related("service", "employee")
@@ -139,7 +206,7 @@ def _history_context(client):
 
 @tenant_admin_required
 def client_list(request):
-    clients = Client.objects.for_tenant(request.tenant)
+    clients = Client.objects.for_tenant(request.tenant).select_related("tenant")
     query = request.GET.get("q", "").strip()
     if query:
         clients = clients.filter(name__icontains=query) | clients.filter(

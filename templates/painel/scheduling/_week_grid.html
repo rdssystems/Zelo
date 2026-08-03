@@ -1,4 +1,6 @@
-<div id="agenda-week-grid" class="bg-surface-container-lowest rounded-2xl border border-surface-variant shadow-[0_4px_40px_-10px_rgba(125,86,45,0.08)] overflow-hidden">
+<div id="agenda-week-grid" class="bg-surface-container-lowest rounded-2xl border border-surface-variant shadow-[0_4px_40px_-10px_rgba(125,86,45,0.08)] overflow-hidden"
+     hx-get="{% url 'scheduling:agenda_week_poll' %}?week={{ week_start|date:'Y-m-d' }}{% if selected_employee_id %}&employee={{ selected_employee_id }}{% endif %}"
+     hx-trigger="every 20s" hx-swap="outerHTML">
   <div class="overflow-x-auto">
     <div class="min-w-[900px]">
       <div class="grid sticky top-0 z-10 bg-surface-container-lowest" style="grid-template-columns: 56px repeat(7, 1fr);">
@@ -34,7 +36,10 @@
                   style="top: {{ event.top_px }}px; height: {{ event.height_px }}px; left: calc({{ event.left_pct }}% + 2px); width: calc({{ event.width_pct }}% - 4px);"
                   hx-get="{% url 'scheduling:detail' event.appointment.pk %}?view=week&week={{ week_start|date:'Y-m-d' }}&employee={{ selected_employee_id|default:'' }}"
                   hx-target="#modal-slot" hx-swap="innerHTML">
-            <p class="text-xs font-semibold truncate">{{ event.appointment.start_time|time:"H:i" }} {{ event.appointment.service.name }}</p>
+            <p class="text-xs font-semibold truncate flex items-center gap-1">
+              {% if event.appointment.canceled_by_client %}<span class="material-symbols-outlined text-[12px]" title="Cancelado pelo cliente">smartphone</span>{% endif %}
+              {{ event.appointment.start_time|time:"H:i" }} {{ event.appointment.service.name }}
+            </p>
             <p class="text-xs truncate">{{ event.appointment.client.name }}{% if show_employee_name %} · {{ event.appointment.employee.full_name }}{% endif %}</p>
           </button>
           {% endfor %}

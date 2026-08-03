@@ -34,7 +34,7 @@
               </td>
               <td class="py-3 px-4 text-center text-on-surface-variant">{{ batch.quantity_received }}</td>
               <td class="py-3 px-4 text-center">
-                <span class="inline-flex items-center justify-center px-3 py-1 rounded-full text-label-caps
+                <span class="inline-flex items-center justify-center px-3 py-1 rounded-pill text-label-caps
                              {% if batch.is_depleted %}bg-surface-variant text-on-surface-variant{% else %}bg-secondary-container/50 text-on-secondary-container{% endif %}">
                   {{ batch.quantity_remaining }}
                 </span>
@@ -51,7 +51,7 @@
       </div>
 
       <div class="pt-6 flex justify-end">
-        <button class="px-6 py-3 rounded-full border border-outline text-on-surface-variant hover:bg-surface-container transition-colors" type="button"
+        <button class="px-6 py-3 rounded-pill border border-outline text-on-surface-variant hover:bg-surface-container transition-colors" type="button"
                 onclick="document.getElementById('modal-slot').innerHTML = ''">Fechar</button>
       </div>
     </div>

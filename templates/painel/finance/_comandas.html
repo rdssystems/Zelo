@@ -27,13 +27,13 @@
       <div class="flex gap-2 shrink-0">
         <button type="button"
                 hx-get="{% url 'finance:product_picker' group.client.pk %}" hx-target="#modal-slot" hx-swap="innerHTML"
-                class="flex items-center gap-2 px-4 py-2 rounded-full border border-outline-variant text-sm text-on-surface hover:bg-surface-container-low transition-colors">
+                class="flex items-center gap-2 px-4 py-2 rounded-pill border border-outline-variant text-sm text-on-surface hover:bg-surface-container-low transition-colors">
           <span class="material-symbols-outlined text-[18px]">add_shopping_cart</span>
           Vender produto
         </button>
         <button type="button"
                 hx-get="{% url 'finance:walk_in_service_picker' group.client.pk %}" hx-target="#modal-slot" hx-swap="innerHTML"
-                class="flex items-center gap-2 px-4 py-2 rounded-full border border-primary text-primary text-sm hover:bg-primary-container/20 transition-colors">
+                class="flex items-center gap-2 px-4 py-2 rounded-pill border border-primary text-primary text-sm hover:bg-primary-container/20 transition-colors">
           <span class="material-symbols-outlined text-[18px]">add</span>
           Adicionar serviço
         </button>
@@ -45,7 +45,7 @@
       <p class="text-sm text-on-surface flex items-center gap-2 flex-wrap">
         <span>{{ appointment.service.name }} · com {{ appointment.employee.full_name }} · {{ appointment.start_time|time:"H:i" }}</span>
         {% if appointment.date != today %}
-        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold
+        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-pill text-xs font-semibold
           {% if appointment.date < today %}bg-error-container text-on-error-container{% else %}bg-primary-container/40 text-on-primary-container{% endif %}"
           title="{% if appointment.date < today %}Comanda aberta em dia anterior{% else %}Atendimento antecipado — agendado para {{ appointment.date|date:'d/m/Y' }}{% endif %}">
           <span class="material-symbols-outlined text-[14px]">event</span>{{ appointment.date|date:"d/m" }}
@@ -134,7 +134,7 @@
               {% endfor %}
             </select>
           </div>
-          <button type="submit" class="px-6 py-2.5 rounded-full bg-primary text-on-primary font-semibold text-sm hover:opacity-90 transition-opacity active:scale-95">
+          <button type="submit" class="px-6 py-2.5 rounded-pill bg-primary text-on-primary font-semibold text-sm hover:opacity-90 transition-opacity active:scale-95">
             Finalizar Comanda
           </button>
         </div>
