@@ -20,6 +20,7 @@ from .services import (
     delete_tenant_account,
     register_tenant,
     set_business_hours,
+    theme_from_host,
 )
 
 User = get_user_model()
@@ -620,6 +621,71 @@ class TenantThemeModelTest(TestCase):
         self.assertEqual(tenant.theme, "salao")
 
 
+class ThemeFromHostTest(TestCase):
+    """Detecção de tema pelo subdomínio (decisão do usuário em 2026-08-03)
+    — `barbearia.`/`salao.` são os 2 pontos de entrada dedicados; qualquer
+    outro host (domínio raiz, dev local sem subdomínio) não tem tema."""
+
+    def test_detects_barbearia_subdomain(self):
+        self.assertEqual(theme_from_host("barbearia.zellup.com.br"), "barbearia")
+
+    def test_detects_salao_subdomain(self):
+        self.assertEqual(theme_from_host("salao.zellup.com.br"), "salao")
+
+    def test_root_domain_has_no_theme(self):
+        self.assertIsNone(theme_from_host("zellup.com.br"))
+
+    def test_plain_localhost_has_no_theme(self):
+        self.assertIsNone(theme_from_host("localhost:8000"))
+
+    def test_detects_subdomain_with_port_for_local_testing(self):
+        self.assertEqual(theme_from_host("barbearia.localhost:8000"), "barbearia")
+
+
+class ChooseThemeViewTest(TestCase):
+    """`/painel/escolher-tema/` — tela pra quem se cadastrou via Google
+    confirmar Salão de Beleza/Barbearia (decisão do usuário em 2026-08-02).
+    """
+
+    def setUp(self):
+        User = get_user_model()
+        self.tenant = Tenant.objects.create(
+            name="Salão de Julia", slug="salao-de-julia", theme_confirmed=False
+        )
+        self.admin = User.objects.create_user(
+            email="julia@gmail.com", password="x",
+            role=User.Role.TENANT_ADMIN, tenant=self.tenant,
+        )
+        self.client.force_login(self.admin)
+
+    def test_get_renders_form(self):
+        response = self.client.get("/painel/escolher-tema/")
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Salão de Beleza")
+        self.assertContains(response, "Barbearia")
+
+    def test_post_confirms_theme_and_redirects_to_painel(self):
+        response = self.client.post("/painel/escolher-tema/", {"theme": "barbearia"})
+        self.assertRedirects(response, "/painel/", fetch_redirect_response=False)
+        self.tenant.refresh_from_db()
+        self.assertEqual(self.tenant.theme, "barbearia")
+        self.assertTrue(self.tenant.theme_confirmed)
+
+    def test_post_invalid_theme_rejected(self):
+        response = self.client.post("/painel/escolher-tema/", {"theme": "spa-de-luxo"})
+        self.assertEqual(response.status_code, 200)
+        self.tenant.refresh_from_db()
+        self.assertFalse(self.tenant.theme_confirmed)
+
+    def test_confirmed_tenant_can_still_change_mind_here(self):
+        """Não é só pra quem está pendente — acessível a qualquer momento,
+        mesmo já confirmado (ex: usuário volta na URL por engano)."""
+        self.tenant.theme_confirmed = True
+        self.tenant.save(update_fields=["theme_confirmed"])
+        response = self.client.get("/painel/escolher-tema/")
+        self.assertEqual(response.status_code, 200)
+
+
 @override_settings(CACHES=LOCMEM_CACHE)
 class SignUpViewTest(TestCase):
     def setUp(self):
@@ -673,6 +739,26 @@ class SignUpViewTest(TestCase):
         tenant = Tenant.objects.get(name="Espaço Beleza")
         self.assertEqual(tenant.theme, "barbearia")
 
+    @override_settings(ALLOWED_HOSTS=["barbearia.zellup.com.br"])
+    def test_subdomain_forces_theme_and_hides_radio(self):
+        """Decisão do usuário em 2026-08-03: no subdomínio dedicado, o
+        cadastro nem pergunta o tema — o servidor decide pelo host, mesmo
+        que o POST venha com outro valor (campo oculto adulterado, cache
+        antigo etc.)."""
+        response = self.client.get(
+            "/cadastrar/", HTTP_HOST="barbearia.zellup.com.br"
+        )
+        self.assertNotContains(response, 'value="salao"')
+        self.assertContains(response, 'value="barbearia"')
+        response = self.client.post(
+            "/cadastrar/",
+            self._valid_payload(theme="salao"),
+            HTTP_HOST="barbearia.zellup.com.br",
+        )
+        self.assertEqual(response.status_code, 302)
+        tenant = Tenant.objects.get(name="Espaço Beleza")
+        self.assertEqual(tenant.theme, "barbearia")
+
     def test_weak_password_rejected(self):
         response = self.client.post(
             "/cadastrar/", self._valid_payload(password1="12345678", password2="12345678")
@@ -697,6 +783,32 @@ class SignUpViewTest(TestCase):
     def test_terms_and_privacy_pages_reachable(self):
         self.assertEqual(self.client.get("/termos/").status_code, 200)
         self.assertEqual(self.client.get("/privacidade/").status_code, 200)
+
+
+class LandingViewTest(TestCase):
+    """Domínio raiz (`/`) — landing com os 2 caminhos; nos subdomínios
+    dedicados, a raiz redireciona direto pro login/cadastro daquele tema
+    (decisão do usuário em 2026-08-03)."""
+
+    def test_root_domain_shows_landing_with_both_links(self):
+        response = self.client.get("/")
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Sou barbearia")
+        self.assertContains(response, "Sou salão de beleza")
+
+    @override_settings(ALLOWED_HOSTS=["barbearia.zellup.com.br"])
+    def test_barbearia_subdomain_root_redirects_to_login(self):
+        response = self.client.get("/", HTTP_HOST="barbearia.zellup.com.br")
+        self.assertRedirects(
+            response, "/painel/login/", fetch_redirect_response=False
+        )
+
+    @override_settings(ALLOWED_HOSTS=["salao.zellup.com.br"])
+    def test_salao_subdomain_root_redirects_to_login(self):
+        response = self.client.get("/", HTTP_HOST="salao.zellup.com.br")
+        self.assertRedirects(
+            response, "/painel/login/", fetch_redirect_response=False
+        )
 
 
 @override_settings(CACHES=LOCMEM_CACHE)

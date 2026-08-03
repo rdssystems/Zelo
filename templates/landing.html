@@ -1,0 +1,56 @@
+{% load static %}
+<!DOCTYPE html>
+<html class="light" lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Zellup — Agendamento para barbearias e salões</title>
+{% include "_favicon.html" %}
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Playfair+Display:wght@600;700&amp;display=swap" rel="stylesheet"/>
+<script>
+  tailwind.config = { theme: { extend: {
+    colors: {
+      "background": "#fdf8f2", "surface-container-lowest": "#ffffff",
+      "on-surface": "#1f1b17", "on-surface-variant": "#50453b", "outline-variant": "#d9cfc5",
+      "primary": "#7d562d", "on-primary": "#ffffff"
+    },
+    fontFamily: { "display": ["Playfair Display", "serif"], "sans": ["Inter", "sans-serif"] }
+  } } }
+</script>
+</head>
+<body class="bg-background font-sans text-on-surface antialiased min-h-screen flex flex-col items-center justify-center px-6 py-16">
+  <div class="text-center mb-12">
+    <h1 class="font-display text-5xl md:text-6xl font-bold tracking-tight">Zellup</h1>
+    <p class="text-on-surface-variant mt-3 text-lg">Agendamento e gestão para quem cuida da beleza dos outros.</p>
+  </div>
+
+  <div class="w-full max-w-3xl grid grid-cols-1 md:grid-cols-2 gap-6">
+    <a
+      class="group flex flex-col items-center gap-3 rounded-2xl border border-outline-variant bg-surface-container-lowest p-10 text-center shadow-[0_4px_40px_-10px_rgba(31,27,23,0.08)] transition-transform hover:-translate-y-1"
+      href="{{ request.scheme }}://barbearia.{{ request.get_host }}/painel/login/"
+    >
+      <span class="text-4xl">💈</span>
+      <h2 class="font-display text-2xl font-semibold">Sou barbearia</h2>
+      <p class="text-on-surface-variant text-sm">Entrar ou cadastrar minha barbearia</p>
+    </a>
+
+    <a
+      class="group flex flex-col items-center gap-3 rounded-2xl border border-outline-variant bg-surface-container-lowest p-10 text-center shadow-[0_4px_40px_-10px_rgba(31,27,23,0.08)] transition-transform hover:-translate-y-1"
+      href="{{ request.scheme }}://salao.{{ request.get_host }}/painel/login/"
+    >
+      <span class="text-4xl">💇</span>
+      <h2 class="font-display text-2xl font-semibold">Sou salão de beleza</h2>
+      <p class="text-on-surface-variant text-sm">Entrar ou cadastrar meu salão</p>
+    </a>
+  </div>
+
+  <p class="text-center text-sm text-on-surface-variant mt-16">
+    <a class="hover:underline" href="{% url 'terms' %}">Termos de Uso</a>
+    ·
+    <a class="hover:underline" href="{% url 'privacy' %}">Política de Privacidade</a>
+  </p>
+</body>
+</html>

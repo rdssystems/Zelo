@@ -1,4 +1,4 @@
-# Requisitos — Zelo
+# Requisitos — Zellup
 
 ## 1. Visão geral
 

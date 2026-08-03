@@ -1,4 +1,4 @@
-# Arquitetura — Zelo
+# Arquitetura — Zellup
 
 ## 1. Stack
 
@@ -19,7 +19,7 @@
 ## 2. Estrutura de apps Django
 
 ```
-zelo/
+zellup/
 ├── config/                 # settings, urls raiz, wsgi/asgi, celery.py
 ├── apps/
 │   ├── tenants/             # Tenant, TenantBusinessHours, middleware de resolução de tenant
@@ -108,7 +108,7 @@ Implementação:
 - **Login com Google (`django-allauth`, decisão do usuário em 2026-07-30)** — só o provedor
   Google é usado; login por e-mail/senha continua sendo o `LoginView` padrão do Django
   (`config/urls.py`), sem depender do allauth. Toda a regra de negócio fica no adapter
-  (`apps/accounts/adapters.py::ZeloSocialAccountAdapter`):
+  (`apps/accounts/adapters.py::ZellupSocialAccountAdapter`):
   - `pre_social_login`: se o e-mail da conta Google já é de um `User` existente, vincula
     automaticamente (`sociallogin.connect`) — pula a tela de "esse e-mail já existe" do allauth.
   - `save_user` (só roda quando o e-mail é novo): chama `register_tenant(name=..., email=...,

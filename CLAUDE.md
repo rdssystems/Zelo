@@ -1,4 +1,4 @@
-# CLAUDE.md — Regras do projeto Zelo
+# CLAUDE.md — Regras do projeto Zellup
 
 Este arquivo é lido automaticamente pelo agente em toda sessão. Ele define como trabalhar
 neste repositório. Documentos de referência (leia antes de decisões grandes):
@@ -91,7 +91,7 @@ dependência de terceiro.
 
 ## Infraestrutura da VPS (servidor compartilhado)
 
-O deploy acontece num VPS **compartilhado com outros produtos** (não exclusivo do Zelo).
+O deploy acontece num VPS **compartilhado com outros produtos** (não exclusivo do Zellup).
 Inventário completo (hardware, containers, firewall, capacidade) e instruções de acesso ficam
 em `VPS-INFRAESTRUTURA-ATUAL.md` na raiz do projeto — **arquivo local, não versionado**
 (contém IP/porta/topologia). Antes de qualquer tarefa de infraestrutura/deploy/SSH nesse

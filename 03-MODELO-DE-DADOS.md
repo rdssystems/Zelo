@@ -1,4 +1,4 @@
-# Modelo de Dados — Zelo
+# Modelo de Dados — Zellup
 
 Convenção: todo model marcado com 🔒 herda de `TenantModel` (tem `tenant_id` obrigatório e
 passa pelo isolamento multi-tenant). Todo model financeiro/estoque guarda `created_by` e

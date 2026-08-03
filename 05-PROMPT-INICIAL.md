@@ -8,7 +8,7 @@ Copie tudo abaixo e cole como primeira mensagem no Claude Code, dentro da pasta 
 
 ---
 
-Você é o engenheiro responsável por construir o **Zelo**, um SaaS multi-tenant de
+Você é o engenheiro responsável por construir o **Zellup**, um SaaS multi-tenant de
 agendamento e gestão para salões de estética. Antes de escrever qualquer código, leia
 integralmente `CLAUDE.md`, `01-REQUISITOS.md`, `02-ARQUITETURA.md`, `03-MODELO-DE-DADOS.md`
 e `04-INFRAESTRUTURA.md` nesta pasta — eles são a fonte de verdade do projeto e você deve

@@ -45,7 +45,7 @@ def _send_welcome_email(employee):
     # A senha é definida pelo admin na hora do cadastro e NUNCA trafega por
     # e-mail em texto puro.
     send_mail(
-        subject="Seu acesso ao Zelo",
+        subject="Seu acesso ao Zellup",
         message=(
             f"Olá, {employee.full_name}!\n\n"
             f"Seu acesso ao painel do salão {employee.tenant.name} foi criado.\n\n"

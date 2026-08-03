@@ -40,6 +40,19 @@ def _generate_unique_slug(name):
     return slug
 
 
+def theme_from_host(host):
+    """Detecta o tema pelo subdomínio (`barbearia.zellup.com.br` /
+    `salao.zellup.com.br`) — decisão do usuário em 2026-08-03: cada
+    subdomínio é login+cadastro exclusivo daquele tipo de negócio, sem
+    perguntar pro usuário. Os valores de `TenantTheme` já são "salao"/
+    "barbearia", iguais ao nome dos subdomínios. Retorna `None` pra
+    domínio raiz ou host sem subdomínio reconhecido (dev local em
+    `localhost`, por exemplo) — nesses casos quem chama mantém o
+    comportamento anterior (perguntar o tema)."""
+    subdomain = host.split(":")[0].split(".")[0]
+    return subdomain if subdomain in TenantTheme.values else None
+
+
 def create_default_business_hours(tenant):
     """Cria os 7 dias da semana com um horário padrão sugerido — o painel de
     Configurações sempre espera encontrar exatamente 1 linha por dia."""
@@ -82,23 +95,31 @@ def set_business_hours(tenant, days):
 
 
 @transaction.atomic
-def register_tenant(*, name, email, password, theme=TenantTheme.SALAO):
+def register_tenant(*, name, email, password, theme=TenantTheme.SALAO, theme_confirmed=True):
     """Cria o `Tenant` e o `User` (role=tenant_admin) do dono do salão.
 
     `password=None` cria o usuário com senha inutilizável (`set_password`
     trata `None` assim) — usado pelo cadastro automático via Google
-    (`apps.accounts.adapters.ZeloSocialAccountAdapter.save_user`), onde o
+    (`apps.accounts.adapters.ZellupSocialAccountAdapter.save_user`), onde o
     login é sempre via OAuth, nunca por senha. Esse caminho não passa
-    `theme` (não tem formulário pra escolher) — cai no default `salao`; o
-    dono troca depois em Configurações se quiser (decisão do usuário em
-    2026-08-01, evita uma tela extra só pro fluxo Google)."""
+    `theme` (não tem formulário pra escolher) e chama com
+    `theme_confirmed=False` — decisão do usuário em 2026-08-02, revertendo
+    a decisão anterior (2026-08-01) de não ter tela extra: agora o primeiro
+    acesso pós-Google é redirecionado pra `painel/escolher-tema/`
+    (`apps.accounts.decorators.tenant_admin_required`) antes de liberar o
+    resto do painel."""
     name = str(name).strip()
     if not name:
         raise ValidationError({"name": "O nome do estabelecimento é obrigatório."})
     if User.objects.filter(email__iexact=email).exists():
         raise ValidationError({"email": "Já existe uma conta com este e-mail."})
 
-    tenant = Tenant.objects.create(name=name, slug=_generate_unique_slug(name), theme=theme)
+    tenant = Tenant.objects.create(
+        name=name,
+        slug=_generate_unique_slug(name),
+        theme=theme,
+        theme_confirmed=theme_confirmed,
+    )
     user = User.objects.create_user(
         email=email,
         password=password,

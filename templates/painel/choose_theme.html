@@ -1,0 +1,63 @@
+{% load static %}
+<!DOCTYPE html>
+<html class="light" lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Que tipo de negócio você tem? — Zellup</title>
+{% include "_favicon.html" %}
+<script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Playfair+Display:wght@600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>.material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24; }</style>
+<script>
+  tailwind.config = { theme: { extend: {
+    colors: {
+      "background": "#fff8f5", "surface-container-lowest": "#ffffff",
+      "on-surface": "#1f1b17", "on-surface-variant": "#50453b",
+      "outline": "#82756a", "outline-variant": "#d4c4b7",
+      "primary": "#7d562d", "on-primary": "#ffffff",
+      "error": "#ba1a1a", "error-container": "#ffdad6", "on-error-container": "#93000a"
+    },
+    fontFamily: { "display": ["Playfair Display", "serif"], "sans": ["Inter", "sans-serif"] }
+  } } }
+</script>
+</head>
+<body class="bg-background font-sans text-on-surface min-h-screen flex items-center justify-center p-6">
+  <div class="w-full max-w-md">
+    <div class="text-center mb-10">
+      <h1 class="font-display text-5xl font-bold text-primary tracking-tight">Zellup</h1>
+      <p class="text-on-surface-variant mt-2">Só mais um passo antes de começar</p>
+    </div>
+    <div class="bg-surface-container-lowest rounded-2xl shadow-[0_4px_40px_-10px_rgba(125,86,45,0.15)] p-8">
+      {% if error %}
+      <div class="mb-6 rounded-lg bg-error-container text-on-error-container px-4 py-3 text-sm">{{ error }}</div>
+      {% endif %}
+      <form method="post">
+        {% csrf_token %}
+        <label class="block text-xs font-semibold uppercase tracking-widest text-outline mb-2">Que tipo de negócio é o {{ tenant.name }}?</label>
+        <div class="grid grid-cols-2 gap-3">
+          <label class="cursor-pointer">
+            <input class="peer sr-only" name="theme" type="radio" value="salao" {% if tenant.theme != "barbearia" %}checked{% endif %}/>
+            <div class="flex flex-col items-center gap-1 border-2 border-outline-variant peer-checked:border-primary peer-checked:bg-primary/10 rounded-xl p-4 text-center transition-colors">
+              <span class="material-symbols-outlined">spa</span>
+              <span class="text-sm font-medium">Salão de Beleza</span>
+            </div>
+          </label>
+          <label class="cursor-pointer">
+            <input class="peer sr-only" name="theme" type="radio" value="barbearia" {% if tenant.theme == "barbearia" %}checked{% endif %}/>
+            <div class="flex flex-col items-center gap-1 border-2 border-outline-variant peer-checked:border-primary peer-checked:bg-primary/10 rounded-xl p-4 text-center transition-colors">
+              <span class="material-symbols-outlined">content_cut</span>
+              <span class="text-sm font-medium">Barbearia</span>
+            </div>
+          </label>
+        </div>
+        <p class="text-xs text-on-surface-variant mt-4">Isso só define a identidade visual do painel e da sua página pública — dá pra trocar depois em Configurações.</p>
+        <button class="mt-8 w-full bg-primary text-on-primary font-semibold text-lg py-3 rounded-full hover:opacity-90 transition-opacity active:scale-95" type="submit">Continuar</button>
+      </form>
+    </div>
+  </div>
+</body>
+</html>

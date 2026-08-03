@@ -1,4 +1,4 @@
-# Infraestrutura — Zelo
+# Infraestrutura — Zellup
 
 ## 1. Visão geral
 

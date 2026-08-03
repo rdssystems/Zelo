@@ -103,7 +103,7 @@ WSGI_APPLICATION = "config.wsgi.application"
 DATABASES = {
     "default": env.db(
         "DATABASE_URL",
-        default="postgres://zelo:zelo@localhost:5432/zelo",
+        default="postgres://zellup:zellup@localhost:5432/zellup",
     ),
 }
 
@@ -128,7 +128,7 @@ AUTHENTICATION_BACKENDS = [
     "django.contrib.auth.backends.ModelBackend",
     "allauth.account.auth_backends.AuthenticationBackend",
 ]
-SOCIALACCOUNT_ADAPTER = "apps.accounts.adapters.ZeloSocialAccountAdapter"
+SOCIALACCOUNT_ADAPTER = "apps.accounts.adapters.ZellupSocialAccountAdapter"
 # Nosso User não tem username (login por e-mail, CLAUDE.md regra 6/8) — sem
 # isso o allauth tenta popular um campo que não existe.
 ACCOUNT_USER_MODEL_USERNAME_FIELD = None
@@ -217,7 +217,7 @@ if EMAIL_HOST:
     EMAIL_USE_TLS = True
 else:
     EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
-DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="nao-responda@zelo.local")
+DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="nao-responda@zellup.local")
 
 # Asaas (billing da plataforma) — nunca hardcodar chaves
 # ASAAS_API_KEY não passa por env() de propósito: a chave da Asaas começa

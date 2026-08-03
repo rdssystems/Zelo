@@ -1,5 +1,5 @@
 /* ==========================================================================
-   ZELO — DUAL-IDENTITY LOGIN SCREEN
+   ZELLUP — DUAL-IDENTITY LOGIN SCREEN
    Paleta Salão (Clara): #fff8f5 | #1f1b17 | #50453b | #7d562d
    Paleta Barbearia (Escura): #17130f | #ebe1da | #d5c4b2 | #fbba64
    Cor-Ponte (Dourado): #bc8848
@@ -276,7 +276,7 @@ html, body {
   pointer-events: none;
 }
 
-/* Wordmark "Zelo": Uma Palavra, Dois Mundos */
+/* Wordmark "Zellup": Uma Palavra, Dois Mundos */
 .brand-wordmark {
   font-family: var(--font-wordmark);
   font-size: 5.5rem;

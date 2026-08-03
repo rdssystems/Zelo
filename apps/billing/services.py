@@ -196,7 +196,7 @@ def get_or_create_checkout_url(subscription, *, admin_email=""):
         customer_id=subscription.asaas_customer_id,
         value=subscription.plan.price,
         next_due_date=timezone.localdate(),
-        description=f"Zelo — plano {subscription.plan.name}",
+        description=f"Zellup — plano {subscription.plan.name}",
         external_reference=str(tenant.id),
     )
     subscription.asaas_subscription_id = asaas_subscription["id"]

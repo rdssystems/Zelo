@@ -16,13 +16,19 @@ def _panel_access_blocked(request):
     return subscription_blocks_panel_access(request.tenant)
 
 
-def tenant_admin_required(view_func=None, *, allow_when_blocked=False):
+def tenant_admin_required(
+    view_func=None, *, allow_when_blocked=False, allow_when_theme_unconfirmed=False
+):
     """Restringe a view de painel ao admin do salão (role=tenant_admin com tenant).
 
     `allow_when_blocked=True` isenta a view do bloqueio RF30 (assinatura
     `overdue` além do prazo de tolerância, ou `canceled`) — usado só nas
     telas de `apps.billing` que o admin precisa pra regularizar (Meu Plano,
     checkout, envio de CPF/CNPJ, polling de status).
+
+    `allow_when_theme_unconfirmed=True` isenta a view do redirecionamento
+    pra `painel/escolher-tema/` (decisão do usuário em 2026-08-02) — usado
+    só pela própria view de escolha de tema, senão vira loop de redirect.
     """
 
     def decorator(fn):
@@ -34,6 +40,8 @@ def tenant_admin_required(view_func=None, *, allow_when_blocked=False):
                 return HttpResponseForbidden(
                     "Acesso restrito ao administrador do salão."
                 )
+            if not allow_when_theme_unconfirmed and not request.tenant.theme_confirmed:
+                return redirect("choose_theme")
             if not allow_when_blocked and _panel_access_blocked(request):
                 messages.warning(
                     request,

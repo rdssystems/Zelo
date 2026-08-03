@@ -1,4 +1,4 @@
-// Zelo Login Screen Script
+// Zellup Login Screen Script
 document.addEventListener('DOMContentLoaded', () => {
   const loginForm = document.getElementById('loginForm');
   const alertBanner = document.getElementById('alertBanner');

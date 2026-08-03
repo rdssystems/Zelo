@@ -86,6 +86,13 @@ class Tenant(models.Model):
         help_text="Escolhido no cadastro, editável em Configurações — muda a paleta e "
         "tipografia do app público e do painel.",
     )
+    theme_confirmed = models.BooleanField(
+        "tema confirmado pelo usuário", default=True,
+        help_text="False só logo após um cadastro via Google (que não passa pelo formulário "
+        "de escolha de tema) — força a tela `painel/escolher-tema/` antes de liberar o resto "
+        "do painel (ver `apps.accounts.decorators.tenant_admin_required`). Vira True assim que "
+        "o dono confirma ali, ou sempre foi True pra quem já escolheu no cadastro manual.",
+    )
     # Limiares configuráveis em Configurações (decisão do usuário em
     # 2026-07-31) — usados por `apps.clients.models.Client` pra marcar
     # mensalista "a vencer" e cliente "inativo" na lista/campanha de WhatsApp.

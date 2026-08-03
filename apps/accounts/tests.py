@@ -4,7 +4,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.messages.middleware import MessageMiddleware
 from django.contrib.sessions.middleware import SessionMiddleware
 from django.db import IntegrityError, transaction
-from django.test import RequestFactory, TestCase
+from django.test import RequestFactory, TestCase, override_settings
 
 from apps.tenants.models import Tenant
 
@@ -140,10 +140,55 @@ class EmployeePanelIsolationTest(TestCase):
         self.assertIn("/painel/login/", response.url)
 
 
-def _social_request():
+class ThemeConfirmationGateTest(TestCase):
+    """Decisão do usuário em 2026-08-02: tenant criado via Google
+    (`theme_confirmed=False`) é redirecionado pra `painel/escolher-tema/`
+    em qualquer view de `tenant_admin_required`, até confirmar o tema —
+    ver `apps.accounts.decorators.tenant_admin_required`."""
+
+    def test_unconfirmed_theme_redirects_to_choose_theme(self):
+        tenant = Tenant.objects.create(name="Salão A", slug="salao-a", theme_confirmed=False)
+        admin = User.objects.create_user(
+            email="dona@salao-a.com", password="x", role=User.Role.TENANT_ADMIN, tenant=tenant,
+        )
+        self.client.force_login(admin)
+        response = self.client.get("/painel/servicos/")
+        self.assertRedirects(response, "/painel/escolher-tema/")
+
+    def test_confirmed_theme_accesses_normally(self):
+        tenant = Tenant.objects.create(name="Salão A", slug="salao-a", theme_confirmed=True)
+        admin = User.objects.create_user(
+            email="dona@salao-a.com", password="x", role=User.Role.TENANT_ADMIN, tenant=tenant,
+        )
+        self.client.force_login(admin)
+        response = self.client.get("/painel/servicos/")
+        self.assertEqual(response.status_code, 200)
+
+    def test_employee_not_gated_by_tenant_theme_confirmation(self):
+        """Só o admin escolhe o tema — funcionário não é bloqueado por isso."""
+        from apps.employees.services import create_employee
+
+        tenant = Tenant.objects.create(name="Salão A", slug="salao-a", theme_confirmed=False)
+        employee = create_employee(
+            tenant=tenant,
+            full_name="Ana Silva",
+            email="ana@salao-a.com",
+            password="Senha@123",
+            default_commission_type="percentage",
+            default_commission_value=Decimal("40"),
+        )
+        self.client.force_login(employee.user)
+        response = self.client.get("/painel/minha-agenda/")
+        self.assertEqual(response.status_code, 200)
+
+
+def _social_request(host=None):
     """Request "de mentira" com session/messages — o que `SocialLogin.save`/
-    `.connect` do allauth espera encontrar disponível."""
-    request = RequestFactory().get("/accounts/google/login/callback/")
+    `.connect` do allauth espera encontrar disponível. `host` simula o
+    subdomínio (`barbearia.zellup.com.br`/`salao.zellup.com.br`) usado pra
+    detectar o tema automaticamente (decisão do usuário em 2026-08-03)."""
+    extra = {"SERVER_NAME": host} if host else {}
+    request = RequestFactory().get("/accounts/google/login/callback/", **extra)
     SessionMiddleware(lambda r: None).process_request(request)
     request.session.save()
     MessageMiddleware(lambda r: None).process_request(request)
@@ -166,33 +211,33 @@ class GoogleSocialLoginAdapterTest(TestCase):
     apps/accounts/adapters.py."""
 
     def test_pre_social_login_links_existing_user_by_email(self):
-        from apps.accounts.adapters import ZeloSocialAccountAdapter
+        from apps.accounts.adapters import ZellupSocialAccountAdapter
 
         tenant = Tenant.objects.create(name="Salão A", slug="salao-a")
         existing = User.objects.create_user(
             email="dona@salao-a.com", password="x", role=User.Role.TENANT_ADMIN, tenant=tenant,
         )
         sociallogin = _make_sociallogin(email="dona@salao-a.com")
-        ZeloSocialAccountAdapter().pre_social_login(_social_request(), sociallogin)
+        ZellupSocialAccountAdapter().pre_social_login(_social_request(), sociallogin)
 
         self.assertTrue(sociallogin.is_existing)
         self.assertEqual(sociallogin.user.pk, existing.pk)
 
     def test_pre_social_login_ignores_email_with_no_match(self):
-        from apps.accounts.adapters import ZeloSocialAccountAdapter
+        from apps.accounts.adapters import ZellupSocialAccountAdapter
 
         sociallogin = _make_sociallogin(email="ninguem@gmail.com")
-        ZeloSocialAccountAdapter().pre_social_login(_social_request(), sociallogin)
+        ZellupSocialAccountAdapter().pre_social_login(_social_request(), sociallogin)
 
         self.assertFalse(sociallogin.is_existing)
 
     def test_save_user_creates_tenant_and_admin_for_new_email(self):
-        from apps.accounts.adapters import ZeloSocialAccountAdapter
+        from apps.accounts.adapters import ZellupSocialAccountAdapter
         from apps.billing.models import Subscription
         from apps.tenants.models import TenantBusinessHours
 
         sociallogin = _make_sociallogin(email="nova@gmail.com", name="Julia Nova")
-        user = ZeloSocialAccountAdapter().save_user(_social_request(), sociallogin)
+        user = ZellupSocialAccountAdapter().save_user(_social_request(), sociallogin)
 
         self.assertEqual(user.email, "nova@gmail.com")
         self.assertEqual(user.role, User.Role.TENANT_ADMIN)
@@ -204,6 +249,37 @@ class GoogleSocialLoginAdapterTest(TestCase):
             TenantBusinessHours.objects.filter(tenant=user.tenant).count(), 7
         )
         self.assertTrue(Subscription.objects.filter(tenant=user.tenant).exists())
+        # Decisão do usuário em 2026-08-02: cadastro via Google não passa
+        # tema, nasce não confirmado — força a tela `painel/escolher-tema/`.
+        self.assertFalse(user.tenant.theme_confirmed)
+
+    @override_settings(ALLOWED_HOSTS=["barbearia.zellup.com.br"])
+    def test_save_user_on_barbearia_subdomain_confirms_theme_automatically(self):
+        """Decisão do usuário em 2026-08-03: login via Google no subdomínio
+        dedicado já sabe o tema — pula `painel/escolher-tema/`."""
+        from apps.accounts.adapters import ZellupSocialAccountAdapter
+
+        sociallogin = _make_sociallogin(email="beto@gmail.com", name="Beto")
+        user = ZellupSocialAccountAdapter().save_user(
+            _social_request(host="barbearia.zellup.com.br"), sociallogin
+        )
+
+        self.assertEqual(user.tenant.theme, "barbearia")
+        self.assertTrue(user.tenant.theme_confirmed)
+        self.assertEqual(user.tenant.name, "Barbearia de Beto")
+
+    @override_settings(ALLOWED_HOSTS=["salao.zellup.com.br"])
+    def test_save_user_on_salao_subdomain_confirms_theme_automatically(self):
+        from apps.accounts.adapters import ZellupSocialAccountAdapter
+
+        sociallogin = _make_sociallogin(email="clara@gmail.com", name="Clara")
+        user = ZellupSocialAccountAdapter().save_user(
+            _social_request(host="salao.zellup.com.br"), sociallogin
+        )
+
+        self.assertEqual(user.tenant.theme, "salao")
+        self.assertTrue(user.tenant.theme_confirmed)
+        self.assertEqual(user.tenant.name, "Salão de Clara")
 
     def test_full_flow_new_email_then_relogin_links_same_user(self):
         """Segunda vez que a MESMA conta Google loga, `sociallogin.is_existing`
@@ -211,12 +287,38 @@ class GoogleSocialLoginAdapterTest(TestCase):
         deve tentar criar um segundo tenant."""
         from allauth.socialaccount.models import SocialAccount
 
-        from apps.accounts.adapters import ZeloSocialAccountAdapter
+        from apps.accounts.adapters import ZellupSocialAccountAdapter
 
-        adapter = ZeloSocialAccountAdapter()
+        adapter = ZellupSocialAccountAdapter()
         first_login = _make_sociallogin(email="dupla@gmail.com", uid="google-uid-9")
         user = adapter.save_user(_social_request(), first_login)
 
         self.assertEqual(SocialAccount.objects.filter(uid="google-uid-9").count(), 1)
         self.assertEqual(User.objects.filter(email="dupla@gmail.com").count(), 1)
         self.assertEqual(SocialAccount.objects.get(uid="google-uid-9").user_id, user.id)
+
+
+class ZellupLoginViewTest(TestCase):
+    """`/painel/login/` é a mesma URL em todo host — o subdomínio decide
+    qual das 2 telas (`templates/painel/login.html`) renderiza (decisão do
+    usuário em 2026-08-03)."""
+
+    @override_settings(ALLOWED_HOSTS=["barbearia.zellup.com.br"])
+    def test_barbearia_subdomain_renders_dark_theme(self):
+        response = self.client.get(
+            "/painel/login/", HTTP_HOST="barbearia.zellup.com.br"
+        )
+        self.assertContains(response, 'class="dark"')
+        self.assertContains(response, "Bem-vindo de volta")
+
+    @override_settings(ALLOWED_HOSTS=["salao.zellup.com.br"])
+    def test_salao_subdomain_renders_light_theme(self):
+        response = self.client.get(
+            "/painel/login/", HTTP_HOST="salao.zellup.com.br"
+        )
+        self.assertContains(response, 'class="light"')
+        self.assertContains(response, "A arte de agendar com elegância e precisão.")
+
+    def test_plain_host_defaults_to_light_theme(self):
+        response = self.client.get("/painel/login/")
+        self.assertContains(response, 'class="light"')

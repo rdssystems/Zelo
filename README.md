@@ -1,6 +1,6 @@
-# Zelo — Sistema de Agendamento e Gestão para Salões de Estética
+# Zellup — Sistema de Agendamento e Gestão para Salões de Estética
 
-*O zelo que seu salão merece.*
+*O cuidado que seu salão merece.*
 
 SaaS multi-tenant (path-based: `app.com/<slug-do-salao>`) para salões de beleza/estética
 gerenciarem agendamento público, funcionários, serviços, comissões, estoque e caixa.

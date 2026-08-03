@@ -38,7 +38,7 @@ def _headers():
     return {
         "access_token": settings.ASAAS_API_KEY,
         "Content-Type": "application/json",
-        "User-Agent": "Zelo",
+        "User-Agent": "Zellup",
     }
 
 
@@ -82,7 +82,7 @@ def create_customer(*, name, cpf_cnpj, email="", external_reference=""):
 def create_subscription(*, customer_id, value, next_due_date, description="", external_reference=""):
     """`billingType=UNDEFINED` deixa o cliente escolher PIX/boleto/cartão na
     própria página da fatura (`invoiceUrl`) — é o que permite o pagamento
-    ficar "dentro" do fluxo do Zelo (1 link só, sem o admin do salão decidir
+    ficar "dentro" do fluxo do Zellup (1 link só, sem o admin do salão decidir
     o meio de pagamento por nós)."""
     payload = {
         "customer": customer_id,

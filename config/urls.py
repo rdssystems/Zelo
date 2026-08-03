@@ -7,7 +7,7 @@ from django.urls import include, path
 from django.views.generic import TemplateView
 from rest_framework.routers import DefaultRouter
 
-from apps.accounts.views import painel_home
+from apps.accounts.views import ZellupLoginView, painel_home
 from apps.billing.views_webhook import asaas_webhook
 from apps.clients.views import ClientViewSet
 from apps.employees.views import EmployeeViewSet
@@ -15,7 +15,7 @@ from apps.finance.views import CashTransactionViewSet, CommissionViewSet, my_com
 from apps.inventory.views import ProductViewSet, StockMovementViewSet, SupplierViewSet
 from apps.scheduling.views import AppointmentViewSet, my_agenda
 from apps.services.views import ServiceViewSet
-from apps.tenants.views import TenantSettingsView, signup_view
+from apps.tenants.views import TenantSettingsView, choose_theme_view, landing_view, signup_view
 
 
 def healthz(request):
@@ -34,16 +34,14 @@ router.register("commissions", CommissionViewSet, basename="commission")
 router.register("clients", ClientViewSet, basename="client")
 
 urlpatterns = [
+    path("", landing_view, name="landing"),
     path("superadmin/", admin.site.urls),
     path("healthz/", healthz),
     # Painel
-    path(
-        "painel/login/",
-        auth_views.LoginView.as_view(template_name="painel/login.html"),
-        name="login",
-    ),
+    path("painel/login/", ZellupLoginView.as_view(), name="login"),
     path("painel/logout/", auth_views.LogoutView.as_view(), name="logout"),
     path("painel/", painel_home, name="painel_home"),
+    path("painel/escolher-tema/", choose_theme_view, name="choose_theme"),
     path(
         "painel/conta-excluida/",
         TemplateView.as_view(template_name="painel/account_deleted.html"),

@@ -4,7 +4,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>Cadastrar salão — Zelo</title>
+<title>Cadastrar salão — Zellup</title>
 {% include "_favicon.html" %}
 <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
 <link href="https://fonts.googleapis.com" rel="preconnect"/>
@@ -28,7 +28,7 @@
 <body class="bg-background font-sans text-on-surface min-h-screen flex items-center justify-center p-6">
   <div class="w-full max-w-md">
     <div class="text-center mb-10">
-      <h1 class="font-display text-5xl font-bold text-primary tracking-tight">Zelo</h1>
+      <h1 class="font-display text-5xl font-bold text-primary tracking-tight">Zellup</h1>
       <p class="text-on-surface-variant mt-2">Cadastre seu salão e comece a agendar</p>
     </div>
     <div class="bg-surface-container-lowest rounded-2xl shadow-[0_4px_40px_-10px_rgba(125,86,45,0.15)] p-8">
@@ -61,6 +61,13 @@
             <input class="block w-full px-0 py-2 bg-transparent border-0 border-b {% if form.password2.errors %}border-error{% else %}border-outline-variant{% endif %} focus:ring-0 focus:border-primary text-lg" id="id_password2" name="password2" type="password" autocomplete="new-password" required/>
             {% if form.password2.errors %}<p class="text-error text-sm mt-1">{{ form.password2.errors|join:" " }}</p>{% endif %}
           </div>
+          {% if detected_theme %}
+          <input name="theme" type="hidden" value="{{ detected_theme }}"/>
+          <div class="flex items-center gap-2 rounded-xl bg-primary/10 px-4 py-3 text-sm text-primary font-medium">
+            <span class="material-symbols-outlined">{% if detected_theme == "barbearia" %}content_cut{% else %}spa{% endif %}</span>
+            Cadastro para {% if detected_theme == "barbearia" %}barbearia{% else %}salão de beleza{% endif %}
+          </div>
+          {% else %}
           <div>
             <label class="block text-xs font-semibold uppercase tracking-widest text-outline mb-2">Que tipo de negócio você tem?</label>
             <div class="grid grid-cols-2 gap-3">
@@ -81,6 +88,7 @@
             </div>
             {% if form.theme.errors %}<p class="text-error text-sm mt-1">{{ form.theme.errors|join:" " }}</p>{% endif %}
           </div>
+          {% endif %}
           <div>
             <label class="flex items-start gap-3 cursor-pointer">
               <input class="mt-1 rounded border-outline-variant text-primary focus:ring-primary" id="id_accept_terms" name="accept_terms" type="checkbox" {% if form.accept_terms.value %}checked{% endif %}/>

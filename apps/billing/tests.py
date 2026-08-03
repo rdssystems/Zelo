@@ -46,7 +46,7 @@ def make_tenant_with_admin(slug):
     return tenant, admin
 
 
-def make_superadmin(email="root@zelo.local"):
+def make_superadmin(email="root@zellup.local"):
     return User.objects.create_user(
         email=email, password="x", role=User.Role.SUPERADMIN, tenant=None,
         is_staff=True, is_superuser=True,
