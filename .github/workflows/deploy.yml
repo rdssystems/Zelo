@@ -1,0 +1,21 @@
+name: Deploy Zellup (produção)
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH (VPS)
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          port: ${{ secrets.VPS_PORT }}
+          username: ${{ secrets.VPS_DEPLOY_USER }}
+          key: ${{ secrets.VPS_DEPLOY_KEY }}
+          # A chave é restrita no servidor (authorized_keys com `command=`) só
+          # ao atualizar.sh — o comando abaixo é ignorado pelo forced command,
+          # mas mantido por clareza do que a chave de fato executa.
+          script: /root/zelo/atualizar.sh
