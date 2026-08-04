@@ -30,10 +30,18 @@
             <p class="text-sm text-on-surface-variant mb-3 whitespace-pre-line">{{ notification.message }}</p>
             <div class="flex items-center justify-between">
               <p class="text-xs text-outline">{{ notification.created_at|date:"d/m/Y H:i" }}</p>
+              {% if notification.kind == "birthday_alert" %}
+              <button class="text-sm text-primary font-semibold hover:underline inline-flex items-center gap-1"
+                      hx-get="{% url 'clients:birthday_whatsapp_campaign' %}" hx-target="#modal-slot" hx-swap="innerHTML">
+                <span class="material-symbols-outlined text-[16px]">cake</span>
+                Enviar mensagem de aniversário
+              </button>
+              {% else %}
               <button class="text-sm text-primary font-semibold hover:underline"
                       hx-post="{% url 'notifications:mark_tenant_notification_read' notification.pk %}" hx-target="#notifications-modal" hx-swap="outerHTML">
                 Marcar como lida
               </button>
+              {% endif %}
             </div>
           </div>
           {% endfor %}

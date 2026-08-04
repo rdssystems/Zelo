@@ -1492,10 +1492,24 @@ class AppointmentConfirmModalTest(TestCase):
         body = response.content.decode()
         self.assertIn("wa.me/5511988887777", body)
         self.assertIn("Maria", body)
-        self.assertIn("Confirmar e avisar no WhatsApp", body)
+        self.assertIn("Confirmar no WhatsApp", body)
         # a confirmação de verdade ainda não aconteceu, só abrir o modal
         appointment.refresh_from_db()
         self.assertEqual(appointment.status, AppointmentStatus.PENDING)
+
+    def test_shows_plain_confirm_choice_alongside_whatsapp(self):
+        """O admin pode decidir se quer avisar o cliente ou só confirmar."""
+        client_ = Client.objects.create(tenant=self.tenant, phone="11988887777", name="Maria")
+        appointment = book(
+            self.tenant, self.employee, self.service, client_,
+            self.monday, datetime.time(9, 0), datetime.time(10, 0),
+            status=AppointmentStatus.PENDING,
+        )
+        self.client.force_login(self.admin)
+        response = self.client.get(f"/painel/agenda/{appointment.pk}/confirmar/preparar/")
+        body = response.content.decode()
+        self.assertIn("Só confirmar", body)
+        self.assertIn("Confirmar no WhatsApp", body)
 
     def test_no_valid_phone_shows_notice_without_message_field(self):
         client_ = Client.objects.create(
@@ -1511,6 +1525,7 @@ class AppointmentConfirmModalTest(TestCase):
         self.assertEqual(response.status_code, 200)
         body = response.content.decode()
         self.assertNotIn("wa.me/", body)
+        self.assertNotIn("Só confirmar", body)
         self.assertIn("não tem um WhatsApp válido", body)
 
     def test_confirm_button_in_modal_actually_confirms(self):
@@ -1569,6 +1584,18 @@ class AgendaPanelTest(TestCase):
         response = self.client.get(f"/painel/agenda/?date={tomorrow.isoformat()}")
         self.assertContains(response, "Corte")
         self.assertContains(response, "Cliente Teste")
+
+    def test_card_has_client_preferences_button(self):
+        """Botão pra ler as observações do cliente antes de iniciar o
+        atendimento (alergia, preferências etc. cadastradas em Clientes)."""
+        tomorrow = self.today + datetime.timedelta(days=1)
+        book(
+            self.tenant, self.employee, self.service, self.client_,
+            tomorrow, datetime.time(9, 0), datetime.time(10, 0), status=AppointmentStatus.CONFIRMED,
+        )
+        self.client.force_login(self.admin)
+        response = self.client.get(f"/painel/agenda/?date={tomorrow.isoformat()}")
+        self.assertContains(response, f"/painel/clientes/{self.client_.pk}/preferencias/")
 
     def test_confirm_action(self):
         tomorrow = self.today + datetime.timedelta(days=1)
@@ -1888,9 +1915,39 @@ class AgendaWeekPanelTest(TestCase):
     def test_week_navigation_moves_by_seven_days(self):
         self.client.force_login(self.admin)
         response = self.client.get(f"/painel/agenda/semana/?week={self.today.isoformat()}")
-        monday = self.today - datetime.timedelta(days=self.today.weekday())
-        self.assertContains(response, f"week={(monday + datetime.timedelta(days=7)).isoformat()}")
-        self.assertContains(response, f"week={(monday - datetime.timedelta(days=7)).isoformat()}")
+        # semana começa no Domingo (decisão do usuário em 2026-08-04) —
+        # date.weekday() do Python é Seg=0..Dom=6, por isso o +1 % 7.
+        sunday = self.today - datetime.timedelta(days=(self.today.weekday() + 1) % 7)
+        self.assertContains(response, f"week={(sunday + datetime.timedelta(days=7)).isoformat()}")
+        self.assertContains(response, f"week={(sunday - datetime.timedelta(days=7)).isoformat()}")
+
+    def test_week_starts_on_sunday(self):
+        """A grade lista Dom→Sáb, não Seg→Dom (decisão do usuário em
+        2026-08-04) — confere a ordem exibindo o nome dos dias na resposta."""
+        self.client.force_login(self.admin)
+        response = self.client.get(f"/painel/agenda/semana/?week={self.today.isoformat()}")
+        body = response.content.decode()
+        sunday = self.today - datetime.timedelta(days=(self.today.weekday() + 1) % 7)
+        self.assertContains(response, f"{sunday.strftime('%d/%m')} – {(sunday + datetime.timedelta(days=6)).strftime('%d/%m/%Y')}")
+        dom_idx = body.index(">Dom<")
+        sab_idx = body.index(">Sáb<")
+        self.assertLess(dom_idx, sab_idx, "Domingo deve aparecer antes de Sábado na grade")
+
+    def test_closed_day_marked_in_grid(self):
+        """Dia marcado como fechado em Configurações fica visualmente
+        diferenciado na grade da semana, mas continua listado (regra 5 do
+        CLAUDE.md: `TenantBusinessHours` é só informativo, não bloqueia
+        agendamento — um funcionário pode ter jornada num dia "fechado")."""
+        from apps.tenants.models import TenantBusinessHours, Weekday
+
+        sunday = self.today - datetime.timedelta(days=(self.today.weekday() + 1) % 7)
+        TenantBusinessHours.objects.create(
+            tenant=self.tenant, weekday=Weekday.SUNDAY, is_closed=True
+        )
+        self.client.force_login(self.admin)
+        response = self.client.get(f"/painel/agenda/semana/?week={sunday.isoformat()}")
+        self.assertContains(response, "Fechado")
+        self.assertContains(response, sunday.strftime("%d/%m"))
 
     def test_appointment_detail_modal_renders(self):
         appointment = book(
@@ -1903,6 +1960,7 @@ class AgendaWeekPanelTest(TestCase):
         )
         self.assertContains(response, "Cliente Teste")
         self.assertContains(response, "Confirmar")
+        self.assertContains(response, f"/painel/clientes/{self.client_.pk}/preferencias/")
 
     def test_confirm_from_week_view_refreshes_week_grid(self):
         appointment = book(
@@ -1982,3 +2040,194 @@ class MyAgendaTest(TestCase):
         self.client.force_login(self.admin)
         response = self.client.get("/painel/minha-agenda/")
         self.assertEqual(response.status_code, 403)
+
+
+class PackageCoverageTest(TestCase):
+    """Pacote de mensalidade cobrindo o serviço (decisão do usuário em
+    2026-08-04): agendamento nasce com `package` marcado; `price_at_booking`
+    continua o valor de tabela (base de comissão), mas `complete_appointment`
+    não cobra o cliente de novo — a mensalidade já foi paga na hora que o
+    pacote foi atribuído (`assign_package_to_client`)."""
+
+    @classmethod
+    def setUpTestData(cls):
+        from apps.clients.services import assign_package_to_client, create_package
+
+        cls.tenant, cls.admin = make_tenant_with_admin("salao-a")
+        cls.employee = make_employee(cls.tenant)
+        cls.corte = create_service(
+            tenant=cls.tenant, name="Corte", duration_minutes=60, price=Decimal("100.00")
+        )
+        cls.escova = create_service(
+            tenant=cls.tenant, name="Escova", duration_minutes=30, price=Decimal("50.00")
+        )
+        link_service(cls.employee, cls.corte)
+        link_service(cls.employee, cls.escova)
+        set_working_hours(
+            cls.employee,
+            [{"weekday": wd, "start_time": datetime.time(8, 0), "end_time": datetime.time(20, 0)} for wd in range(7)],
+        )
+        cls.client_ = make_client(cls.tenant)
+
+    def _package(self, *, generates_commission=True, services=None):
+        from apps.clients.services import create_package
+
+        return create_package(
+            tenant=self.tenant, name="Cabelo Ilimitado", price=Decimal("150.00"),
+            service_ids=[s.pk for s in (services or [self.corte])],
+            generates_commission=generates_commission, created_by=self.admin,
+        )
+
+    def _subscribe(self, package):
+        from apps.clients.services import assign_package_to_client
+
+        assign_package_to_client(
+            self.client_, package=package, payment_method="pix", created_by=self.admin,
+        )
+        self.client_.refresh_from_db()
+
+    def test_appointment_snapshots_package_when_service_covered(self):
+        package = self._package()
+        self._subscribe(package)
+        tomorrow = datetime.date.today() + datetime.timedelta(days=1)
+        appointment = create_appointment(
+            tenant=self.tenant, client=self.client_, employee=self.employee,
+            service=self.corte, date=tomorrow, start_time=datetime.time(9, 0),
+        )
+        self.assertEqual(appointment.package, package)
+        # valor de tabela continua intacto — não é zerado no agendamento
+        self.assertEqual(appointment.price_at_booking, Decimal("100.00"))
+
+    def test_appointment_not_covered_when_service_not_in_package(self):
+        package = self._package(services=[self.corte])  # não inclui escova
+        self._subscribe(package)
+        tomorrow = datetime.date.today() + datetime.timedelta(days=1)
+        appointment = create_appointment(
+            tenant=self.tenant, client=self.client_, employee=self.employee,
+            service=self.escova, date=tomorrow, start_time=datetime.time(9, 0),
+        )
+        self.assertIsNone(appointment.package)
+
+    def test_appointment_not_covered_when_client_not_subscriber(self):
+        tomorrow = datetime.date.today() + datetime.timedelta(days=1)
+        appointment = create_appointment(
+            tenant=self.tenant, client=self.client_, employee=self.employee,
+            service=self.corte, date=tomorrow, start_time=datetime.time(9, 0),
+        )
+        self.assertIsNone(appointment.package)
+
+    def test_walk_in_service_also_detects_package_coverage(self):
+        package = self._package()
+        self._subscribe(package)
+        appointment = start_walk_in_service(
+            tenant=self.tenant, client=self.client_, employee=self.employee,
+            service=self.corte, created_by=self.admin,
+        )
+        self.assertEqual(appointment.package, package)
+
+    def test_completing_covered_appointment_skips_cash_transaction_for_service(self):
+        package = self._package()
+        self._subscribe(package)
+        appointment = start_walk_in_service(
+            tenant=self.tenant, client=self.client_, employee=self.employee,
+            service=self.corte, created_by=self.admin,
+        )
+        complete_appointment(appointment=appointment, payment_method="cash", created_by=self.admin)
+        self.assertFalse(
+            CashTransaction.objects.filter(
+                tenant=self.tenant, category=CashCategory.SERVICE_SALE, related_appointment=appointment,
+            ).exists()
+        )
+
+    def test_completing_covered_appointment_with_commission_enabled_still_pays_commission(self):
+        package = self._package(generates_commission=True)
+        self._subscribe(package)
+        appointment = start_walk_in_service(
+            tenant=self.tenant, client=self.client_, employee=self.employee,
+            service=self.corte, created_by=self.admin,
+        )
+        commission = complete_appointment(
+            appointment=appointment, payment_method="cash", created_by=self.admin
+        )
+        self.assertIsNotNone(commission)
+        # 40% (padrão de make_employee) sobre o valor de TABELA do serviço (100)
+        self.assertEqual(commission.calculated_amount, Decimal("40.00"))
+        self.assertEqual(commission.base_amount, Decimal("100.00"))
+
+    def test_completing_covered_appointment_with_commission_disabled_generates_no_commission(self):
+        package = self._package(generates_commission=False)
+        self._subscribe(package)
+        appointment = start_walk_in_service(
+            tenant=self.tenant, client=self.client_, employee=self.employee,
+            service=self.corte, created_by=self.admin,
+        )
+        commission = complete_appointment(
+            appointment=appointment, payment_method="cash", created_by=self.admin
+        )
+        self.assertIsNone(commission)
+        self.assertFalse(Commission.objects.filter(appointment=appointment).exists())
+
+    def test_covered_appointment_with_product_still_charges_product(self):
+        from apps.inventory.services import register_stock_movement
+
+        package = self._package()
+        self._subscribe(package)
+        product = create_product(
+            tenant=self.tenant, name="Pomada", unit="un",
+            cost_price=Decimal("5.00"), sale_price=Decimal("20.00"), min_stock_alert=Decimal("1"),
+        )
+        register_stock_movement(
+            tenant=self.tenant, product=product, movement_type="in",
+            quantity=Decimal("10"), unit_price=Decimal("1.00"), reason="purchase",
+            created_by=self.admin,
+        )
+        appointment = start_walk_in_service(
+            tenant=self.tenant, client=self.client_, employee=self.employee,
+            service=self.corte, created_by=self.admin,
+        )
+        complete_appointment(
+            appointment=appointment, payment_method="cash", created_by=self.admin,
+            product_usage=[{"product": product, "quantity": Decimal("1"), "unit_price": product.sale_price}],
+        )
+        product_txn = CashTransaction.objects.get(
+            tenant=self.tenant, category=CashCategory.PRODUCT_SALE, related_appointment=appointment,
+        )
+        self.assertEqual(product_txn.amount, Decimal("20.00"))
+        self.assertFalse(
+            CashTransaction.objects.filter(
+                tenant=self.tenant, category=CashCategory.SERVICE_SALE, related_appointment=appointment,
+            ).exists()
+        )
+
+    def test_mixed_comanda_only_charges_the_non_covered_service(self):
+        """Cliente faz corte (coberto pelo pacote) + escova (não coberta) na
+        mesma comanda — só a escova entra na cobrança. Dois profissionais
+        diferentes (não só pra variar) evita colidir com a trava de
+        "um atendimento em andamento por vez" do walk-in, que é por
+        employee+date+start_time — dois walk-in do MESMO profissional no
+        mesmo segundo colidiriam."""
+        other_employee = make_employee(self.tenant, email="bia@salao-a.com", full_name="Bia")
+        link_service(other_employee, self.escova)
+        package = self._package(services=[self.corte])
+        self._subscribe(package)
+        corte_appt = start_walk_in_service(
+            tenant=self.tenant, client=self.client_, employee=self.employee,
+            service=self.corte, created_by=self.admin,
+        )
+        escova_appt = start_walk_in_service(
+            tenant=self.tenant, client=self.client_, employee=other_employee,
+            service=self.escova, created_by=self.admin,
+        )
+        self.assertIsNotNone(corte_appt.package)
+        self.assertIsNone(escova_appt.package)
+
+        complete_client_comanda(
+            appointments=[corte_appt, escova_appt], payment_method="cash", created_by=self.admin,
+        )
+        service_txns = CashTransaction.objects.filter(
+            tenant=self.tenant, category=CashCategory.SERVICE_SALE,
+        )
+        self.assertEqual(service_txns.count(), 1)
+        self.assertEqual(service_txns.first().amount, Decimal("50.00"))
+        self.assertTrue(Commission.objects.filter(appointment=corte_appt).exists())
+        self.assertTrue(Commission.objects.filter(appointment=escova_appt).exists())

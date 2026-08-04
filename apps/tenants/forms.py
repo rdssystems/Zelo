@@ -70,8 +70,21 @@ class TenantSettingsForm(forms.ModelForm):
             "client_inactive_days",
             "whatsapp_cancel_redirect_enabled",
             "auto_confirm_appointments",
+            "birthday_alert_enabled",
+            "owner_name",
+            "owner_photo",
+            "owner_attends",
         ]
         widgets = {"theme": forms.RadioSelect}
+
+    def clean(self):
+        cleaned = super().clean()
+        if cleaned.get("owner_attends") and not cleaned.get("owner_name", "").strip():
+            self.add_error(
+                "owner_name",
+                "Informe seu nome para aparecer no perfil de funcionários.",
+            )
+        return cleaned
 
 
 class TenantDocumentForm(forms.ModelForm):

@@ -1,0 +1,26 @@
+<div class="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6" id="client-preferences-modal">
+  <div class="absolute inset-0 bg-inverse-surface/40 backdrop-blur-sm"
+       onclick="document.getElementById('modal-slot').innerHTML = ''"></div>
+  <div class="relative w-full max-w-md bg-surface-container-lowest rounded-2xl shadow-2xl overflow-hidden">
+    <div class="p-8">
+      <div class="flex items-center gap-3 mb-4">
+        <div class="w-10 h-10 rounded-full bg-primary-container/40 flex items-center justify-center shrink-0">
+          <span class="material-symbols-outlined text-primary">sticky_note_2</span>
+        </div>
+        <div>
+          <h3 class="font-display text-headline-sm text-on-surface">{{ client.name }}</h3>
+          <p class="text-xs text-on-surface-variant">Preferências e observações</p>
+        </div>
+      </div>
+      {% if client.preferences %}
+      <p class="text-on-surface text-sm whitespace-pre-wrap mb-8">{{ client.preferences }}</p>
+      {% else %}
+      <p class="text-on-surface-variant italic text-sm mb-8">Nenhuma observação registrada para este cliente ainda.</p>
+      {% endif %}
+      <div class="flex justify-end">
+        <button class="px-6 py-2.5 rounded-pill bg-primary text-on-primary font-semibold hover:opacity-90 transition-opacity" type="button"
+                onclick="document.getElementById('modal-slot').innerHTML = ''">Fechar</button>
+      </div>
+    </div>
+  </div>
+</div>

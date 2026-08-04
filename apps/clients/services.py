@@ -44,10 +44,31 @@ def format_phone_display(phone):
     return phone
 
 
-def get_or_create_client(*, tenant, phone, name=""):
+def _validate_birthday(birth_day, birth_month):
+    """Dia/mês de nascimento (sem ano — RF: só pra gerar alerta de
+    aniversário, não guarda idade). Os dois juntos ou nenhum; dia validado
+    contra o mês (usa 2024, ano bissexto, pra aceitar 29/02)."""
+    has_day = birth_day not in (None, "")
+    has_month = birth_month not in (None, "")
+    if not has_day and not has_month:
+        return None, None
+    if has_day != has_month:
+        raise ValidationError(
+            {"birth_day": "Informe dia e mês de nascimento juntos, ou deixe os dois em branco."}
+        )
+    birth_day, birth_month = int(birth_day), int(birth_month)
+    if not (1 <= birth_month <= 12):
+        raise ValidationError({"birth_month": "Mês de nascimento inválido."})
+    max_day = calendar.monthrange(2024, birth_month)[1]
+    if not (1 <= birth_day <= max_day):
+        raise ValidationError({"birth_day": "Dia de nascimento inválido para o mês informado."})
+    return birth_day, birth_month
+
+
+def get_or_create_client(*, tenant, phone, name="", birth_day=None, birth_month=None):
     """RF04: se o telefone já existe no tenant, recupera nome/histórico
-    (ignora o nome informado agora); se não existe, cadastra na hora — exige
-    nome nesse caso.
+    (ignora o nome/aniversário informado agora); se não existe, cadastra na
+    hora — exige nome nesse caso, aniversário é opcional.
 
     Retorna `(client, created)`.
     """
@@ -60,7 +81,14 @@ def get_or_create_client(*, tenant, phone, name=""):
             raise ValidationError(
                 {"name": "Informe seu nome para o primeiro agendamento."}
             )
-        return Client.objects.create(tenant=tenant, phone=phone, name=name), True
+        birth_day, birth_month = _validate_birthday(birth_day, birth_month)
+        return (
+            Client.objects.create(
+                tenant=tenant, phone=phone, name=name,
+                birth_day=birth_day, birth_month=birth_month,
+            ),
+            True,
+        )
 
 
 @transaction.atomic
@@ -86,9 +114,12 @@ def anonymize_client(client):
     # Política LGPD deliberada: só nome/telefone são dado pessoal. O saldo de
     # crédito e o ledger (passivo financeiro do salão), o status de mensalista
     # e o histórico de atendimentos permanecem — não identificam ninguém.
-    # `preferences` pode conter observação pessoal, então também é apagado.
+    # `preferences` e data de nascimento podem conter observação/dado
+    # pessoal, então também são apagados.
     client.preferences = ""
-    client.save(update_fields=["name", "phone", "preferences"])
+    client.birth_day = None
+    client.birth_month = None
+    client.save(update_fields=["name", "phone", "preferences", "birth_day", "birth_month"])
     return client
 
 
@@ -97,7 +128,7 @@ def anonymize_client(client):
 # ---------------------------------------------------------------------------
 
 
-def update_client(client, *, name, phone, preferences=""):
+def update_client(client, *, name, phone, preferences="", birth_day=None, birth_month=None):
     name = str(name).strip()
     if not name:
         raise ValidationError({"name": "O nome é obrigatório."})
@@ -109,14 +140,26 @@ def update_client(client, *, name, phone, preferences=""):
         raise ValidationError(
             {"phone": "Já existe outro cliente com este telefone."}
         )
+    birth_day, birth_month = _validate_birthday(birth_day, birth_month)
     client.name = name
     client.phone = phone
     client.preferences = (preferences or "").strip()
-    client.save(update_fields=["name", "phone", "preferences"])
+    client.birth_day = birth_day
+    client.birth_month = birth_month
+    client.save(update_fields=["name", "phone", "preferences", "birth_day", "birth_month"])
     return client
 
 
-def create_client(*, tenant, name, phone, preferences=""):
+def update_client_preferences(client, preferences):
+    """Atualiza só o texto de preferências/observações — usado no atalho de
+    editar rápido (modal aberto na Agenda/Caixa), sem re-validar nome/telefone
+    (que não mudam nesse fluxo)."""
+    client.preferences = (preferences or "").strip()
+    client.save(update_fields=["preferences"])
+    return client
+
+
+def create_client(*, tenant, name, phone, preferences="", birth_day=None, birth_month=None):
     """Cadastro manual pelo painel (a página pública usa `get_or_create_client`)."""
     name = str(name).strip()
     if not name:
@@ -124,8 +167,10 @@ def create_client(*, tenant, name, phone, preferences=""):
     phone = normalize_phone(phone)
     if Client.objects.filter(tenant=tenant, phone=phone).exists():
         raise ValidationError({"phone": "Já existe um cliente com este telefone."})
+    birth_day, birth_month = _validate_birthday(birth_day, birth_month)
     return Client.objects.create(
-        tenant=tenant, name=name, phone=phone, preferences=(preferences or "").strip()
+        tenant=tenant, name=name, phone=phone, preferences=(preferences or "").strip(),
+        birth_day=birth_day, birth_month=birth_month,
     )
 
 
@@ -141,25 +186,149 @@ def _add_months(d, months):
 
 def set_subscriber_status(client, *, is_subscriber, due_date=None):
     """Habilita/desabilita mensalista. Ao habilitar, a data de vencimento é
-    obrigatória; ao desabilitar, a data é limpa."""
+    obrigatória; ao desabilitar, a data é limpa — e o pacote (se algum
+    estiver atribuído) também é desvinculado, já que só faz sentido
+    enquanto o cliente é mensalista (decisão do usuário em 2026-08-04)."""
     if is_subscriber and due_date is None:
         raise ValidationError(
             {"subscription_due_date": "Informe a data de vencimento da mensalidade."}
         )
     client.is_subscriber = bool(is_subscriber)
     client.subscription_due_date = due_date if is_subscriber else None
-    client.save(update_fields=["is_subscriber", "subscription_due_date"])
+    update_fields = ["is_subscriber", "subscription_due_date"]
+    if not is_subscriber and client.package_id is not None:
+        client.package = None
+        update_fields.append("package")
+    client.save(update_fields=update_fields)
     return client
 
 
-def renew_subscription(client):
+@transaction.atomic
+def renew_subscription(client, *, payment_method=None, created_by=None):
     """Empurra o vencimento +1 mês. Se já venceu, renova a partir de hoje
-    (não acumula atraso); se ainda está em dia, soma a partir do vencimento."""
+    (não acumula atraso); se ainda está em dia, soma a partir do vencimento.
+
+    Cliente com pacote ativo (decisão do usuário em 2026-08-04): renovar
+    também gera uma NOVA cobrança no Caixa (mesmo valor do pacote) — sem
+    isso, a data avançava sem nenhum registro de que o mês foi pago de
+    novo. `payment_method`/`created_by` são obrigatórios nesse caso, iguais
+    à atribuição inicial (`assign_package_to_client`). Sem pacote, o
+    comportamento continua o de sempre: só controle de data, pressupõe
+    pagamento recebido por fora do sistema."""
     if not client.is_subscriber or client.subscription_due_date is None:
         raise ValidationError("Este cliente não é mensalista.")
+
+    if client.package_id is not None:
+        if not payment_method:
+            raise ValidationError(
+                {"payment_method": "Informe a forma de pagamento da renovação."}
+            )
+        from apps.finance.models import CashCategory, CashFlowType
+        from apps.finance.services import create_cash_transaction
+
+        create_cash_transaction(
+            tenant=client.tenant,
+            type=CashFlowType.IN,
+            category=CashCategory.PACKAGE_SALE,
+            amount=client.package.price,
+            payment_method=payment_method,
+            description=f"Renovação — Pacote {client.package.name} — {client.name}",
+            created_by=created_by,
+        )
+
     base = max(client.subscription_due_date, datetime.date.today())
     client.subscription_due_date = _add_months(base, 1)
     client.save(update_fields=["subscription_due_date"])
+    return client
+
+
+# ---------------------------------------------------------------------------
+# Pacote de mensalidade (decisão do usuário em 2026-08-04) — camada em cima
+# do mensalista tradicional acima: define quais serviços já estão inclusos
+# na mensalidade do cliente, sem cobrança extra no Caixa (ver
+# apps.scheduling.services.create_appointment/complete_appointment).
+# ---------------------------------------------------------------------------
+
+
+def create_package(*, tenant, name, description="", price, service_ids, generates_commission, created_by):
+    from apps.services.models import Service
+
+    from .models import Package
+
+    name = str(name).strip()
+    if not name:
+        raise ValidationError({"name": "O nome é obrigatório."})
+    price = Decimal(price)
+    if price <= 0:
+        raise ValidationError({"price": "O valor deve ser maior que zero."})
+    services = Service.objects.for_tenant(tenant).filter(pk__in=service_ids or [])
+    if not services.exists():
+        raise ValidationError({"services": "Selecione ao menos um serviço para o pacote."})
+    package = Package.objects.create(
+        tenant=tenant, name=name, description=(description or "").strip(), price=price,
+        generates_commission=bool(generates_commission), created_by=created_by,
+    )
+    package.services.set(services)
+    return package
+
+
+def update_package(package, *, name, description="", price, service_ids, generates_commission):
+    from apps.services.models import Service
+
+    name = str(name).strip()
+    if not name:
+        raise ValidationError({"name": "O nome é obrigatório."})
+    price = Decimal(price)
+    if price <= 0:
+        raise ValidationError({"price": "O valor deve ser maior que zero."})
+    services = Service.objects.for_tenant(package.tenant).filter(pk__in=service_ids or [])
+    if not services.exists():
+        raise ValidationError({"services": "Selecione ao menos um serviço para o pacote."})
+    package.name = name
+    package.description = (description or "").strip()
+    package.price = price
+    package.generates_commission = bool(generates_commission)
+    package.save(update_fields=["name", "description", "price", "generates_commission"])
+    package.services.set(services)
+    return package
+
+
+def set_package_active(package, is_active):
+    package.is_active = bool(is_active)
+    package.save(update_fields=["is_active"])
+    return package
+
+
+@transaction.atomic
+def assign_package_to_client(client, *, package, payment_method, created_by):
+    """Ativa um pacote pro cliente — pergunta a forma de pagamento porque é
+    uma cobrança REAL de verdade agora (mesmo tratamento de
+    `add_client_credit`): cria a `CashTransaction` da mensalidade, marca o
+    cliente como mensalista e empurra o vencimento pra daqui a 1 mês (mesma
+    conta de `renew_subscription`). Os atendimentos cobertos pelo pacote,
+    dali em diante, é que não geram nova cobrança (ver
+    `apps.scheduling.services.complete_appointment`)."""
+    from apps.finance.models import CashCategory, CashFlowType
+    from apps.finance.services import create_cash_transaction
+
+    if package.tenant_id != client.tenant_id:
+        raise ValidationError("Pacote e cliente precisam ser do mesmo salão.")
+    if not package.is_active:
+        raise ValidationError("Este pacote não está mais disponível.")
+
+    create_cash_transaction(
+        tenant=client.tenant,
+        type=CashFlowType.IN,
+        category=CashCategory.PACKAGE_SALE,
+        amount=package.price,
+        payment_method=payment_method,
+        description=f"Pacote {package.name} — {client.name}",
+        created_by=created_by,
+    )
+    client.package = package
+    client.is_subscriber = True
+    client.subscription_due_date = _add_months(datetime.date.today(), 1)
+    client.save(update_fields=["package", "is_subscriber", "subscription_due_date"])
     return client
 
 
@@ -260,3 +429,56 @@ def redeem_client_credit_for_appointment(client, *, amount, appointment, created
     client.credit_balance = client.credit_balance - amount
     client.save(update_fields=["credit_balance"])
     return entry
+
+
+# ---------------------------------------------------------------------------
+# Alerta de aniversário (decisão do usuário em 2026-08-04)
+# ---------------------------------------------------------------------------
+
+
+def clients_with_birthday_today(tenant):
+    from django.utils import timezone
+
+    today = timezone.localdate()
+    return Client.objects.for_tenant(tenant).filter(
+        birth_day=today.day, birth_month=today.month
+    ).order_by("name")
+
+
+def ensure_birthday_notification(tenant):
+    """Garante (idempotente) UMA `TenantNotification` por dia quando há
+    aniversariante — chamado a cada poll do sininho/toast
+    (`apps.notifications.views.agenda_toast_poll`), sem precisar de tarefa
+    agendada (Celery) separada. Só cria se `Tenant.birthday_alert_enabled`;
+    a notificação some do sininho só quando o admin abrir o modal de envio
+    (`apps.clients.views.birthday_whatsapp_campaign` marca como lida)."""
+    if not tenant.birthday_alert_enabled:
+        return None
+
+    from django.utils import timezone
+
+    from apps.notifications.models import TenantNotification, TenantNotificationKind
+    from apps.notifications.services import create_tenant_notification
+
+    clients = list(clients_with_birthday_today(tenant))
+    if not clients:
+        return None
+
+    today = timezone.localdate()
+    already_created_today = TenantNotification.objects.for_tenant(tenant).filter(
+        kind=TenantNotificationKind.BIRTHDAY_ALERT, created_at__date=today,
+    ).exists()
+    if already_created_today:
+        return None
+
+    names = ", ".join(c.name for c in clients)
+    if len(clients) == 1:
+        title = "Aniversariante do dia! 🎂"
+        message = f"{names} faz aniversário hoje. Que tal mandar uma mensagem?"
+    else:
+        title = f"{len(clients)} aniversariantes hoje! 🎂"
+        message = f"{names} fazem aniversário hoje. Que tal mandar uma mensagem?"
+
+    return create_tenant_notification(
+        tenant, kind=TenantNotificationKind.BIRTHDAY_ALERT, title=title, message=message,
+    )

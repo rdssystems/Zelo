@@ -43,10 +43,57 @@
 
   {% if client.is_subscriber %}
   <div class="pt-4 mt-4 border-t border-surface-variant flex justify-end">
+    {% if client.package %}
+    <button class="px-6 py-2.5 rounded-pill border border-primary text-primary font-semibold text-sm hover:bg-primary-container/20 transition-colors"
+            hx-get="{% url 'clients:renew_subscription_confirm' client.pk %}" hx-target="#modal-slot" hx-swap="innerHTML"
+            title="Cliente tem pacote ativo — renovar também cobra de novo no Caixa">
+      Renovar (+1 mês)
+    </button>
+    {% else %}
     <button class="px-6 py-2.5 rounded-pill border border-primary text-primary font-semibold text-sm hover:bg-primary-container/20 transition-colors"
             hx-post="{% url 'clients:renew_subscription' client.pk %}" hx-target="#subscription-section" hx-swap="outerHTML">
       Renovar (+1 mês)
     </button>
+    {% endif %}
+  </div>
+
+  <div class="pt-4 mt-4 border-t border-surface-variant">
+    <h4 class="text-label-caps uppercase text-outline mb-2">Pacote da mensalidade</h4>
+    {% if client.package %}
+    <div class="rounded-lg bg-secondary-container/40 px-4 py-3 mb-3">
+      <p class="text-sm text-on-surface font-medium">{{ client.package.name }} — R$ {{ client.package.price }}/mês</p>
+      <p class="text-xs text-on-surface-variant mt-1">
+        Serviços inclusos:
+        {% for service in client.package.services.all %}{{ service.name }}{% if not forloop.last %}, {% endif %}{% empty %}nenhum{% endfor %}
+      </p>
+    </div>
+    <p class="text-xs text-on-surface-variant mb-3">Trocar de pacote gera uma nova cobrança no Caixa.</p>
+    {% else %}
+    <p class="text-xs text-on-surface-variant mb-3">Nenhum pacote ativo — os serviços dele continuam sendo cobrados normalmente na comanda.</p>
+    {% endif %}
+    {% if available_packages %}
+    <div class="space-y-2">
+      {% for package in available_packages %}
+      {% if package != client.package %}
+      <div class="flex items-center justify-between gap-3 rounded-lg border border-outline-variant px-4 py-2.5">
+        <div>
+          <p class="text-sm text-on-surface font-medium">{{ package.name }}</p>
+          <p class="text-xs text-on-surface-variant">R$ {{ package.price }}/mês</p>
+        </div>
+        <button class="px-4 py-1.5 rounded-pill border border-primary text-primary text-xs font-semibold hover:bg-primary-container/20 transition-colors shrink-0"
+                hx-get="{% url 'clients:package_assign_confirm' client.pk %}?package={{ package.pk }}" hx-target="#modal-slot" hx-swap="innerHTML">
+          Usar este pacote
+        </button>
+      </div>
+      {% endif %}
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-xs text-outline italic">
+      Nenhum pacote cadastrado ainda —
+      <a class="text-primary hover:underline" href="{% url 'clients:package_list' %}">criar um pacote</a>.
+    </p>
+    {% endif %}
   </div>
   {% endif %}
 </div>

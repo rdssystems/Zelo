@@ -1,12 +1,20 @@
 {% for notification in notifications %}
 <div hx-swap-oob="beforeend:#toast-slot">
   <div class="pointer-events-auto max-w-sm bg-surface-container-lowest border border-secondary/30 rounded-2xl shadow-2xl p-4 flex items-start gap-3"
-       x-data="{ show: true }" x-show="show" x-init="setTimeout(() => show = false, 8000)"
+       x-data="{ show: true }" x-show="show"{% if notification.kind != "birthday_alert" %} x-init="setTimeout(() => show = false, 8000)"{% endif %}
        x-transition:leave="transition ease-in duration-200" x-transition:leave-start="opacity-100 translate-y-0" x-transition:leave-end="opacity-0 translate-y-2">
-    <span class="material-symbols-outlined text-secondary shrink-0">event_busy</span>
+    <span class="material-symbols-outlined text-secondary shrink-0">{% if notification.kind == "birthday_alert" %}cake{% else %}event_busy{% endif %}</span>
     <div class="flex-1 min-w-0">
       <p class="font-semibold text-on-surface text-sm">{{ notification.title }}</p>
       <p class="text-xs text-on-surface-variant mt-0.5">{{ notification.message }}</p>
+      {% if notification.kind == "birthday_alert" %}
+      <button class="text-xs text-primary font-semibold hover:underline mt-2 inline-flex items-center gap-1"
+              hx-get="{% url 'clients:birthday_whatsapp_campaign' %}" hx-target="#modal-slot" hx-swap="innerHTML"
+              @click="show = false">
+        Enviar mensagem
+        <span class="material-symbols-outlined text-[14px]">arrow_forward</span>
+      </button>
+      {% endif %}
     </div>
     <button class="text-outline hover:text-on-surface shrink-0" @click="show = false" aria-label="Fechar aviso">
       <span class="material-symbols-outlined text-[18px]">close</span>

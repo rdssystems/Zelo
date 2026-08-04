@@ -21,6 +21,16 @@ from .availability import compute_end_time, is_slot_available
 from .models import Appointment, AppointmentStatus, BLOCKING_STATUSES
 
 
+def _covering_package(client, service):
+    """Pacote de mensalidade vigente do cliente que inclui este serviço, ou
+    `None` (decisão do usuário em 2026-08-04) — usado tanto no agendamento
+    normal quanto no serviço avulso adicionado direto na comanda
+    (`start_walk_in_service`)."""
+    if client.is_subscriber and client.package_id and client.package.services.filter(pk=service.pk).exists():
+        return client.package
+    return None
+
+
 @transaction.atomic
 def create_appointment(
     *, tenant, client, employee, service, date, start_time, created_by=None, notes=""
@@ -52,6 +62,11 @@ def create_appointment(
         if tenant.auto_confirm_appointments
         else AppointmentStatus.PENDING
     )
+    # Snapshot do pacote de mensalidade vigente (decisão do usuário em
+    # 2026-08-04) — `price_at_booking` continua o valor de TABELA do
+    # serviço mesmo coberto por pacote (base de comissão); é este campo que
+    # depois faz `complete_appointment` não cobrar o cliente de novo.
+    package = _covering_package(client, service)
     try:
         return Appointment.objects.create(
             tenant=tenant,
@@ -63,6 +78,7 @@ def create_appointment(
             end_time=end_time,
             status=initial_status,
             price_at_booking=service.price,
+            package=package,
             notes=notes,
             created_by=created_by,
         )
@@ -96,6 +112,7 @@ def start_walk_in_service(*, tenant, client, employee, service, created_by):
     now = timezone.localtime()
     start_time = now.time()
     end_time = compute_end_time(start_time, service.duration_minutes)
+    package = _covering_package(client, service)
     try:
         return Appointment.objects.create(
             tenant=tenant,
@@ -107,6 +124,7 @@ def start_walk_in_service(*, tenant, client, employee, service, created_by):
             end_time=end_time,
             status=AppointmentStatus.IN_PROGRESS,
             price_at_booking=service.price,
+            package=package,
             created_by=created_by,
         )
     except IntegrityError:
@@ -245,9 +263,20 @@ def complete_appointment(*, appointment, payment_method, created_by, product_usa
     appointment.status = AppointmentStatus.COMPLETED
     appointment.save(update_fields=["status"])
 
-    commission = create_commission_for_appointment(appointment)
+    # Serviço coberto por pacote de mensalidade (decisão do usuário em
+    # 2026-08-04): `price_at_booking` continua o valor de tabela (base de
+    # comissão quando o pacote permite), mas não é cobrado do cliente de
+    # novo — já foi pago na hora que o pacote foi atribuído
+    # (`apps.clients.services.assign_package_to_client`). `payable_service_total`
+    # é o que efetivamente entra no total a pagar/abater da comanda; o
+    # serviço em si nunca gera `CashTransaction` quando coberto.
+    is_package_covered = appointment.package_id is not None
+    commission = None
+    if not is_package_covered or appointment.package.generates_commission:
+        commission = create_commission_for_appointment(appointment)
 
     service_total = appointment.price_at_booking
+    payable_service_total = Decimal("0") if is_package_covered else service_total
 
     total_products = Decimal("0")
     product_lines = []
@@ -269,7 +298,7 @@ def complete_appointment(*, appointment, payment_method, created_by, product_usa
         total_products += item_total
         product_lines.append((product, movement, item_total))
 
-    grand_total = service_total + total_products
+    grand_total = payable_service_total + total_products
 
     # Atalho antigo (API/DRF): pagar 100% com crédito sem informar valor.
     if used_old_full_credit_shortcut:
@@ -282,8 +311,8 @@ def complete_appointment(*, appointment, payment_method, created_by, product_usa
 
     remaining_credit = credit_amount
 
-    service_credit = min(remaining_credit, service_total)
-    service_cash = service_total - service_credit
+    service_credit = min(remaining_credit, payable_service_total)
+    service_cash = payable_service_total - service_credit
     remaining_credit -= service_credit
     if service_cash > 0:
         create_cash_transaction(
@@ -377,7 +406,13 @@ def complete_client_comanda(
         products_total = sum(
             (item["quantity"] * item["unit_price"] for item in product_usage), Decimal("0")
         )
-        appointment_total = appointment.price_at_booking + products_total
+        # Serviço coberto por pacote não entra no total a pagar/abater
+        # (mesma lógica de `complete_appointment` — já foi pago na hora que
+        # o pacote foi atribuído ao cliente).
+        payable_service_total = (
+            Decimal("0") if appointment.package_id is not None else appointment.price_at_booking
+        )
+        appointment_total = payable_service_total + products_total
         credit_for_this = min(remaining_credit, appointment_total)
         remaining_credit -= credit_for_this
         commissions.append(

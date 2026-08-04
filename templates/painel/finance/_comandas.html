@@ -51,9 +51,19 @@
           <span class="material-symbols-outlined text-[14px]">event</span>{{ appointment.date|date:"d/m" }}
         </span>
         {% endif %}
+        {% if appointment.package_id %}
+        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-pill text-xs font-semibold bg-secondary-container text-on-secondary-container"
+              title="Incluso no pacote {{ appointment.package.name }} — não cobra de novo aqui">
+          <span class="material-symbols-outlined text-[14px]">redeem</span>Mensalidade
+        </span>
+        {% endif %}
       </p>
       <div class="flex items-center gap-2 shrink-0">
+        {% if appointment.package_id %}
+        <span class="text-sm text-on-surface-variant italic" title="Valor de tabela: R$ {{ appointment.price_at_booking }}">Incluso</span>
+        {% else %}
         <span class="font-display text-lg text-primary">R$ {{ appointment.price_at_booking }}</span>
+        {% endif %}
         <button type="button" title="Remover serviço da comanda"
                 hx-get="{% url 'finance:comanda_service_remove_confirm' appointment.pk %}" hx-target="#modal-slot" hx-swap="innerHTML"
                 class="text-outline hover:text-error transition-colors">

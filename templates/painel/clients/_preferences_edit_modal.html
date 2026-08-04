@@ -1,0 +1,37 @@
+<div class="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6" id="client-preferences-modal">
+  <div class="absolute inset-0 bg-inverse-surface/40 backdrop-blur-sm"
+       onclick="document.getElementById('modal-slot').innerHTML = ''"></div>
+  <div class="relative w-full max-w-md bg-surface-container-lowest rounded-2xl shadow-2xl overflow-hidden">
+    <div class="p-8">
+      <div class="flex items-center gap-3 mb-6">
+        <div class="w-10 h-10 rounded-full bg-primary-container/40 flex items-center justify-center shrink-0">
+          <span class="material-symbols-outlined text-primary">edit_note</span>
+        </div>
+        <h3 class="font-display text-headline-sm text-on-surface">Observações — {{ client.name }}</h3>
+      </div>
+      {% if preferences_saved %}
+      <div class="mb-4 rounded-lg bg-secondary-container text-on-secondary-container px-4 py-3 text-sm flex items-center gap-2">
+        <span class="material-symbols-outlined text-[18px]">check_circle</span>
+        Preferências atualizadas.
+      </div>
+      {% endif %}
+      <form hx-post="{% url 'clients:preferences_update' client.pk %}" hx-target="#client-preferences-modal" hx-swap="outerHTML" class="space-y-6">
+        {% csrf_token %}
+        <div>
+          <label class="block text-label-caps uppercase text-outline mb-1" for="id_preferences">
+            Alergias, produtos preferidos, observações do atendimento
+          </label>
+          <textarea class="block w-full px-3 py-2 rounded-lg border border-outline-variant bg-surface-container-lowest text-on-surface text-sm focus:ring-2 focus:ring-primary focus:border-primary transition-colors resize-none"
+                    id="id_preferences" name="preferences" rows="5">{{ client.preferences }}</textarea>
+        </div>
+        <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
+          <button type="button" class="w-full sm:w-auto px-5 py-2.5 rounded-pill border border-outline-variant text-on-surface-variant font-medium hover:bg-surface-variant transition-colors"
+                  onclick="document.getElementById('modal-slot').innerHTML = ''">Fechar</button>
+          <button type="submit" class="w-full sm:w-auto px-6 py-2.5 rounded-pill bg-primary text-on-primary font-semibold hover:opacity-90 transition-opacity active:scale-95">
+            Salvar
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

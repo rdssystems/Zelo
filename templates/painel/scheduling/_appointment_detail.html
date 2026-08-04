@@ -5,7 +5,15 @@
     <div class="p-8">
       <div class="flex justify-between items-start mb-6">
         <div>
-          <h3 class="font-display text-headline-sm text-on-surface">{{ appointment.service.name }}</h3>
+          <h3 class="font-display text-headline-sm text-on-surface flex items-center gap-2 flex-wrap">
+            {{ appointment.service.name }}
+            {% if appointment.package_id %}
+            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-pill text-[11px] font-semibold uppercase bg-secondary-container text-on-secondary-container"
+                  title="Incluso no pacote {{ appointment.package.name }}">
+              <span class="material-symbols-outlined text-[12px]">redeem</span>Mensalidade
+            </span>
+            {% endif %}
+          </h3>
           <p class="text-on-surface-variant mt-1">{{ appointment.date|date:"d/m/Y" }} · {{ appointment.start_time|time:"H:i" }} – {{ appointment.end_time|time:"H:i" }}</p>
         </div>
         <button class="text-outline hover:text-on-surface transition-colors p-2 rounded-full hover:bg-surface-container"
@@ -15,9 +23,16 @@
       </div>
 
       <dl class="space-y-3 text-sm mb-6">
-        <div class="flex justify-between">
+        <div class="flex justify-between items-center">
           <dt class="text-on-surface-variant">Cliente</dt>
-          <dd class="text-on-surface font-medium">{{ appointment.client.name }}</dd>
+          <dd class="text-on-surface font-medium flex items-center gap-1.5">
+            {{ appointment.client.name }}
+            <button type="button" title="Ver observações do cliente"
+                    class="p-1 rounded-full text-outline hover:text-primary hover:bg-surface-container transition-colors"
+                    hx-get="{% url 'clients:preferences_modal' appointment.client.pk %}" hx-target="#modal-slot" hx-swap="innerHTML">
+              <span class="material-symbols-outlined text-[16px] block">sticky_note_2</span>
+            </button>
+          </dd>
         </div>
         <div class="flex justify-between">
           <dt class="text-on-surface-variant">Profissional</dt>
@@ -25,7 +40,13 @@
         </div>
         <div class="flex justify-between">
           <dt class="text-on-surface-variant">Valor</dt>
-          <dd class="text-on-surface font-medium">R$ {{ appointment.price_at_booking }}</dd>
+          <dd class="text-on-surface font-medium">
+            {% if appointment.package_id %}
+            <span class="italic" title="Valor de tabela: R$ {{ appointment.price_at_booking }}">Incluso na mensalidade</span>
+            {% else %}
+            R$ {{ appointment.price_at_booking }}
+            {% endif %}
+          </dd>
         </div>
         {% if appointment.notes %}
         <div>

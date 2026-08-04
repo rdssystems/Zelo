@@ -6,10 +6,11 @@
       <div class="grid sticky top-0 z-10 bg-surface-container-lowest" style="grid-template-columns: 56px repeat(7, 1fr);">
         <div class="border-b border-surface-variant"></div>
         {% for day in days %}
-        <a class="block px-2 py-3 text-center border-b border-l border-surface-variant hover:bg-surface-container-low transition-colors {% if day.is_today %}bg-primary-container/10{% endif %}"
+        <a class="block px-2 py-3 text-center border-b border-l border-surface-variant hover:bg-surface-container-low transition-colors {% if day.is_today %}bg-primary-container/10{% elif day.is_closed %}bg-surface-container/50{% endif %}"
            href="{% url 'scheduling:list' %}?date={{ day.date|date:'Y-m-d' }}{% if selected_employee_id %}&employee={{ selected_employee_id }}{% endif %}">
-          <p class="text-label-caps uppercase text-outline">{{ day.label }}</p>
-          <p class="font-display text-lg {% if day.is_today %}text-primary font-bold{% else %}text-on-surface{% endif %}">{{ day.date|date:"d/m" }}</p>
+          <p class="text-label-caps uppercase {% if day.is_closed %}text-outline/60{% else %}text-outline{% endif %}">{{ day.label }}</p>
+          <p class="font-display text-lg {% if day.is_today %}text-primary font-bold{% elif day.is_closed %}text-outline{% else %}text-on-surface{% endif %}">{{ day.date|date:"d/m" }}</p>
+          {% if day.is_closed %}<p class="text-[10px] uppercase tracking-wider text-outline/60 mt-0.5">Fechado</p>{% endif %}
         </a>
         {% endfor %}
       </div>
@@ -20,7 +21,7 @@
           {% endfor %}
         </div>
         {% for day in days %}
-        <div class="relative border-l border-surface-variant {% if day.is_today %}bg-primary-container/5{% endif %}" style="height: {{ grid_height_px }}px;">
+        <div class="relative border-l border-surface-variant {% if day.is_today %}bg-primary-container/5{% elif day.is_closed %}bg-surface-container/30{% endif %}" style="height: {{ grid_height_px }}px;">
           {% for hour in hours %}
           <div class="absolute left-0 right-0 border-t border-surface-variant/60" style="top: {{ hour.top_px }}px;"></div>
           {% endfor %}

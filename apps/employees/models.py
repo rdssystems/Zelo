@@ -51,6 +51,15 @@ class Employee(TenantModel):
     def __str__(self):
         return self.full_name
 
+    @property
+    def is_owner(self):
+        """True para o perfil sincronizado por `services.sync_owner_employee`
+        — reaproveita o login de admin do tenant (não cria um `User`
+        role=employee separado). Usado para bloquear ações que derrubariam o
+        próprio login do responsável (ver `set_employee_active`/
+        `delete_employee` abaixo)."""
+        return self.user.is_tenant_admin
+
 
 class WorkingHours(TenantModel):
     """Jornada semanal do funcionário (RF10)."""

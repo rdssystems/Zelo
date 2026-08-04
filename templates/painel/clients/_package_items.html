@@ -1,0 +1,62 @@
+<div id="package-items" class="bg-surface-container-lowest rounded-xl shadow-[0_4px_40px_-10px_rgba(125,86,45,0.08)] border border-surface-container overflow-hidden">
+  <div class="hidden md:grid grid-cols-12 gap-4 px-gutter py-4 border-b border-surface-variant bg-surface-container-low/50">
+    <div class="col-span-4 text-label-caps uppercase text-outline">Pacote</div>
+    <div class="col-span-3 text-label-caps uppercase text-outline">Serviços inclusos</div>
+    <div class="col-span-2 text-label-caps uppercase text-outline">Valor mensal</div>
+    <div class="col-span-2 text-label-caps uppercase text-outline">Status</div>
+    <div class="col-span-1 text-right text-label-caps uppercase text-outline">Ações</div>
+  </div>
+  <div class="divide-y divide-surface-variant">
+    {% for package in packages %}
+    <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-center px-gutter py-6 hover:bg-surface-container-low transition-colors group {% if not package.is_active %}opacity-60{% endif %}">
+      <div class="col-span-1 md:col-span-4">
+        <h3 class="font-display text-headline-sm text-on-surface group-hover:text-primary transition-colors">{{ package.name }}</h3>
+        {% if package.description %}
+        <p class="text-sm text-on-surface-variant mt-1 hidden md:block">{{ package.description|truncatechars:80 }}</p>
+        {% endif %}
+        {% if not package.generates_commission %}
+        <p class="text-xs text-outline mt-1 flex items-center gap-1">
+          <span class="material-symbols-outlined text-[14px]">block</span> Sem comissão pro funcionário
+        </p>
+        {% endif %}
+      </div>
+      <div class="col-span-1 md:col-span-3 flex flex-wrap gap-1">
+        {% for service in package.services.all %}
+        <span class="bg-secondary-container text-on-secondary-container px-2 py-0.5 rounded-pill text-xs">{{ service.name }}</span>
+        {% empty %}
+        <span class="text-sm text-outline italic">Nenhum serviço</span>
+        {% endfor %}
+      </div>
+      <div class="col-span-1 md:col-span-2 font-semibold text-lg text-on-surface">
+        R$ {{ package.price }}
+      </div>
+      <div class="col-span-1 md:col-span-2">
+        {% if package.is_active %}
+        <span class="inline-flex items-center px-3 py-1 rounded-pill bg-[#e8f5e9] text-[#2e7d32] text-label-caps uppercase">Ativo</span>
+        {% else %}
+        <span class="inline-flex items-center px-3 py-1 rounded-pill bg-error-container text-on-error-container text-label-caps uppercase">Inativo</span>
+        {% endif %}
+      </div>
+      <div class="col-span-1 md:col-span-1 flex md:justify-end gap-1">
+        <button class="p-2 text-outline hover:text-primary transition-colors rounded-full hover:bg-surface-variant" title="Editar"
+                hx-get="{% url 'clients:package_update' package.pk %}" hx-target="#modal-slot" hx-swap="innerHTML">
+          <span class="material-symbols-outlined">edit</span>
+        </button>
+        <button class="p-2 transition-colors rounded-full hover:bg-surface-variant {% if package.is_active %}text-[#2e7d32] hover:text-[#1b5e20]{% else %}text-error hover:text-error{% endif %}"
+                title="{% if package.is_active %}Ativo — clique para desativar{% else %}Inativo — clique para ativar{% endif %}"
+                hx-get="{% url 'clients:package_toggle_confirm' package.pk %}" hx-target="#modal-slot" hx-swap="innerHTML">
+          <span class="material-symbols-outlined" {% if package.is_active %}style="font-variation-settings: 'FILL' 1;"{% endif %}>{% if package.is_active %}toggle_on{% else %}toggle_off{% endif %}</span>
+        </button>
+      </div>
+    </div>
+    {% empty %}
+    <div class="px-gutter py-16 text-center">
+      <p class="text-on-surface-variant">Nenhum pacote cadastrado ainda.</p>
+      <button class="mt-2 text-primary font-semibold hover:underline"
+              hx-get="{% url 'clients:package_create' %}" hx-target="#modal-slot" hx-swap="innerHTML">
+        Cadastrar o primeiro pacote
+      </button>
+    </div>
+    {% endfor %}
+  </div>
+</div>

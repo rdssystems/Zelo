@@ -172,6 +172,11 @@ def settings_view(request):
         hours_formset = BusinessHoursFormSet(request.POST)
         if form.is_valid() and hours_formset.is_valid():
             form.save()
+            # Import local pra evitar import circular (apps.employees.models
+            # importa apps.tenants.models) — mesmo padrão de services.py.
+            from apps.employees.services import sync_owner_employee
+
+            sync_owner_employee(tenant)
             try:
                 set_business_hours(
                     tenant,

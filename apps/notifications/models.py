@@ -56,6 +56,7 @@ class TenantNotificationKind(models.TextChoices):
     agendamento, reagendamento etc.), ver 01-REQUISITOS.md."""
 
     APPOINTMENT_CANCELED_BY_CLIENT = "appointment_canceled_by_client", "Cliente cancelou agendamento"
+    BIRTHDAY_ALERT = "birthday_alert", "Aniversariante(s) do dia"
 
 
 class TenantNotification(TenantModel):

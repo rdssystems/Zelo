@@ -91,9 +91,9 @@
   </div>
 </main>
 
-{% if tenant.whatsapp %}
+{% if tenant.whatsapp_wa_me_number %}
 <a class="fixed bottom-8 right-8 z-50 flex items-center justify-center gap-3 bg-surface-container-lowest text-primary shadow-[0_12px_40px_-8px_rgba(125,86,45,0.15)] border border-primary/10 rounded-pill pl-6 pr-4 py-3 hover:scale-105 transition-transform"
-   href="https://wa.me/{{ tenant.whatsapp|cut:'+'|cut:' '|cut:'-'|cut:'('|cut:')' }}" target="_blank" rel="noopener">
+   href="https://wa.me/{{ tenant.whatsapp_wa_me_number }}" target="_blank" rel="noopener">
   <span class="text-sm font-medium hidden sm:inline">Fale conosco</span>
   <div class="bg-[#25D366] text-white p-3 rounded-full flex items-center justify-center shadow-md">
     <svg class="w-6 h-6" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">

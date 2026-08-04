@@ -107,12 +107,18 @@ def _parse_date(raw, default):
 def _commissions_by_employee(tenant, start, end):
     """Agrupa as comissões (pendentes E pagas) do período por funcionário,
     pra aba Comissões do Caixa — cada grupo sabe se tem alguma pendente
-    (pra mostrar o botão "Pagar tudo") e o valor total pendente."""
+    (pra mostrar o botão "Pagar tudo") e o valor total pendente.
+
+    Filtra por `created_at` (quando a comissão foi gerada), não por
+    `appointment__date` (data agendada do serviço) — mesmo critério de
+    `period_summary` (`CashTransaction.created_at`), senão um atendimento
+    concluído antes/depois da data agendada some daqui mas continua contando
+    no saldo do período, inconsistência real já vista em produção."""
     commissions = (
         Commission.objects.for_tenant(tenant)
-        .filter(appointment__date__range=(start, end))
+        .filter(created_at__date__range=(start, end))
         .select_related("employee", "appointment__service")
-        .order_by("employee__full_name", "appointment__date")
+        .order_by("employee__full_name", "created_at")
     )
     groups = []
     for employee, rows in groupby(commissions, key=lambda c: c.employee):
@@ -209,7 +215,12 @@ def _comanda_groups(tenant):
                 "client": client,
                 "appointments": rows,
                 "pending_items": pending_items,
-                "services_total": sum((a.price_at_booking for a in rows), Decimal("0")),
+                # Serviço coberto por pacote de mensalidade não entra no total
+                # a pagar — já foi pago quando o pacote foi atribuído ao
+                # cliente (mesma regra de `complete_client_comanda`).
+                "services_total": sum(
+                    (a.price_at_booking for a in rows if a.package_id is None), Decimal("0")
+                ),
                 "products_total": products_total,
             }
         )
@@ -235,10 +246,21 @@ def _period_context(request):
     }
 
 
-def _cash_response(request):
+def _cash_response(request, prompt_preferences_for=None):
+    """`prompt_preferences_for`: cliente recém-atendido — quando informado,
+    em vez de só limpar o modal, abre o prompt "quer atualizar as
+    observações desse cliente?" (ver `comanda_finalize_group`)."""
     context = _period_context(request)
     items = render_to_string("painel/finance/_items.html", context, request=request)
-    modal_reset = '<div id="modal-slot" hx-swap-oob="true"></div>'
+    if prompt_preferences_for is not None:
+        modal = render_to_string(
+            "painel/clients/_finalize_preferences_prompt.html",
+            {"client": prompt_preferences_for},
+            request=request,
+        )
+        modal_reset = f'<div id="modal-slot" hx-swap-oob="true">{modal}</div>'
+    else:
+        modal_reset = '<div id="modal-slot" hx-swap-oob="true"></div>'
     return HttpResponse(items + modal_reset)
 
 
@@ -432,7 +454,9 @@ def comanda_finalize_group(request):
 
     for item in pending_items:
         item.delete()
-    return _cash_response(request)
+    # Só pergunta sobre observações quando houve atendimento de verdade — uma
+    # venda avulsa de produto (sem serviço) não tem esse contexto de CRM.
+    return _cash_response(request, prompt_preferences_for=client if appointments else None)
 
 
 @tenant_admin_required
@@ -568,7 +592,7 @@ def commission_pay_all_confirm(request, employee_pk):
     start = _parse_date(request.GET.get("start"), datetime.date.today().replace(day=1))
     end = _parse_date(request.GET.get("end"), datetime.date.today())
     pending_total = Commission.objects.for_tenant(request.tenant).filter(
-        employee=employee, status=CommissionStatus.PENDING, appointment__date__range=(start, end),
+        employee=employee, status=CommissionStatus.PENDING, created_at__date__range=(start, end),
     ).aggregate(total=Sum("calculated_amount"))["total"] or Decimal("0")
     return render(
         request,
@@ -616,9 +640,9 @@ def my_commissions(request):
 
     commissions = (
         Commission.objects.for_tenant(request.tenant)
-        .filter(employee=employee, appointment__date__range=(start, end))
+        .filter(employee=employee, created_at__date__range=(start, end))
         .select_related("appointment__service")
-        .order_by("-appointment__date")
+        .order_by("-created_at")
     )
     pending_total = commissions.filter(status=CommissionStatus.PENDING).aggregate(
         total=Sum("calculated_amount")

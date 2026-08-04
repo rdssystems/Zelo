@@ -1,0 +1,27 @@
+<div class="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6" id="client-preferences-modal">
+  <div class="absolute inset-0 bg-inverse-surface/40 backdrop-blur-sm"
+       onclick="document.getElementById('modal-slot').innerHTML = ''"></div>
+  <div class="relative w-full max-w-md bg-surface-container-lowest rounded-2xl shadow-2xl overflow-hidden">
+    <div class="p-8">
+      <div class="flex items-center gap-3 mb-2">
+        <div class="w-10 h-10 rounded-full bg-[#e8f5e9] flex items-center justify-center shrink-0">
+          <span class="material-symbols-outlined text-[#2e7d32]" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+        </div>
+        <h3 class="font-display text-headline-sm text-on-surface">Atendimento finalizado!</h3>
+      </div>
+      <p class="text-sm text-on-surface-variant mb-6">
+        Quer atualizar as observações de <strong class="text-on-surface">{{ client.name }}</strong> (alergias, preferências, etc.)?
+      </p>
+      <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
+        <button type="button" class="w-full sm:w-auto px-5 py-2.5 rounded-pill border border-outline-variant text-on-surface-variant font-medium hover:bg-surface-variant transition-colors"
+                onclick="document.getElementById('modal-slot').innerHTML = ''">Agora não</button>
+        <button type="button"
+                class="w-full sm:w-auto px-6 py-2.5 rounded-pill bg-primary text-on-primary font-semibold hover:opacity-90 transition-opacity active:scale-95 inline-flex items-center justify-center gap-2"
+                hx-get="{% url 'clients:preferences_edit' client.pk %}" hx-target="#client-preferences-modal" hx-swap="outerHTML">
+          <span class="material-symbols-outlined text-[18px]">edit_note</span>
+          Atualizar observações
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

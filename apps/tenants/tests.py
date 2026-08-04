@@ -303,6 +303,20 @@ class TenantSettingsPanelTest(TestCase):
         self.assertTrue(sunday.is_closed)
         self.assertIsNone(sunday.start_time)
 
+    def test_successful_save_marks_page_for_saved_modal(self):
+        """Página pós-redirect carrega o marcador que o Alpine usa pra abrir
+        o modal "Salvo!" automaticamente (ver settings.html)."""
+        self.client.force_login(self.admin)
+        response = self.client.post("/painel/configuracoes/", self._valid_payload(), follow=True)
+        self.assertContains(response, 'id="settings-just-saved"')
+
+    def test_validation_error_does_not_mark_page_for_saved_modal(self):
+        self.client.force_login(self.admin)
+        response = self.client.post(
+            "/painel/configuracoes/", self._valid_payload(slug=""), follow=True
+        )
+        self.assertNotContains(response, 'id="settings-just-saved"')
+
     def test_whatsapp_cancel_redirect_defaults_true_and_can_be_turned_off(self):
         self.assertTrue(self.tenant.whatsapp_cancel_redirect_enabled)
         self.client.force_login(self.admin)
@@ -319,6 +333,23 @@ class TenantSettingsPanelTest(TestCase):
         )
         self.tenant.refresh_from_db()
         self.assertTrue(self.tenant.whatsapp_cancel_redirect_enabled)
+
+    def test_birthday_alert_defaults_off_and_can_be_turned_on(self):
+        self.assertFalse(self.tenant.birthday_alert_enabled)
+        self.client.force_login(self.admin)
+        self.client.post(
+            "/painel/configuracoes/", self._valid_payload(birthday_alert_enabled="on"),
+        )
+        self.tenant.refresh_from_db()
+        self.assertTrue(self.tenant.birthday_alert_enabled)
+
+    def test_birthday_alert_off_when_checkbox_not_sent(self):
+        self.tenant.birthday_alert_enabled = True
+        self.tenant.save(update_fields=["birthday_alert_enabled"])
+        self.client.force_login(self.admin)
+        self.client.post("/painel/configuracoes/", self._valid_payload())
+        self.tenant.refresh_from_db()
+        self.assertFalse(self.tenant.birthday_alert_enabled)
 
     def test_admin_changes_theme_to_barbearia(self):
         self.assertEqual(self.tenant.theme, "salao")
@@ -808,8 +839,10 @@ class LandingViewTest(TestCase):
     def test_root_domain_shows_landing_with_both_links(self):
         response = self.client.get("/")
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Sou barbearia")
-        self.assertContains(response, "Sou salão de beleza")
+        self.assertContains(response, "Sou Barbearia")
+        self.assertContains(response, "Sou Salão de Beleza")
+        self.assertContains(response, "barbearia.testserver/painel/login/")
+        self.assertContains(response, "salao.testserver/painel/login/")
 
     @override_settings(ALLOWED_HOSTS=["barbearia.zellup.com.br"])
     def test_barbearia_subdomain_root_redirects_to_login(self):

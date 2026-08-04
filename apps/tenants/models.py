@@ -118,6 +118,26 @@ class Tenant(models.Model):
         "confirmar na Agenda — a página do cliente mostra \"Agendamento enviado\" até lá. "
         "Marcado: agendamento já nasce confirmado, sem esperar o salão.",
     )
+    owner_name = models.CharField(
+        "nome do responsável", max_length=120, blank=True,
+        help_text="Nome do dono/responsável pelo salão — usado quando ele também atende "
+        "clientes (ver `owner_attends`), sem precisar de um cadastro de funcionário à parte.",
+    )
+    owner_photo = models.ImageField(
+        "foto do responsável", upload_to="tenants/owners/", blank=True, null=True,
+    )
+    owner_attends = models.BooleanField(
+        "responsável também atende clientes", default=False,
+        help_text="Marcado: o responsável aparece em Funcionários (marcado como \"Dono\"), "
+        "reaproveitando o próprio login de admin — sem precisar criar um funcionário para si "
+        "mesmo. `apps.employees.services.sync_owner_employee` cria/atualiza esse perfil.",
+    )
+    birthday_alert_enabled = models.BooleanField(
+        "alerta de aniversário de cliente", default=False,
+        help_text="Marcado: no dia do aniversário de um cliente (dia/mês cadastrado na ficha "
+        "dele), o painel avisa o responsável — o aviso só some quando ele clicar pra enviar a "
+        "mensagem de aniversário (ver apps.clients.services.ensure_birthday_notification).",
+    )
     is_active = models.BooleanField("ativo", default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 

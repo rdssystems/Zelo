@@ -104,6 +104,49 @@ def grace_deadline(subscription):
     )
 
 
+def employee_seats_used(tenant):
+    """Funcionários ATIVOS que ocupam vaga do plano. Não conta o perfil do
+    responsável (`Employee.is_owner`) — "também atende" reaproveita o
+    próprio login do dono e é sempre livre, nunca uma vaga paga."""
+    from django.contrib.auth import get_user_model
+
+    from apps.employees.models import Employee
+
+    User = get_user_model()
+    return (
+        Employee.objects.for_tenant(tenant)
+        .filter(is_active=True)
+        .exclude(user__role=User.Role.TENANT_ADMIN)
+        .count()
+    )
+
+
+def assert_can_add_employee(tenant):
+    """Trava de vaga de funcionário por plano (decisão do usuário em
+    2026-08-04). Durante o teste grátis (sem plano escolhido ainda) não há
+    limite — "acesso completo" já é a promessa do trial. Com plano escolhido,
+    `Plan.max_employees=None` continua sem limite (reservado pra plano
+    customizado); com número definido, bloqueia ao atingir o total de
+    funcionários ativos (perfil do dono não conta, ver `employee_seats_used`).
+
+    Chamado por `apps.employees.services.create_employee`/`set_employee_active`
+    (reativação) — nunca por `sync_owner_employee`, que é sempre livre.
+    """
+    try:
+        subscription = tenant.subscription
+    except Subscription.DoesNotExist:
+        return
+    plan = subscription.plan
+    if plan is None or plan.max_employees is None:
+        return
+    if employee_seats_used(tenant) >= plan.max_employees:
+        raise ValidationError(
+            f"Seu plano ({plan.name}) permite até {plan.max_employees} "
+            f"funcionário{'s' if plan.max_employees != 1 else ''}. Desative alguém ou "
+            "faça upgrade em Meu Plano pra adicionar mais."
+        )
+
+
 def subscription_blocks_panel_access(tenant):
     """RF30 (decisão do usuário em 2026-07-31): `canceled` bloqueia o painel
     na hora; `overdue` só bloqueia depois de estourado o `grace_period_days`

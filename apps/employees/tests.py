@@ -538,3 +538,212 @@ class EmployeeCommissionHistoryTest(TestCase):
         self.client.force_login(self.admin)
         response = self.client.get(f"/painel/funcionarios/{self.employee.pk}/editar/")
         self.assertContains(response, "Nenhuma comissão paga ainda")
+
+
+class OwnerEmployeeTest(TestCase):
+    """RF: dono marca "também atende" em Configurações e ganha um perfil em
+    Funcionários, reaproveitando o próprio login (sem User novo)."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.tenant, cls.admin = make_tenant_with_admin("salao-a")
+
+    def test_sync_creates_owner_employee_reusing_admin_login(self):
+        self.tenant.owner_name = "Carlos Dono"
+        self.tenant.owner_attends = True
+        self.tenant.save()
+        employee = employee_ops.sync_owner_employee(self.tenant)
+        self.assertEqual(employee.user_id, self.admin.id)
+        self.assertEqual(employee.full_name, "Carlos Dono")
+        self.assertTrue(employee.is_owner)
+        self.assertTrue(employee.is_active)
+        self.assertEqual(User.objects.filter(tenant=self.tenant).count(), 1)
+
+    def test_sync_is_idempotent(self):
+        self.tenant.owner_name = "Carlos Dono"
+        self.tenant.owner_attends = True
+        self.tenant.save()
+        employee_ops.sync_owner_employee(self.tenant)
+        employee_ops.sync_owner_employee(self.tenant)
+        self.assertEqual(Employee.objects.filter(tenant=self.tenant).count(), 1)
+
+    def test_sync_updates_name_and_reactivates_on_resubmit(self):
+        self.tenant.owner_name = "Carlos Dono"
+        self.tenant.owner_attends = True
+        self.tenant.save()
+        employee_ops.sync_owner_employee(self.tenant)
+
+        self.tenant.owner_attends = False
+        self.tenant.save()
+        employee_ops.sync_owner_employee(self.tenant)
+        self.assertFalse(Employee.objects.get(tenant=self.tenant).is_active)
+
+        self.tenant.owner_name = "Carlos Silva"
+        self.tenant.owner_attends = True
+        self.tenant.save()
+        employee = employee_ops.sync_owner_employee(self.tenant)
+        self.assertTrue(employee.is_active)
+        self.assertEqual(employee.full_name, "Carlos Silva")
+
+    def test_no_owner_employee_when_not_attending(self):
+        self.tenant.owner_attends = False
+        self.tenant.save()
+        self.assertIsNone(employee_ops.sync_owner_employee(self.tenant))
+        self.assertEqual(Employee.objects.filter(tenant=self.tenant).count(), 0)
+
+    def test_deactivating_owner_employee_never_locks_out_login(self):
+        self.tenant.owner_name = "Carlos Dono"
+        self.tenant.owner_attends = True
+        self.tenant.save()
+        employee = employee_ops.sync_owner_employee(self.tenant)
+        employee_ops.set_employee_active(employee, False)
+        self.admin.refresh_from_db()
+        self.assertTrue(self.admin.is_active)
+
+    def test_cannot_delete_owner_employee(self):
+        self.tenant.owner_name = "Carlos Dono"
+        self.tenant.owner_attends = True
+        self.tenant.save()
+        employee = employee_ops.sync_owner_employee(self.tenant)
+        employee_ops.set_employee_active(employee, False)
+        with self.assertRaises(ValidationError):
+            employee_ops.delete_employee(employee)
+        self.assertTrue(User.objects.filter(pk=self.admin.pk).exists())
+
+    def test_settings_view_syncs_owner_employee(self):
+        self.client.force_login(self.admin)
+        response = self.client.post(
+            "/painel/configuracoes/",
+            self._settings_payload(owner_name="Carlos Dono", owner_attends="on"),
+        )
+        self.assertEqual(response.status_code, 302)
+        employee = Employee.objects.get(tenant=self.tenant, user=self.admin)
+        self.assertEqual(employee.full_name, "Carlos Dono")
+        self.assertTrue(employee.is_active)
+
+    def test_settings_view_requires_owner_name_when_attending(self):
+        self.client.force_login(self.admin)
+        response = self.client.post(
+            "/painel/configuracoes/",
+            self._settings_payload(owner_name="", owner_attends="on"),
+        )
+        self.assertContains(response, "Informe seu nome")
+        self.assertFalse(Employee.objects.filter(tenant=self.tenant).exists())
+
+    def test_owner_employee_appears_in_panel_list_marked_as_dono(self):
+        self.tenant.owner_name = "Carlos Dono"
+        self.tenant.owner_attends = True
+        self.tenant.save()
+        employee_ops.sync_owner_employee(self.tenant)
+        self.client.force_login(self.admin)
+        response = self.client.get("/painel/funcionarios/")
+        self.assertContains(response, "Carlos Dono")
+        self.assertContains(response, "Dono")
+
+    def _settings_payload(self, *, owner_name, owner_attends):
+        payload = {
+            "name": self.tenant.name,
+            "slug": self.tenant.slug,
+            "theme": "salao",
+            "whatsapp": "",
+            "address": "",
+            "description": "",
+            "subscription_due_soon_days": 7,
+            "client_inactive_days": 60,
+            "owner_name": owner_name,
+        }
+        if owner_attends:
+            payload["owner_attends"] = owner_attends
+        return {
+            **payload,
+            **self._hours_management_form(),
+        }
+
+    def _hours_management_form(self):
+        data = {
+            "form-TOTAL_FORMS": "7",
+            "form-INITIAL_FORMS": "0",
+            "form-MIN_NUM_FORMS": "0",
+            "form-MAX_NUM_FORMS": "7",
+        }
+        for i in range(7):
+            data[f"form-{i}-weekday"] = str(i)
+            data[f"form-{i}-is_closed"] = "on"
+        return data
+
+
+class EmployeeSeatLimitTest(TestCase):
+    """Plano vira limite de quantos FUNCIONÁRIOS (conta de login própria) o
+    tenant pode ter — decisão do usuário em 2026-08-04. O perfil do dono via
+    "também atende" nunca conta (ver Employee.is_owner/sync_owner_employee)."""
+
+    @classmethod
+    def setUpTestData(cls):
+        from apps.billing.models import Plan, Subscription, SubscriptionStatus
+
+        cls.tenant, cls.admin = make_tenant_with_admin("salao-seats")
+        cls.plan = Plan.objects.create(
+            name="Teste Individual", price=Decimal("49.90"), max_employees=1
+        )
+        cls.subscription = Subscription.objects.create(
+            tenant=cls.tenant, plan=cls.plan, status=SubscriptionStatus.ACTIVE,
+        )
+
+    def test_blocks_creation_beyond_plan_limit(self):
+        make_employee(self.tenant, email="ana@salao-seats.com")
+        with self.assertRaises(ValidationError):
+            make_employee(self.tenant, email="bia@salao-seats.com", full_name="Bia")
+        self.assertEqual(Employee.objects.filter(tenant=self.tenant).count(), 1)
+
+    def test_error_message_mentions_plan_and_upgrade(self):
+        make_employee(self.tenant, email="ana@salao-seats.com")
+        with self.assertRaises(ValidationError) as ctx:
+            make_employee(self.tenant, email="bia@salao-seats.com", full_name="Bia")
+        message = " ".join(ctx.exception.messages)
+        self.assertIn("Teste Individual", message)
+        self.assertIn("Meu Plano", message)
+
+    def test_no_limit_during_trial_without_plan(self):
+        from apps.billing.models import SubscriptionStatus
+
+        self.subscription.plan = None
+        self.subscription.status = SubscriptionStatus.TRIALING
+        self.subscription.save()
+        make_employee(self.tenant, email="ana@salao-seats.com")
+        make_employee(self.tenant, email="bia@salao-seats.com", full_name="Bia")
+        self.assertEqual(Employee.objects.filter(tenant=self.tenant).count(), 2)
+
+    def test_no_limit_when_plan_max_employees_is_none(self):
+        self.plan.max_employees = None
+        self.plan.save(update_fields=["max_employees"])
+        make_employee(self.tenant, email="ana@salao-seats.com")
+        make_employee(self.tenant, email="bia@salao-seats.com", full_name="Bia")
+        self.assertEqual(Employee.objects.filter(tenant=self.tenant).count(), 2)
+
+    def test_owner_attending_never_counts_toward_limit(self):
+        self.tenant.owner_name = "Dona Catarina"
+        self.tenant.owner_attends = True
+        self.tenant.save()
+        employee_ops.sync_owner_employee(self.tenant)
+
+        # limite=1 e o dono não conta — ainda dá pra criar 1 funcionário real.
+        make_employee(self.tenant, email="ana@salao-seats.com")
+        with self.assertRaises(ValidationError):
+            make_employee(self.tenant, email="bia@salao-seats.com", full_name="Bia")
+
+    def test_deactivated_employee_frees_a_seat(self):
+        employee = make_employee(self.tenant, email="ana@salao-seats.com")
+        employee_ops.set_employee_active(employee, False)
+        make_employee(self.tenant, email="bia@salao-seats.com", full_name="Bia")
+        self.assertEqual(
+            Employee.objects.filter(tenant=self.tenant, is_active=True).count(), 1
+        )
+
+    def test_reactivating_beyond_limit_blocked(self):
+        employee = make_employee(self.tenant, email="ana@salao-seats.com")
+        employee_ops.set_employee_active(employee, False)
+        make_employee(self.tenant, email="bia@salao-seats.com", full_name="Bia")
+        with self.assertRaises(ValidationError):
+            employee_ops.set_employee_active(employee, True)
+        employee.refresh_from_db()
+        self.assertFalse(employee.is_active)

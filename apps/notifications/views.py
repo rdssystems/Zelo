@@ -161,6 +161,10 @@ def agenda_toast_poll(request):
     notificações operacionais ainda não exibidas nesta sessão (watermark por
     `pk`, não por `is_read`: o admin pode ver o toast e ele continuar não
     lido no sininho até ele marcar de verdade)."""
+    from apps.clients.services import ensure_birthday_notification
+
+    ensure_birthday_notification(request.tenant)
+
     last_seen_id = request.session.get("agenda_toast_last_id", 0)
     new_notifications = list(notif_ops.new_tenant_notifications_since(request.tenant, last_seen_id))
     if new_notifications:

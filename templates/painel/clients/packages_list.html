@@ -1,0 +1,24 @@
+{% extends "painel/base.html" %}
+
+{% block title %}Zellup — Pacotes de Mensalidade{% endblock %}
+
+{% block content %}
+<div class="mb-10">
+  <a class="inline-flex items-center gap-1 text-on-surface-variant hover:text-primary transition-colors text-sm mb-4" href="{% url 'clients:list' %}">
+    <span class="material-symbols-outlined text-[18px]">arrow_back</span> Voltar para clientes
+  </a>
+  <div class="flex flex-col md:flex-row md:items-end justify-between gap-6">
+    <div>
+      <h2 class="font-display text-headline-md text-on-surface mb-2">Pacotes de Mensalidade</h2>
+      <p class="text-on-surface-variant max-w-2xl">Defina o que cada mensalidade cobre — quais serviços ficam inclusos sem cobrança extra na comanda, e se o profissional ainda ganha comissão nesses atendimentos.</p>
+    </div>
+    <button class="shrink-0 flex items-center gap-2 bg-primary text-on-primary font-semibold text-lg px-8 py-3 rounded-pill hover:opacity-90 transition-opacity shadow-sm active:scale-95"
+            hx-get="{% url 'clients:package_create' %}" hx-target="#modal-slot" hx-swap="innerHTML">
+      <span class="material-symbols-outlined">add</span>
+      Novo Pacote
+    </button>
+  </div>
+</div>
+
+{% include "painel/clients/_package_items.html" %}
+{% endblock %}

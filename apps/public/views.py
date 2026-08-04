@@ -23,6 +23,11 @@ from apps.tenants.models import TenantBusinessHours
 
 SCHEDULE_WINDOW_DAYS = 14
 
+BIRTH_MONTH_CHOICES = [
+    (1, "Jan"), (2, "Fev"), (3, "Mar"), (4, "Abr"), (5, "Mai"), (6, "Jun"),
+    (7, "Jul"), (8, "Ago"), (9, "Set"), (10, "Out"), (11, "Nov"), (12, "Dez"),
+]
+
 
 # ---------------------------------------------------------------------------
 # Helpers de validação — cada etapa depende da(s) anterior(es).
@@ -181,18 +186,27 @@ def booking_identify(request, tenant_slug):
     error = None
     show_name_field = False
     phone_value = ""
+    name_value = ""
+    birth_day_value = ""
+    birth_month_value = ""
 
     if request.method == "POST":
         phone_value = request.POST.get("phone", "")
         name_value = request.POST.get("name", "")
+        birth_day_value = request.POST.get("birth_day", "")
+        birth_month_value = request.POST.get("birth_month", "")
         try:
             client, created = get_or_create_client(
-                tenant=tenant, phone=phone_value, name=name_value
+                tenant=tenant, phone=phone_value, name=name_value,
+                birth_day=birth_day_value or None, birth_month=birth_month_value or None,
             )
         except ValidationError as exc:
             if hasattr(exc, "message_dict") and "name" in exc.message_dict:
                 # telefone válido e novo — só falta o nome (RF04)
                 show_name_field = True
+            elif hasattr(exc, "message_dict") and "birth_day" in exc.message_dict:
+                show_name_field = True
+                error = " ".join(exc.message_dict["birth_day"])
             else:
                 error = " ".join(exc.messages)
         else:
@@ -214,6 +228,11 @@ def booking_identify(request, tenant_slug):
             "booking_qs": booking_qs,
             "show_name_field": show_name_field,
             "phone_value": phone_value,
+            "name_value": name_value,
+            "birth_day_value": birth_day_value,
+            "birth_month_value": birth_month_value,
+            "day_range": range(1, 32),
+            "month_choices": BIRTH_MONTH_CHOICES,
             "error": error,
         },
     )

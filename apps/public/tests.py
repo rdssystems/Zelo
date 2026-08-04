@@ -63,6 +63,27 @@ class BookingFlowEndToEndTest(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, self.tenant.name)
 
+    def test_whatsapp_button_prefixes_ddi_55(self):
+        """Regressão: o botão "Fale conosco" só tirava pontuação do número
+        digitado (`|cut:...`), sem garantir o DDI 55 — um número como
+        "+34 997 64 88 92" (DDD 34 de Uberlândia/MG, sem DDI) virava
+        "34997648892" no link `wa.me`, que o WhatsApp interpretava como
+        código do país da Espanha (+34) em vez do DDD brasileiro, e dava
+        "número não está no WhatsApp". `whatsapp_wa_me_number` já resolve
+        isso (só dígitos + garante o 55 na frente) — o bug era o template
+        não usar essa property."""
+        self.tenant.whatsapp = "+34 997 64 88 92"
+        self.tenant.save(update_fields=["whatsapp"])
+        response = self.client.get(f"/{self.tenant.slug}/")
+        self.assertContains(response, "https://wa.me/5534997648892")
+        self.assertNotContains(response, "wa.me/34997648892")
+
+    def test_whatsapp_button_hidden_without_tenant_whatsapp(self):
+        self.tenant.whatsapp = ""
+        self.tenant.save(update_fields=["whatsapp"])
+        response = self.client.get(f"/{self.tenant.slug}/")
+        self.assertNotContains(response, "wa.me/")
+
     def test_service_step_lists_bookable_service(self):
         response = self.client.get(f"/{self.tenant.slug}/agendar/")
         self.assertContains(response, "Corte")
@@ -84,6 +105,36 @@ class BookingFlowEndToEndTest(TestCase):
             self._identify_url(self.tomorrow), {"phone": "11987654321"}
         )
         self.assertContains(response, "Seu nome")
+        self.assertFalse(Client.objects.filter(phone="11987654321").exists())
+
+    def test_new_client_can_optionally_set_birthday(self):
+        response = self.client.post(
+            self._identify_url(self.tomorrow),
+            {"phone": "11987654321", "name": "Maria Cliente", "birth_day": "15", "birth_month": "6"},
+        )
+        self.assertEqual(response.status_code, 302)
+        client_ = Client.objects.get(tenant=self.tenant, phone="11987654321")
+        self.assertEqual(client_.birth_day, 15)
+        self.assertEqual(client_.birth_month, 6)
+
+    def test_new_client_without_birthday_is_fine(self):
+        response = self.client.post(
+            self._identify_url(self.tomorrow),
+            {"phone": "11987654321", "name": "Maria Cliente"},
+        )
+        self.assertEqual(response.status_code, 302)
+        client_ = Client.objects.get(tenant=self.tenant, phone="11987654321")
+        self.assertIsNone(client_.birth_day)
+        self.assertIsNone(client_.birth_month)
+
+    def test_new_client_with_only_birth_day_shows_error_and_keeps_name(self):
+        response = self.client.post(
+            self._identify_url(self.tomorrow),
+            {"phone": "11987654321", "name": "Maria Cliente", "birth_day": "15"},
+        )
+        self.assertContains(response, "Informe dia e mês")
+        # não perde o nome já digitado ao reexibir o formulário
+        self.assertContains(response, 'value="Maria Cliente"')
         self.assertFalse(Client.objects.filter(phone="11987654321").exists())
 
     def test_full_flow_creates_pending_appointment(self):

@@ -10,7 +10,12 @@
       </div>
       {% endif %}
       <div>
-        <h3 class="font-semibold text-lg text-on-surface mb-0.5">{{ employee.full_name }}</h3>
+        <h3 class="font-semibold text-lg text-on-surface mb-0.5 flex items-center gap-2">
+          {{ employee.full_name }}
+          {% if employee.is_owner %}
+          <span class="bg-primary-container text-on-primary-container px-2 py-0.5 rounded-pill text-[11px] font-semibold uppercase tracking-wider">Dono</span>
+          {% endif %}
+        </h3>
         <p class="text-sm text-on-surface-variant">{{ employee.user.email }}</p>
       </div>
     </div>
@@ -39,6 +44,7 @@
       <a aria-label="Editar" class="p-2 text-outline hover:text-primary hover:bg-surface-container transition-colors rounded-full" href="{% url 'employees:update' employee.pk %}">
         <span class="material-symbols-outlined text-[20px]">edit</span>
       </a>
+      {% if not employee.is_owner %}
       <button class="p-2 transition-colors rounded-full hover:bg-surface-container {% if employee.is_active %}text-[#2e7d32] hover:text-[#1b5e20]{% else %}text-error hover:text-error{% endif %}"
               title="{% if employee.is_active %}Ativo — clique para desativar{% else %}Inativo — clique para ativar{% endif %}"
               hx-get="{% url 'employees:toggle_confirm' employee.pk %}" hx-target="#modal-slot" hx-swap="innerHTML">
@@ -49,6 +55,11 @@
               hx-get="{% url 'employees:delete_confirm' employee.pk %}" hx-target="#modal-slot" hx-swap="innerHTML">
         <span class="material-symbols-outlined text-[20px]">delete</span>
       </button>
+      {% endif %}
+      {% else %}
+      <span class="p-2 text-outline/50" title="Desmarque &quot;também atende&quot; em Configurações para remover">
+        <span class="material-symbols-outlined text-[20px]">lock</span>
+      </span>
       {% endif %}
     </div>
   </div>

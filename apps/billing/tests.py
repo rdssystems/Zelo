@@ -550,7 +550,7 @@ class MyPlanPanelTest(TestCase):
     @classmethod
     def setUpTestData(cls):
         cls.tenant, cls.admin = make_tenant_with_admin("salao-meuplano")
-        cls.plan = Plan.objects.get(name="Essencial")  # seedado por billing/migrations/0005
+        cls.plan = Plan.objects.get(name="Individual")  # seedado por billing/migrations/0005
 
     def test_login_required(self):
         response = self.client.get("/painel/plano/")
@@ -559,7 +559,22 @@ class MyPlanPanelTest(TestCase):
     def test_shows_plan_cards(self):
         self.client.force_login(self.admin)
         response = self.client.get("/painel/plano/")
-        self.assertContains(response, "Essencial")
+        self.assertContains(response, "Individual")
+
+    def test_plan_cards_show_employee_limits(self):
+        """RF: cartões refletem o limite de funcionário de cada plano
+        (decisão do usuário em 2026-08-04)."""
+        self.client.force_login(self.admin)
+        response = self.client.get("/painel/plano/")
+        self.assertContains(response, "Studio")
+        self.assertContains(response, "Até 3 funcionários")
+        self.assertContains(response, "Até 6 funcionários")
+        self.assertContains(response, "sem conta de funcionário extra")
+
+    def test_plan_max_employees_seeded_correctly(self):
+        self.assertEqual(Plan.objects.get(name="Individual").max_employees, 0)
+        self.assertEqual(Plan.objects.get(name="Profissional").max_employees, 3)
+        self.assertEqual(Plan.objects.get(name="Studio").max_employees, 6)
 
     def test_select_plan_sets_subscription_plan(self):
         self.client.force_login(self.admin)
@@ -746,7 +761,7 @@ class PanelAccessBlockedPanelTest(TestCase):
 
     def test_blocked_admin_can_still_checkout(self):
         self._block_subscription()
-        plan = Plan.objects.get(name="Essencial")
+        plan = Plan.objects.get(name="Individual")
         self.client.force_login(self.admin)
         response = self.client.post(f"/painel/plano/assinar/{plan.pk}/")
         self.assertEqual(response.status_code, 302)
@@ -811,7 +826,7 @@ class TrialExpiredPanelBlockTest(TestCase):
 
     def test_expired_trial_admin_can_still_select_plan_and_checkout(self):
         self._expire_trial()
-        plan = Plan.objects.get(name="Essencial")
+        plan = Plan.objects.get(name="Individual")
         self.client.force_login(self.admin)
         response = self.client.post(f"/painel/plano/assinar/{plan.pk}/")
         self.assertEqual(response.status_code, 302)

@@ -82,6 +82,10 @@ def create_employee(
 
     A senha é escolhida pelo admin no momento do cadastro (não é gerada
     nem enviada por e-mail — evita depender de SMTP configurado)."""
+    from apps.billing.services import assert_can_add_employee
+
+    assert_can_add_employee(tenant)
+
     full_name = str(full_name).strip()
     if not full_name:
         raise ValidationError({"full_name": "O nome é obrigatório."})
@@ -144,11 +148,28 @@ def update_employee(
 
 @transaction.atomic
 def set_employee_active(employee, is_active):
-    """Ativa/desativa o profissional e sincroniza o login (inativo não entra)."""
+    """Ativa/desativa o profissional e sincroniza o login (inativo não entra).
+
+    Exceção: o perfil do responsável (`employee.is_owner`) reaproveita o
+    login de admin do tenant — nunca desativamos esse `User` por aqui, senão
+    o dono ficaria trancado pra fora do próprio painel. Quem liga/desliga
+    esse perfil é o checkbox "também atende" em Configurações
+    (`sync_owner_employee`), não o toggle da lista de funcionários.
+
+    Reativar (False → True) alguém que não é o dono volta a ocupar vaga do
+    plano — mesma trava de `create_employee` (ver
+    `apps.billing.services.assert_can_add_employee`).
+    """
+    if is_active and not employee.is_active and not employee.is_owner:
+        from apps.billing.services import assert_can_add_employee
+
+        assert_can_add_employee(employee.tenant)
+
     employee.is_active = bool(is_active)
     employee.save(update_fields=["is_active"])
-    employee.user.is_active = bool(is_active)
-    employee.user.save(update_fields=["is_active"])
+    if not employee.is_owner:
+        employee.user.is_active = bool(is_active)
+        employee.user.save(update_fields=["is_active"])
     return employee
 
 
@@ -158,6 +179,11 @@ def delete_employee(employee):
     Remove também o `User` de login (o `Employee` cascadeia junto, via
     `on_delete=CASCADE` no FK `Employee.user`) — não deixamos login órfão.
     """
+    if employee.is_owner:
+        raise ValidationError(
+            "Não é possível excluir o perfil do responsável. Desmarque "
+            '"também atende" em Configurações.'
+        )
     if employee.is_active:
         raise ValidationError("Desative o funcionário antes de excluí-lo.")
     try:
@@ -242,3 +268,41 @@ def get_commission_config(employee, service):
     if link is not None and link.commission_type:
         return link.commission_type, link.commission_value
     return employee.default_commission_type, employee.default_commission_value
+
+
+@transaction.atomic
+def sync_owner_employee(tenant):
+    """Cria/atualiza o perfil de funcionário do responsável pelo salão,
+    conforme `Tenant.owner_attends` (decisão do usuário em 2026-08-04).
+
+    Reaproveita o `User` role=tenant_admin já existente como `Employee.user`
+    — não cria um segundo login. `full_name`/`photo` ficam sincronizados a
+    partir de `Tenant.owner_name`/`owner_photo` (fonte da verdade é
+    Configurações); jornada, serviços e comissão continuam editados no
+    próprio perfil, igual aos demais funcionários. Chamado por
+    `apps.tenants.views.settings_view` a cada save de Configurações.
+    """
+    owner_user = tenant.users.filter(role=User.Role.TENANT_ADMIN).first()
+    if owner_user is None:
+        return None
+
+    if not tenant.owner_attends:
+        Employee.objects.filter(tenant=tenant, user=owner_user).update(is_active=False)
+        return None
+
+    employee, created = Employee.objects.get_or_create(
+        tenant=tenant,
+        user=owner_user,
+        defaults={
+            "full_name": tenant.owner_name,
+            "phone": "",
+            "photo": tenant.owner_photo,
+            "default_commission_type": CommissionType.PERCENTAGE,
+            "default_commission_value": Decimal("0"),
+        },
+    )
+    employee.full_name = tenant.owner_name
+    employee.photo = tenant.owner_photo
+    employee.is_active = True
+    employee.save(update_fields=["full_name", "photo", "is_active"])
+    return employee

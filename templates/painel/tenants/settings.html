@@ -3,6 +3,8 @@
 {% block title %}Zellup — Configurações{% endblock %}
 
 {% block content %}
+<div x-data="{ saving: false, showSaved: false }"
+     x-init="showSaved = !!document.getElementById('settings-just-saved'); if (showSaved) setTimeout(() => showSaved = false, 1800)">
 <div class="mb-10">
   <h2 class="font-display text-headline-md text-on-surface mb-2">Configurações</h2>
   <p class="text-on-surface-variant max-w-2xl">Identidade visual, contato e a URL pública de agendamento do seu salão.</p>
@@ -10,7 +12,11 @@
 
 {% if messages %}
   {% for message in messages %}
+  {% if message.tags == "success" %}
+  <span class="hidden" id="settings-just-saved"></span>
+  {% else %}
   <div class="mb-6 rounded-lg bg-secondary-container text-on-secondary-container px-4 py-3">{{ message }}</div>
+  {% endif %}
   {% endfor %}
 {% endif %}
 
@@ -18,7 +24,7 @@
 <div class="mb-6 rounded-lg bg-error-container text-on-error-container px-4 py-3 text-sm">{{ form.non_field_errors|join:" " }}</div>
 {% endif %}
 
-<form method="post" enctype="multipart/form-data" class="space-y-8 max-w-4xl">
+<form method="post" enctype="multipart/form-data" class="space-y-8 max-w-4xl" @submit="saving = true">
   {% csrf_token %}
 
   <div class="bg-surface-container-lowest rounded-2xl shadow-[0_4px_40px_-10px_rgba(125,86,45,0.08)] border border-surface-container p-8">
@@ -131,6 +137,46 @@
   </div>
 
   <div class="bg-surface-container-lowest rounded-2xl shadow-[0_4px_40px_-10px_rgba(125,86,45,0.08)] border border-surface-container p-8">
+    <h3 class="text-label-caps uppercase text-outline mb-2">Responsável</h3>
+    <p class="text-sm text-on-surface-variant mb-6">
+      Seus dados como dono/responsável pelo salão. Marque abaixo se você também atende
+      clientes — seu perfil passa a aparecer em Funcionários, sem precisar criar um cadastro
+      separado.
+    </p>
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-8 mb-6">
+      <div class="sm:col-span-2">
+        <label class="block text-label-caps uppercase text-outline mb-1" for="id_owner_name">Seu nome</label>
+        <input class="block w-full px-0 py-2 bg-transparent border-0 border-b {% if form.owner_name.errors %}border-error{% else %}border-outline-variant{% endif %} text-on-surface text-lg focus:ring-0 focus:border-primary transition-colors"
+               id="id_owner_name" name="owner_name" type="text" value="{{ form.owner_name.value|default:'' }}" maxlength="120"/>
+        {% if form.owner_name.errors %}<p class="text-error text-sm mt-1">{{ form.owner_name.errors|join:" " }}</p>{% endif %}
+      </div>
+      <div x-data="{ fileName: '' }">
+        <label class="block text-label-caps uppercase text-outline mb-2">Sua foto</label>
+        {% if tenant.owner_photo %}
+        <img class="w-16 h-16 rounded-full object-cover mb-3 border border-surface-variant" src="{{ tenant.owner_photo.url }}" alt="Foto atual do responsável"/>
+        {% endif %}
+        <div>
+          <label class="cursor-pointer inline-flex items-center gap-2 px-4 py-2 rounded-pill bg-primary-container text-on-primary-container text-sm font-medium hover:opacity-90 transition-opacity">
+            <span class="material-symbols-outlined text-[18px]">upload</span>
+            <span x-text="fileName ? 'Arquivo selecionado' : '{% if tenant.owner_photo %}Alterar foto{% else %}Escolher foto{% endif %}'"></span>
+            <input class="hidden" name="owner_photo" type="file" accept="image/*" @change="fileName = $event.target.files[0]?.name || ''"/>
+          </label>
+          <p x-show="fileName" class="text-xs text-primary font-medium mt-1 truncate" x-text="fileName"></p>
+        </div>
+        {% if form.owner_photo.errors %}<p class="text-error text-sm mt-1">{{ form.owner_photo.errors|join:" " }}</p>{% endif %}
+      </div>
+    </div>
+    <label class="flex items-start gap-3 text-sm text-on-surface-variant">
+      <input class="mt-0.5 rounded border-outline text-primary focus:ring-primary" type="checkbox" name="owner_attends"
+             {% if form.owner_attends.value %}checked{% endif %}/>
+      <span>
+        Eu também atendo clientes<br/>
+        <span class="text-xs">Cria seu perfil em Funcionários (marcado como "Dono"), usando seu próprio login — depois é só entrar no seu perfil e marcar os serviços que você faz.</span>
+      </span>
+    </label>
+  </div>
+
+  <div class="bg-surface-container-lowest rounded-2xl shadow-[0_4px_40px_-10px_rgba(125,86,45,0.08)] border border-surface-container p-8">
     <h3 class="text-label-caps uppercase text-outline mb-2">Confirmação de agendamento</h3>
     <p class="text-sm text-on-surface-variant mb-4">
       Controla o que acontece quando o cliente agenda pela página pública.
@@ -141,6 +187,22 @@
       <span>
         Confirmar agendamento automaticamente<br/>
         <span class="text-xs">Desmarcado (padrão): o agendamento nasce pendente — o cliente vê "Agendamento enviado" até o salão confirmar na Agenda. Marcado: já nasce confirmado, sem esperar.</span>
+      </span>
+    </label>
+  </div>
+
+  <div class="bg-surface-container-lowest rounded-2xl shadow-[0_4px_40px_-10px_rgba(125,86,45,0.08)] border border-surface-container p-8">
+    <h3 class="text-label-caps uppercase text-outline mb-2">Aniversário de clientes</h3>
+    <p class="text-sm text-on-surface-variant mb-4">
+      No dia do aniversário de um cliente (com dia/mês cadastrado na ficha dele), avisa você por
+      aqui — o aviso só some quando você clicar pra enviar a mensagem de aniversário.
+    </p>
+    <label class="flex items-start gap-3 text-sm text-on-surface-variant">
+      <input class="mt-0.5 rounded border-outline text-primary focus:ring-primary" type="checkbox" name="birthday_alert_enabled"
+             {% if form.birthday_alert_enabled.value %}checked{% endif %}/>
+      <span>
+        Habilitar alerta de aniversário<br/>
+        <span class="text-xs">Mensagem pronta (editável) pra mandar pelo WhatsApp de cada aniversariante do dia.</span>
       </span>
     </label>
   </div>
@@ -229,5 +291,30 @@
           hx-get="{% url 'tenants:delete_account_confirm' %}" hx-target="#modal-slot" hx-swap="innerHTML">
     Excluir minha conta
   </button>
+</div>
+
+<!-- Salvando... -->
+<div class="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6" x-show="saving" x-cloak
+     x-transition:enter="transition-opacity ease-out duration-150" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100">
+  <div class="absolute inset-0 bg-inverse-surface/40 backdrop-blur-sm"></div>
+  <div class="relative w-full max-w-xs bg-surface-container-lowest rounded-2xl shadow-2xl p-8 flex flex-col items-center gap-4 text-center">
+    <span class="material-symbols-outlined text-primary text-[36px] animate-spin">progress_activity</span>
+    <p class="text-on-surface font-medium">Salvando configurações…</p>
+  </div>
+</div>
+
+<!-- Salvo! -->
+<div class="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6" x-show="showSaved" x-cloak @click="showSaved = false"
+     x-transition:enter="transition-opacity ease-out duration-150" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
+     x-transition:leave="transition-opacity ease-in duration-150" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0">
+  <div class="absolute inset-0 bg-inverse-surface/40 backdrop-blur-sm"></div>
+  <div class="relative w-full max-w-xs bg-surface-container-lowest rounded-2xl shadow-2xl p-8 flex flex-col items-center gap-3 text-center">
+    <div class="w-12 h-12 rounded-full bg-[#e8f5e9] flex items-center justify-center">
+      <span class="material-symbols-outlined text-[#2e7d32] text-[28px]" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+    </div>
+    <p class="text-on-surface font-semibold text-lg">Salvo!</p>
+  </div>
+</div>
+
 </div>
 {% endblock %}

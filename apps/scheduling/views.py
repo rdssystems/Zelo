@@ -232,7 +232,7 @@ _WEEK_DEFAULT_RANGE_START = datetime.time(8, 0)
 _WEEK_DEFAULT_RANGE_END = datetime.time(20, 0)
 _WEEK_MIN_EVENT_HEIGHT_PX = 28
 
-_WEEKDAY_LABELS = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"]
+_WEEKDAY_LABELS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"]
 
 _STATUS_CHIP_CLASSES = {
     "pending": "bg-surface-container-high border-outline-variant text-on-surface-variant",
@@ -245,7 +245,10 @@ _STATUS_CHIP_CLASSES = {
 
 
 def _week_start_for(any_date):
-    return any_date - datetime.timedelta(days=any_date.weekday())
+    """Domingo da semana que contém `any_date` — a Agenda lista Dom→Sáb
+    (decisão do usuário em 2026-08-04), não Seg→Dom. `date.weekday()` do
+    Python é Seg=0..Dom=6; `+1) % 7` desloca a âncora pro Domingo."""
+    return any_date - datetime.timedelta(days=(any_date.weekday() + 1) % 7)
 
 
 def _minutes(t):
@@ -272,12 +275,11 @@ def _round_hour_ceil(t):
     return datetime.time(t.hour + 1, 0)
 
 
-def _week_time_range(tenant, appointments):
+def _week_time_range(open_hours, appointments):
     """Amplitude de horário exibida na grade — cobre o horário de
     funcionamento configurado (Configurações) e qualquer agendamento fora
     dele (ex.: encaixe excepcional), arredondada pra hora cheia. Sem nenhum
     dado, cai no padrão 08:00–20:00."""
-    open_hours = TenantBusinessHours.objects.for_tenant(tenant).filter(is_closed=False)
     starts = [h.start_time for h in open_hours] + [a.start_time for a in appointments]
     ends = [h.end_time for h in open_hours] + [a.end_time for a in appointments]
     if not starts:
@@ -336,7 +338,10 @@ def _week_grid_context(request, week_start, employee_id):
     if employee_id:
         appointments = [a for a in appointments if str(a.employee_id) == str(employee_id)]
 
-    range_start, range_end = _week_time_range(request.tenant, appointments)
+    business_hours = list(TenantBusinessHours.objects.for_tenant(request.tenant))
+    closed_weekdays = {h.weekday for h in business_hours if h.is_closed}
+    open_hours = [h for h in business_hours if not h.is_closed]
+    range_start, range_end = _week_time_range(open_hours, appointments)
     range_start_minutes = _minutes(range_start)
     range_end_minutes = _minutes(range_end)
     grid_height_px = _px((range_end_minutes - range_start_minutes) * WEEK_PX_PER_MINUTE)
@@ -387,6 +392,7 @@ def _week_grid_context(request, week_start, employee_id):
                 "date": day,
                 "label": _WEEKDAY_LABELS[offset],
                 "is_today": is_today,
+                "is_closed": day.weekday() in closed_weekdays,
                 "now_offset_px": now_offset_px,
                 "events": _layout_day_events(day_events),
             }

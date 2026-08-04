@@ -4,6 +4,7 @@ from decimal import Decimal
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.test import TestCase
+from django.utils import timezone
 from rest_framework.test import APIClient
 
 from apps.clients.models import Client
@@ -1021,6 +1022,9 @@ class RemoveServiceFromComandaPanelTest(TestCase):
         self.assertIsNone(txn.related_appointment)
         self.assertFalse(Commission.objects.exists())
         self.assertFalse(ComandaProductItem.objects.filter(client=self.client_).exists())
+        # venda avulsa de produto (sem serviço) não tem contexto de
+        # atendimento — não faz sentido perguntar sobre preferências aqui.
+        self.assertNotContains(response, "Atendimento finalizado!")
 
     def test_removing_only_service_with_no_products_disappears_from_list(self):
         appointment = self._in_progress_appointment()
@@ -1137,6 +1141,24 @@ class WalkInServiceAndGroupFinalizeTest(TestCase):
         self.assertEqual(manicure_appt.status, AppointmentStatus.COMPLETED)
         self.assertTrue(Commission.objects.filter(appointment=corte_appt, employee=self.ana).exists())
         self.assertTrue(Commission.objects.filter(appointment=manicure_appt, employee=self.julia).exists())
+
+    def test_finalize_group_prompts_to_update_client_preferences(self):
+        """Depois de finalizar um atendimento de verdade, o Caixa pergunta se
+        o admin quer atualizar as observações/preferências do cliente."""
+        corte_appt = self._corte_appointment()
+        self.client.force_login(self.admin)
+        response = self.client.post(
+            "/painel/caixa/comandas/finalizar-grupo/",
+            {
+                "client_id": str(self.client_.pk),
+                "appointment_id": [str(corte_appt.pk)],
+                "payment_method": "cash",
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Atendimento finalizado!")
+        self.assertContains(response, "Cliente Teste")
+        self.assertContains(response, f"/painel/clientes/{self.client_.pk}/preferencias/editar/")
 
     def test_finalize_group_with_product_added_via_persistent_cart(self):
         """Um botão só de "Vender produto" pra comanda inteira (não mais por
@@ -1339,15 +1361,18 @@ class CommissionsByEmployeeTabTest(TestCase):
         self.assertEqual(response.status_code, 409)
 
     def test_pay_all_respects_date_filter(self):
-        """Comissão fora do período filtrado não deve ser paga pelo "pagar tudo"."""
+        """Comissão fora do período filtrado não deve ser paga pelo "pagar tudo".
+
+        O período filtra por `Commission.created_at` (quando a comissão foi
+        gerada), não pela data agendada do atendimento — mesmo critério do
+        resto do Caixa (`CashTransaction.created_at`). Simula "fora do
+        período" com um `created_at` antigo via `.update()` (contorna
+        `auto_now_add`, que sempre grava a hora atual na criação)."""
         in_range = self._commission_for(price=Decimal("100.00"))
-        out_of_range_appointment = Appointment.objects.create(
-            tenant=self.tenant, client=self.client_, employee=self.ana, service=self.service,
-            date=datetime.date.today() - datetime.timedelta(days=60),
-            start_time=datetime.time(9, 0), end_time=datetime.time(10, 0),
-            status=AppointmentStatus.CONFIRMED, price_at_booking=Decimal("200.00"),
+        out_of_range = self._commission_for(price=Decimal("200.00"), start_time=datetime.time(11, 0))
+        Commission.objects.filter(pk=out_of_range.pk).update(
+            created_at=timezone.now() - datetime.timedelta(days=60)
         )
-        out_of_range = finance_ops.create_commission_for_appointment(out_of_range_appointment)
 
         self.client.force_login(self.admin)
         today = datetime.date.today()
@@ -1360,3 +1385,99 @@ class CommissionsByEmployeeTabTest(TestCase):
         out_of_range.refresh_from_db()
         self.assertEqual(in_range.status, CommissionStatus.PAID)
         self.assertEqual(out_of_range.status, CommissionStatus.PENDING)
+
+    def test_commission_of_appointment_completed_ahead_of_scheduled_date_still_shows(self):
+        """Regressão: cliente chega adiantado, salão atende e finaliza no
+        Caixa antes da data agendada do atendimento (ex.: agendado pra daqui
+        a 2 dias, mas feito hoje). A comissão precisa aparecer na aba
+        Comissões dentro do período padrão (mês corrente até hoje) — antes
+        do fix ela sumia porque o filtro usava `appointment__date` (no
+        futuro), enquanto o saldo do Caixa já usava `CashTransaction.created_at`
+        (hoje) e mostrava o valor certo — inconsistência que escondia a
+        comissão mesmo com o dinheiro batendo."""
+        from apps.scheduling.services import complete_appointment
+
+        appointment = Appointment.objects.create(
+            tenant=self.tenant, client=self.client_, employee=self.ana, service=self.service,
+            date=datetime.date.today() + datetime.timedelta(days=2),
+            start_time=datetime.time(9, 0), end_time=datetime.time(10, 0),
+            status=AppointmentStatus.IN_PROGRESS, price_at_booking=Decimal("100.00"),
+        )
+        complete_appointment(appointment=appointment, payment_method="cash", created_by=self.admin)
+        self.client.force_login(self.admin)
+
+        response = self.client.get("/painel/caixa/")
+        self.assertContains(response, "Ana Silva")
+        self.assertContains(response, "Pagar tudo")
+
+        response = self.client.post(
+            f"/painel/caixa/comissoes/{self.ana.pk}/pagar-tudo/", {"payment_method": "pix"}
+        )
+        self.assertEqual(response.status_code, 200)
+        commission = Commission.objects.get(appointment=appointment)
+        self.assertEqual(commission.status, CommissionStatus.PAID)
+
+
+class PackageCoveredComandaPanelTest(TestCase):
+    """Serviço coberto por pacote de mensalidade aparece marcado "Mensalidade"
+    no Caixa, com valor "Incluso" em vez do preço — e o total da comanda não
+    conta esse serviço (decisão do usuário em 2026-08-04)."""
+
+    @classmethod
+    def setUpTestData(cls):
+        from apps.clients.services import assign_package_to_client, create_package
+
+        cls.tenant, cls.admin = make_tenant_with_admin("salao-a")
+        cls.ana = create_employee(
+            tenant=cls.tenant, full_name="Ana Silva", email="ana@salao-a.com", password="Senha@123",
+            default_commission_type="percentage", default_commission_value=Decimal("40.00"),
+        )
+        cls.corte = create_service(
+            tenant=cls.tenant, name="Corte", duration_minutes=60, price=Decimal("100.00")
+        )
+        link_service(cls.ana, cls.corte)
+        cls.client_ = Client.objects.create(tenant=cls.tenant, phone="+5511999990000", name="Cliente Teste")
+        cls.package = create_package(
+            tenant=cls.tenant, name="Cabelo Ilimitado", price=Decimal("150.00"),
+            service_ids=[cls.corte.pk], generates_commission=True, created_by=cls.admin,
+        )
+        assign_package_to_client(
+            cls.client_, package=cls.package, payment_method="pix", created_by=cls.admin,
+        )
+        cls.client_.refresh_from_db()
+
+    def _covered_appointment(self):
+        from apps.scheduling.services import start_walk_in_service
+
+        return start_walk_in_service(
+            tenant=self.tenant, client=self.client_, employee=self.ana,
+            service=self.corte, created_by=self.admin,
+        )
+
+    def test_caixa_shows_mensalidade_badge_and_incluso(self):
+        self._covered_appointment()
+        self.client.force_login(self.admin)
+        response = self.client.get("/painel/caixa/")
+        self.assertContains(response, "Mensalidade")
+        self.assertContains(response, "Incluso")
+
+    def test_finalize_charges_only_zero_for_covered_service(self):
+        appointment = self._covered_appointment()
+        self.client.force_login(self.admin)
+        response = self.client.post(
+            "/painel/caixa/comandas/finalizar-grupo/",
+            {
+                "client_id": str(self.client_.pk),
+                "appointment_id": str(appointment.pk),
+                "payment_method": "cash",
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        appointment.refresh_from_db()
+        self.assertEqual(appointment.status, AppointmentStatus.COMPLETED)
+        self.assertFalse(
+            CashTransaction.objects.filter(
+                tenant=self.tenant, category=CashCategory.SERVICE_SALE, related_appointment=appointment,
+            ).exists()
+        )
+        self.assertTrue(Commission.objects.filter(appointment=appointment).exists())

@@ -145,7 +145,7 @@ def pay_all_commissions_for_employee(tenant, employee, *, start_date, end_date, 
     pending = Commission.objects.for_tenant(tenant).filter(
         employee=employee,
         status=CommissionStatus.PENDING,
-        appointment__date__range=(start_date, end_date),
+        created_at__date__range=(start_date, end_date),
     )
     if not pending.exists():
         raise ValidationError("Não há comissões pendentes para pagar neste período.")

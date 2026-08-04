@@ -4,6 +4,7 @@ from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.urls import reverse
+from django.utils import timezone
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError as DRFValidationError
@@ -13,8 +14,16 @@ from apps.accounts.decorators import tenant_admin_required
 from apps.accounts.permissions import IsTenantAdminOrReadOnly, IsTenantMember
 
 from . import services as client_ops
-from .forms import AddCreditForm, ClientForm, RemoveCreditForm, SubscriptionForm
-from .models import Client
+from .forms import (
+    AddCreditForm,
+    AssignPackageForm,
+    ClientForm,
+    PackageForm,
+    RemoveCreditForm,
+    RenewPackageForm,
+    SubscriptionForm,
+)
+from .models import Client, Package
 from .serializers import (
     AddCreditSerializer,
     ClientCreditTransactionSerializer,
@@ -195,6 +204,48 @@ def subscription_whatsapp_campaign(request):
     )
 
 
+def _default_birthday_message(client, tenant):
+    """Texto de partida pro aniversário — copy, não regra de negócio (mesmo
+    tratamento de `_default_campaign_message`)."""
+    return (
+        f"Feliz aniversário, {client.name}! 🎉 Toda a equipe do {tenant.name} deseja um dia "
+        "incrível pra você. Que tal comemorar com a gente? Vem cá agendar um horário especial!"
+    )
+
+
+def _birthday_entry(client, tenant):
+    return {
+        "id": client.id,
+        "name": client.name,
+        "phone": client.phone,
+        "message": _default_birthday_message(client, tenant),
+    }
+
+
+@tenant_admin_required
+def birthday_whatsapp_campaign(request):
+    """Modal aberto a partir da notificação de aniversariante do dia (sininho
+    ou toast) — abrir este modal é o que "reconhece" o alerta: marca todas as
+    notificações `birthday_alert` não lidas do tenant como lidas, o mesmo
+    clique já leva à lista de aniversariantes com mensagem pronta (editável),
+    um a um, mesmo padrão de `subscription_whatsapp_campaign`. Só entram
+    clientes com telefone válido — anonimizado via LGPD não tem como ser
+    contatado (e também não teria mais aniversário cadastrado)."""
+    from apps.notifications.models import TenantNotificationKind
+    from apps.notifications.services import unread_tenant_notifications
+
+    unread_tenant_notifications(request.tenant).filter(
+        kind=TenantNotificationKind.BIRTHDAY_ALERT
+    ).update(is_read=True, read_at=timezone.now())
+
+    clients = [c for c in client_ops.clients_with_birthday_today(request.tenant) if c.phone.isdigit()]
+    return render(
+        request,
+        "painel/clients/_birthday_campaign_modal.html",
+        {"birthday_clients": [_birthday_entry(c, request.tenant) for c in clients]},
+    )
+
+
 def _history_context(client):
     appointments = (
         client.appointments.select_related("service", "employee")
@@ -256,6 +307,8 @@ def client_update(request, pk):
                 "name": client.name,
                 "phone": client.phone,
                 "preferences": client.preferences,
+                "birth_day": client.birth_day,
+                "birth_month": client.birth_month,
             },
         )
         if form.is_valid():
@@ -276,6 +329,8 @@ def client_update(request, pk):
                 "name": client.name,
                 "phone": client.phone,
                 "preferences": client.preferences,
+                "birth_day": client.birth_day,
+                "birth_month": client.birth_month,
             }
         )
     return render(
@@ -286,13 +341,41 @@ def client_update(request, pk):
             "client": client,
             "active_nav": "clients",
             "history": _history_context(client),
-            "subscription_form": SubscriptionForm(
-                initial={
-                    "is_subscriber": client.is_subscriber,
-                    "subscription_due_date": client.subscription_due_date,
-                }
-            ),
+            **_subscription_context(client),
         },
+    )
+
+
+@tenant_admin_required
+def client_preferences_modal(request, pk):
+    """Modal só-leitura com as preferências/observações do cliente — aberto
+    a partir do card de agendamento na Agenda, pra conferir alergia/preferência
+    antes de iniciar o atendimento sem precisar abrir o cadastro completo."""
+    client = _get_client(request, pk)
+    return render(request, "painel/clients/_preferences_modal.html", {"client": client})
+
+
+@tenant_admin_required
+def client_preferences_edit(request, pk):
+    """GET: abre o formulário de edição das preferências — usado tanto pelo
+    prompt pós-finalização de comanda no Caixa quanto por quem quiser editar
+    só esse texto."""
+    client = _get_client(request, pk)
+    return render(
+        request, "painel/clients/_preferences_edit_modal.html", {"client": client}
+    )
+
+
+@tenant_admin_required
+def client_preferences_update(request, pk):
+    if request.method != "POST":
+        return HttpResponse(status=405)
+    client = _get_client(request, pk)
+    client_ops.update_client_preferences(client, request.POST.get("preferences", ""))
+    return render(
+        request,
+        "painel/clients/_preferences_edit_modal.html",
+        {"client": client, "preferences_saved": True},
     )
 
 
@@ -328,6 +411,23 @@ def client_delete(request, pk):
     return response
 
 
+def _subscription_context(client, *, error=None, saved=None):
+    return {
+        "client": client,
+        "subscription_form": SubscriptionForm(
+            initial={
+                "is_subscriber": client.is_subscriber,
+                "subscription_due_date": client.subscription_due_date,
+            }
+        ),
+        "subscription_error": error,
+        "subscription_saved": saved,
+        # Pacotes disponíveis pra oferecer — só faz sentido enquanto
+        # mensalista, mas a lista vem sempre pronta pro template decidir.
+        "available_packages": Package.objects.for_tenant(client.tenant).filter(is_active=True),
+    }
+
+
 @tenant_admin_required
 def client_subscription(request, pk):
     if request.method != "POST":
@@ -350,19 +450,8 @@ def client_subscription(request, pk):
         )
     client.refresh_from_db()
     return render(
-        request,
-        "painel/clients/_subscription.html",
-        {
-            "client": client,
-            "subscription_form": SubscriptionForm(
-                initial={
-                    "is_subscriber": client.is_subscriber,
-                    "subscription_due_date": client.subscription_due_date,
-                }
-            ),
-            "subscription_error": error,
-            "subscription_saved": error is None,
-        },
+        request, "painel/clients/_subscription.html",
+        _subscription_context(client, error=error, saved=error is None),
     )
 
 
@@ -371,26 +460,95 @@ def client_renew_subscription(request, pk):
     if request.method != "POST":
         return HttpResponse(status=405)
     client = _get_client(request, pk)
+    payment_method = request.POST.get("payment_method") or None
     try:
-        client_ops.renew_subscription(client)
+        client_ops.renew_subscription(
+            client, payment_method=payment_method, created_by=request.user
+        )
     except ValidationError:
         return HttpResponse(status=409)
     client.refresh_from_db()
     return render(
+        request, "painel/clients/_subscription.html",
+        _subscription_context(client, saved=True),
+    )
+
+
+@tenant_admin_required
+def client_renew_subscription_confirm(request, pk):
+    """Modal: escolher a forma de pagamento antes de renovar — cliente com
+    pacote ativo gera uma cobrança nova no Caixa a cada renovação (decisão
+    do usuário em 2026-08-04, ver `apps.clients.services.renew_subscription`).
+    Sem pacote, "Renovar" continua sendo um botão direto (sem modal) — ver
+    `painel/clients/_subscription.html`."""
+    client = _get_client(request, pk)
+    return render(
         request,
-        "painel/clients/_subscription.html",
+        "painel/clients/_renew_package_form.html",
+        {"client": client, "form": RenewPackageForm()},
+    )
+
+
+@tenant_admin_required
+def package_assign_confirm(request, pk):
+    """Modal: escolher a forma de pagamento antes de ativar o pacote —
+    é uma cobrança real na hora (decisão do usuário em 2026-08-04, ver
+    `apps.clients.services.assign_package_to_client`)."""
+    client = _get_client(request, pk)
+    package = get_object_or_404(
+        Package.objects.for_tenant(request.tenant).filter(is_active=True),
+        pk=request.GET.get("package"),
+    )
+    return render(
+        request,
+        "painel/clients/_assign_package_form.html",
         {
             "client": client,
-            "subscription_form": SubscriptionForm(
-                initial={
-                    "is_subscriber": client.is_subscriber,
-                    "subscription_due_date": client.subscription_due_date,
-                }
-            ),
-            "subscription_error": None,
-            "subscription_saved": True,
+            "package": package,
+            "form": AssignPackageForm(tenant=request.tenant, initial={"package": package.pk}),
         },
     )
+
+
+@tenant_admin_required
+def package_assign(request, pk):
+    if request.method != "POST":
+        return HttpResponse(status=405)
+    client = _get_client(request, pk)
+    form = AssignPackageForm(request.POST, tenant=request.tenant)
+    if not form.is_valid():
+        package = get_object_or_404(
+            Package.objects.for_tenant(request.tenant), pk=request.POST.get("package")
+        )
+        response = render(
+            request, "painel/clients/_assign_package_form.html",
+            {"client": client, "package": package, "form": form},
+        )
+        response.headers["HX-Retarget"] = "#modal-slot"
+        response.headers["HX-Reswap"] = "innerHTML"
+        return response
+    try:
+        client_ops.assign_package_to_client(
+            client,
+            package=form.cleaned_data["package"],
+            payment_method=form.cleaned_data["payment_method"],
+            created_by=request.user,
+        )
+    except ValidationError as exc:
+        response = render(
+            request, "painel/_modal_error.html",
+            {"title": "Não foi possível ativar o pacote", "message": " ".join(exc.messages)},
+        )
+        response.headers["HX-Retarget"] = "#modal-slot"
+        response.headers["HX-Reswap"] = "innerHTML"
+        return response
+    client.refresh_from_db()
+    panel = render_to_string(
+        "painel/clients/_subscription.html", _subscription_context(client, saved=True),
+        request=request,
+    )
+    modal_reset = '<div id="modal-slot" hx-swap-oob="true"></div>'
+    return HttpResponse(panel + modal_reset)
 
 
 def _credit_response(request, client):
@@ -471,3 +629,128 @@ def client_credit_remove(request, pk):
     response.headers["HX-Retarget"] = "#modal-slot"
     response.headers["HX-Reswap"] = "innerHTML"
     return response
+
+
+# ---------------------------------------------------------------------------
+# Pacotes de mensalidade (decisão do usuário em 2026-08-04) — /painel/clientes/pacotes/
+# ---------------------------------------------------------------------------
+
+
+def _get_package(request, pk):
+    return get_object_or_404(Package.objects.for_tenant(request.tenant), pk=pk)
+
+
+def _package_items_response(request):
+    items = render_to_string(
+        "painel/clients/_package_items.html",
+        {"packages": Package.objects.for_tenant(request.tenant).prefetch_related("services")},
+        request=request,
+    )
+    modal_reset = '<div id="modal-slot" hx-swap-oob="true"></div>'
+    return HttpResponse(items + modal_reset)
+
+
+@tenant_admin_required
+def package_list(request):
+    packages = Package.objects.for_tenant(request.tenant).prefetch_related("services")
+    return render(
+        request,
+        "painel/clients/packages_list.html",
+        {"packages": packages, "active_nav": "clients"},
+    )
+
+
+@tenant_admin_required
+def package_create(request):
+    if request.method == "POST":
+        form = PackageForm(request.POST, tenant=request.tenant)
+        if form.is_valid():
+            client_ops.create_package(
+                tenant=request.tenant, created_by=request.user,
+                service_ids=[s.pk for s in form.cleaned_data["services"]],
+                **{k: v for k, v in form.cleaned_data.items() if k != "services"},
+            )
+            return _package_items_response(request)
+    else:
+        form = PackageForm(tenant=request.tenant)
+    response = render(
+        request,
+        "painel/clients/_package_form.html",
+        {"form": form, "title": "Novo Pacote"},
+    )
+    if request.method == "POST":
+        response.headers["HX-Retarget"] = "#modal-slot"
+        response.headers["HX-Reswap"] = "innerHTML"
+    return response
+
+
+@tenant_admin_required
+def package_update(request, pk):
+    package = _get_package(request, pk)
+    if request.method == "POST":
+        form = PackageForm(request.POST, tenant=request.tenant)
+        if form.is_valid():
+            client_ops.update_package(
+                package,
+                service_ids=[s.pk for s in form.cleaned_data["services"]],
+                **{k: v for k, v in form.cleaned_data.items() if k != "services"},
+            )
+            return _package_items_response(request)
+    else:
+        form = PackageForm(
+            tenant=request.tenant,
+            initial={
+                "name": package.name,
+                "description": package.description,
+                "price": package.price,
+                "services": list(package.services.values_list("pk", flat=True)),
+                "generates_commission": package.generates_commission,
+            },
+        )
+    response = render(
+        request,
+        "painel/clients/_package_form.html",
+        {"form": form, "title": "Editar Pacote", "package": package},
+    )
+    if request.method == "POST":
+        response.headers["HX-Retarget"] = "#modal-slot"
+        response.headers["HX-Reswap"] = "innerHTML"
+    return response
+
+
+@tenant_admin_required
+def package_toggle_confirm(request, pk):
+    package = _get_package(request, pk)
+    if package.is_active:
+        context = {
+            "title": "Desativar pacote",
+            "message": (
+                f"Desativar '{package.name}'? Ele deixa de aparecer como opção pra novos "
+                f"clientes mensalistas — quem já está com ele continua normalmente."
+            ),
+            "icon": "toggle_off",
+            "confirm_label": "Desativar",
+        }
+    else:
+        context = {
+            "title": "Reativar pacote",
+            "message": f"Reativar '{package.name}'? Ele volta a aparecer como opção.",
+            "icon": "toggle_on",
+            "confirm_label": "Reativar",
+        }
+    context.update(
+        {
+            "action_url": reverse("clients:package_toggle", args=[package.pk]),
+            "target": "#package-items",
+        }
+    )
+    return render(request, "painel/_confirm_action.html", context)
+
+
+@tenant_admin_required
+def package_toggle(request, pk):
+    if request.method != "POST":
+        return HttpResponse(status=405)
+    package = _get_package(request, pk)
+    client_ops.set_package_active(package, not package.is_active)
+    return _package_items_response(request)

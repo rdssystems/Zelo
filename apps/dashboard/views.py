@@ -129,7 +129,7 @@ def _top_services(tenant, today, month_start, limit=5):
 def _commission_by_employee(tenant, today, month_start, limit=5):
     rows = (
         Commission.objects.for_tenant(tenant)
-        .filter(appointment__date__range=(month_start, today))
+        .filter(created_at__date__range=(month_start, today))
         .values("employee__full_name")
         .annotate(total=Sum("calculated_amount"))
         .order_by("-total")[:limit]

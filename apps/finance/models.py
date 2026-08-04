@@ -21,6 +21,11 @@ class CashCategory(models.TextChoices):
     # momento da recarga. O uso posterior do crédito NÃO gera nova entrada
     # (ver apps/clients/services.py — evita contar a receita duas vezes).
     CLIENT_CREDIT_TOPUP = "client_credit_topup", "Recarga de crédito"
+    # Cobrança da mensalidade de um pacote (decisão do usuário em 2026-08-04)
+    # — entrada REAL no momento em que o pacote é atribuído ao cliente. Os
+    # atendimentos cobertos por ele depois NÃO geram nova CashTransaction
+    # (já pago aqui) — ver apps.scheduling.services.complete_appointment.
+    PACKAGE_SALE = "package_sale", "Venda de pacote"
     EXPENSE = "expense", "Despesa"
     OTHER = "other", "Outro"
 
@@ -119,11 +124,23 @@ class Commission(TenantModel):
         "status", max_length=10, choices=CommissionStatus.choices, default=CommissionStatus.PENDING
     )
     paid_at = models.DateTimeField(null=True, blank=True)
+    # Quando a comissão foi de fato gerada (conclusão do atendimento) — não
+    # confundir com `appointment.date` (data AGENDADA do serviço). Um
+    # atendimento pode ser concluído antes ou depois da data agendada (ex.:
+    # cliente chega adiantado e o salão atende na hora, comanda aberta num
+    # dia e fechada só no seguinte) — filtro de período no Caixa/Comissões
+    # usa este campo, igual `CashTransaction.created_at`, pra bater com o
+    # dinheiro que realmente moveu no período (bug real encontrado: comissão
+    # de atendimento concluído adiantado sumia da aba Comissões porque o
+    # filtro de período usava `appointment__date`, no futuro em relação a
+    # hoje — a `CashTransaction` da mesma venda já usava `created_at` e
+    # aparecia normalmente, gerando a inconsistência).
+    created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         verbose_name = "comissão"
         verbose_name_plural = "comissões"
-        ordering = ["-appointment__date"]
+        ordering = ["-created_at"]
         indexes = [models.Index(fields=["tenant", "employee", "status"])]
 
     def __str__(self):

@@ -1,0 +1,82 @@
+{{ birthday_clients|json_script:"birthday-clients-data" }}
+
+<div class="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6" id="birthday-campaign-modal"
+     x-data="birthdayCampaign()" x-init="init()">
+  <div class="absolute inset-0 bg-inverse-surface/40 backdrop-blur-sm" @click="close()"></div>
+  <div class="relative w-full max-w-lg bg-surface-container-lowest rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+    <div class="p-8 pb-4 shrink-0">
+      <div class="flex items-center gap-3 mb-2">
+        <div class="w-10 h-10 rounded-full bg-[#25D366]/15 flex items-center justify-center shrink-0">
+          <span class="material-symbols-outlined text-[#25D366]">cake</span>
+        </div>
+        <h3 class="font-display text-xl font-bold text-on-surface">Aniversariantes de hoje</h3>
+      </div>
+      <p class="text-sm text-on-surface-variant">Um a um, revise a mensagem (pode editar) e envie pelo WhatsApp.</p>
+    </div>
+
+    <template x-if="list.length === 0">
+      <p class="px-8 pb-8 text-center text-sm text-on-surface-variant py-6">
+        Nenhum aniversariante de hoje com WhatsApp cadastrado.
+      </p>
+    </template>
+
+    <template x-if="list.length > 0 && !done">
+      <div class="px-8 pb-8 flex-1 overflow-y-auto">
+        <p class="text-xs text-outline uppercase tracking-wide mb-3" x-text="`Cliente ${index + 1} de ${list.length}`"></p>
+        <div class="bg-surface-container rounded-xl p-4 mb-4">
+          <p class="font-semibold text-on-surface" x-text="current && current.name"></p>
+        </div>
+        <label class="block text-label-caps uppercase text-outline mb-1" for="birthday-campaign-message">Mensagem</label>
+        <textarea id="birthday-campaign-message"
+                  class="block w-full px-3 py-2 rounded-lg border border-outline-variant bg-surface-container-lowest text-on-surface text-sm focus:ring-2 focus:ring-primary focus:border-primary transition-colors resize-none"
+                  rows="5" x-model="message"></textarea>
+      </div>
+    </template>
+
+    <template x-if="done">
+      <div class="px-8 pb-8 text-center py-6">
+        <span class="material-symbols-outlined text-[#2e7d32] text-4xl mb-2">check_circle</span>
+        <p class="text-on-surface font-medium" x-text="`Pronto! Você passou pelos ${list.length} aniversariante${list.length > 1 ? 's' : ''}.`"></p>
+      </div>
+    </template>
+
+    <div class="px-8 py-5 border-t border-surface-variant flex justify-between gap-3 shrink-0">
+      <button type="button" class="px-5 py-2.5 rounded-pill border border-outline-variant text-on-surface-variant font-medium hover:bg-surface-variant transition-colors" @click="close()">Fechar</button>
+      <button type="button" x-show="list.length > 0 && !done"
+              class="px-6 py-2.5 rounded-pill bg-[#25D366] text-white font-semibold hover:opacity-90 transition-opacity active:scale-95 inline-flex items-center gap-2"
+              @click="sendAndNext()">
+        <span x-text="index + 1 < list.length ? 'Enviar e ir pro próximo' : 'Enviar'"></span>
+        <span class="material-symbols-outlined text-[18px]">arrow_forward</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+function birthdayCampaign() {
+  return {
+    index: 0,
+    message: "",
+    list: JSON.parse(document.getElementById("birthday-clients-data").textContent),
+    get current() {
+      return this.list[this.index] || null;
+    },
+    get done() {
+      return this.list.length > 0 && this.index >= this.list.length;
+    },
+    init() {
+      this.message = this.current ? this.current.message : "";
+    },
+    sendAndNext() {
+      if (!this.current) return;
+      const text = encodeURIComponent(this.message);
+      window.open(`https://wa.me/55${this.current.phone}?text=${text}`, "_blank");
+      this.index += 1;
+      this.message = this.current ? this.current.message : "";
+    },
+    close() {
+      document.getElementById("modal-slot").innerHTML = "";
+    },
+  };
+}
+</script>

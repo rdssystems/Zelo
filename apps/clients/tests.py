@@ -7,22 +7,30 @@ from django.db import IntegrityError, transaction
 from django.test import TestCase
 from django.utils import timezone
 
+from apps.notifications.models import TenantNotification, TenantNotificationKind
 from apps.tenants.models import Tenant
 
-from .models import Client, ClientCreditTransaction
+from .models import Client, ClientCreditTransaction, Package
 from .services import (
     _add_months,
     add_client_credit,
     anonymize_client,
+    assign_package_to_client,
+    clients_with_birthday_today,
     create_client,
+    create_package,
+    ensure_birthday_notification,
     format_phone_display,
     get_or_create_client,
     normalize_phone,
     redeem_client_credit_for_appointment,
     remove_client_credit,
     renew_subscription,
+    set_package_active,
     set_subscriber_status,
     update_client,
+    update_client_preferences,
+    update_package,
 )
 
 User = get_user_model()
@@ -126,6 +134,49 @@ class GetOrCreateClientTest(TestCase):
         self.assertEqual(client.name, "Maria Original")
         self.assertEqual(Client.objects.count(), 1)
 
+    def test_new_client_with_birthday_saves_day_and_month(self):
+        client, created = get_or_create_client(
+            tenant=self.tenant, phone="11912345678", name="Maria",
+            birth_day=15, birth_month=6,
+        )
+        self.assertTrue(created)
+        self.assertEqual(client.birth_day, 15)
+        self.assertEqual(client.birth_month, 6)
+
+    def test_new_client_without_birthday_leaves_it_blank(self):
+        client, created = get_or_create_client(
+            tenant=self.tenant, phone="11912345678", name="Maria",
+        )
+        self.assertIsNone(client.birth_day)
+        self.assertIsNone(client.birth_month)
+
+    def test_new_client_with_only_day_rejected(self):
+        with self.assertRaises(ValidationError):
+            get_or_create_client(
+                tenant=self.tenant, phone="11912345678", name="Maria", birth_day=15,
+            )
+        self.assertEqual(Client.objects.count(), 0)
+
+    def test_new_client_with_invalid_day_for_month_rejected(self):
+        with self.assertRaises(ValidationError):
+            get_or_create_client(
+                tenant=self.tenant, phone="11912345678", name="Maria",
+                birth_day=31, birth_month=4,
+            )
+
+    def test_existing_client_recovery_ignores_new_birthday(self):
+        existing = Client.objects.create(
+            tenant=self.tenant, phone="11912345678", name="Maria",
+            birth_day=1, birth_month=1,
+        )
+        client, created = get_or_create_client(
+            tenant=self.tenant, phone="11912345678", birth_day=25, birth_month=12,
+        )
+        self.assertFalse(created)
+        self.assertEqual(client.pk, existing.pk)
+        self.assertEqual(client.birth_day, 1)
+        self.assertEqual(client.birth_month, 1)
+
 
 class AnonymizeClientTest(TestCase):
     """RNF07 (LGPD): cliente final pode pedir a exclusão dos seus dados."""
@@ -162,6 +213,15 @@ class AnonymizeClientTest(TestCase):
         pk = client.pk
         anonymize_client(client)
         self.assertTrue(Client.objects.filter(pk=pk).exists())
+
+    def test_clears_birthday(self):
+        client = Client.objects.create(
+            tenant=self.tenant, phone="11912345678", name="Maria", birth_day=10, birth_month=5,
+        )
+        anonymize_client(client)
+        client.refresh_from_db()
+        self.assertIsNone(client.birth_day)
+        self.assertIsNone(client.birth_month)
 
     def test_cancels_future_pending_and_confirmed_appointments(self):
         from apps.scheduling.services import create_appointment
@@ -480,6 +540,117 @@ class ClientCrudDomainTest(TestCase):
         with self.assertRaises(ValidationError):
             update_client(other, name="Outra", phone="11912345678")
 
+    def test_update_client_preferences_does_not_touch_name_or_phone(self):
+        client = create_client(tenant=self.tenant, name="Maria", phone="11912345678")
+        update_client_preferences(client, "Alérgica a amônia")
+        client.refresh_from_db()
+        self.assertEqual(client.preferences, "Alérgica a amônia")
+        self.assertEqual(client.name, "Maria")
+        self.assertEqual(client.phone, "11912345678")
+
+    def test_update_client_preferences_strips_and_allows_blank(self):
+        client = create_client(tenant=self.tenant, name="Maria", phone="11912345678", preferences="Antigo")
+        update_client_preferences(client, "  ")
+        client.refresh_from_db()
+        self.assertEqual(client.preferences, "")
+
+    def test_create_client_with_birthday(self):
+        client = create_client(
+            tenant=self.tenant, name="Maria", phone="11912345678",
+            birth_day=29, birth_month=2,
+        )
+        self.assertEqual(client.birth_day, 29)
+        self.assertEqual(client.birth_month, 2)
+
+    def test_create_client_with_invalid_month_rejected(self):
+        with self.assertRaises(ValidationError):
+            create_client(
+                tenant=self.tenant, name="Maria", phone="11912345678",
+                birth_day=1, birth_month=13,
+            )
+
+    def test_update_client_can_add_and_clear_birthday(self):
+        client = create_client(tenant=self.tenant, name="Maria", phone="11912345678")
+        update_client(client, name="Maria", phone="11912345678", birth_day=10, birth_month=3)
+        client.refresh_from_db()
+        self.assertEqual(client.birth_day, 10)
+        self.assertEqual(client.birth_month, 3)
+
+        update_client(client, name="Maria", phone="11912345678")
+        client.refresh_from_db()
+        self.assertIsNone(client.birth_day)
+        self.assertIsNone(client.birth_month)
+
+
+class ClientPreferencesModalPanelTest(TestCase):
+    """Botão "ver observações" na Agenda (RF) e o atalho de editar preferências
+    a partir do prompt pós-finalização de comanda no Caixa."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.tenant, cls.admin = make_tenant_with_admin("salao-a")
+        cls.client_ = Client.objects.create(
+            tenant=cls.tenant, phone="11988887777", name="Maria",
+            preferences="Alérgica a amônia",
+        )
+        cls.other_tenant, cls.other_admin = make_tenant_with_admin("salao-b")
+        cls.other_client = Client.objects.create(
+            tenant=cls.other_tenant, phone="11933334444", name="Bia"
+        )
+
+    def test_login_required(self):
+        response = self.client.get(f"/painel/clientes/{self.client_.pk}/preferencias/")
+        self.assertEqual(response.status_code, 302)
+
+    def test_read_modal_shows_preferences(self):
+        self.client.force_login(self.admin)
+        response = self.client.get(f"/painel/clientes/{self.client_.pk}/preferencias/")
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Alérgica a amônia")
+
+    def test_read_modal_empty_state(self):
+        empty_client = Client.objects.create(tenant=self.tenant, phone="11955556666", name="Joana")
+        self.client.force_login(self.admin)
+        response = self.client.get(f"/painel/clientes/{empty_client.pk}/preferencias/")
+        self.assertContains(response, "Nenhuma observação registrada")
+
+    def test_read_modal_scoped_to_tenant(self):
+        self.client.force_login(self.admin)
+        response = self.client.get(f"/painel/clientes/{self.other_client.pk}/preferencias/")
+        self.assertEqual(response.status_code, 404)
+
+    def test_edit_modal_prefills_current_text(self):
+        self.client.force_login(self.admin)
+        response = self.client.get(f"/painel/clientes/{self.client_.pk}/preferencias/editar/")
+        self.assertContains(response, "Alérgica a amônia")
+
+    def test_update_saves_and_shows_confirmation(self):
+        self.client.force_login(self.admin)
+        response = self.client.post(
+            f"/painel/clientes/{self.client_.pk}/preferencias/atualizar/",
+            {"preferences": "Prefere tesoura, não usa máquina"},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Preferências atualizadas.")
+        self.assertContains(response, "Prefere tesoura, não usa máquina")
+        self.client_.refresh_from_db()
+        self.assertEqual(self.client_.preferences, "Prefere tesoura, não usa máquina")
+
+    def test_update_scoped_to_tenant(self):
+        self.client.force_login(self.admin)
+        response = self.client.post(
+            f"/painel/clientes/{self.other_client.pk}/preferencias/atualizar/",
+            {"preferences": "Invasão"},
+        )
+        self.assertEqual(response.status_code, 404)
+        self.other_client.refresh_from_db()
+        self.assertEqual(self.other_client.preferences, "")
+
+    def test_update_requires_post(self):
+        self.client.force_login(self.admin)
+        response = self.client.get(f"/painel/clientes/{self.client_.pk}/preferencias/atualizar/")
+        self.assertEqual(response.status_code, 405)
+
 
 class ClientPanelTest(TestCase):
     @classmethod
@@ -506,6 +677,31 @@ class ClientPanelTest(TestCase):
         )
         self.assertEqual(response.status_code, 302)
         self.assertTrue(Client.objects.filter(tenant=self.tenant, name="Maria").exists())
+
+    def test_admin_sets_birthday_via_panel(self):
+        self.client.force_login(self.admin)
+        response = self.client.post(
+            "/painel/clientes/novo/",
+            {"name": "Maria", "phone": "(11) 91234-5678", "preferences": "",
+             "birth_day": "20", "birth_month": "9"},
+        )
+        self.assertEqual(response.status_code, 302)
+        client_ = Client.objects.get(tenant=self.tenant, name="Maria")
+        self.assertEqual(client_.birth_day, 20)
+        self.assertEqual(client_.birth_month, 9)
+
+    def test_admin_edits_birthday_via_panel(self):
+        client_ = Client.objects.create(tenant=self.tenant, phone="11911112222", name="Ana")
+        self.client.force_login(self.admin)
+        response = self.client.post(
+            f"/painel/clientes/{client_.pk}/editar/",
+            {"name": "Ana", "phone": "11911112222", "preferences": "",
+             "birth_day": "3", "birth_month": "11"},
+        )
+        self.assertEqual(response.status_code, 302)
+        client_.refresh_from_db()
+        self.assertEqual(client_.birth_day, 3)
+        self.assertEqual(client_.birth_month, 11)
 
     def test_search_by_name_or_phone(self):
         Client.objects.create(tenant=self.tenant, phone="11911112222", name="Ana Souza")
@@ -764,3 +960,435 @@ class SubscriptionWhatsAppCampaignPanelTest(TestCase):
         self.assertNotContains(response, "NaoMensalista")
         self.assertNotContains(response, "Cliente removido (LGPD)")
         self.assertNotContains(response, "OutroSalao")
+
+
+class BirthdayAlertTest(TestCase):
+    """RF: alerta de aniversário — decisão do usuário em 2026-08-04.
+    `Tenant.birthday_alert_enabled` liga o alerta; a notificação (mesmo
+    modelo `TenantNotification` já usado pra cancelamento de agendamento)
+    só some quando o admin abre o modal de envio de mensagem."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.tenant, cls.admin = make_tenant_with_admin("salao-a")
+        cls.today = timezone.localdate()
+
+    def _make_birthday_client(self, name="Maria", phone="11911112222", **overrides):
+        return Client.objects.create(
+            tenant=self.tenant, phone=phone, name=name,
+            birth_day=self.today.day, birth_month=self.today.month, **overrides,
+        )
+
+    def test_clients_with_birthday_today_excludes_other_days(self):
+        birthday_client = self._make_birthday_client()
+        tomorrow = self.today + datetime.timedelta(days=1)
+        Client.objects.create(
+            tenant=self.tenant, phone="11933334444", name="Outra",
+            birth_day=tomorrow.day, birth_month=tomorrow.month,
+        )
+        result = list(clients_with_birthday_today(self.tenant))
+        self.assertEqual(result, [birthday_client])
+
+    def test_ensure_notification_noop_when_alert_disabled(self):
+        self._make_birthday_client()
+        self.assertFalse(self.tenant.birthday_alert_enabled)
+        notification = ensure_birthday_notification(self.tenant)
+        self.assertIsNone(notification)
+        self.assertEqual(TenantNotification.objects.filter(tenant=self.tenant).count(), 0)
+
+    def test_ensure_notification_noop_without_birthday_clients(self):
+        self.tenant.birthday_alert_enabled = True
+        self.tenant.save(update_fields=["birthday_alert_enabled"])
+        notification = ensure_birthday_notification(self.tenant)
+        self.assertIsNone(notification)
+
+    def test_ensure_notification_creates_when_enabled_and_birthday_today(self):
+        self.tenant.birthday_alert_enabled = True
+        self.tenant.save(update_fields=["birthday_alert_enabled"])
+        client_ = self._make_birthday_client()
+        notification = ensure_birthday_notification(self.tenant)
+        self.assertIsNotNone(notification)
+        self.assertEqual(notification.kind, TenantNotificationKind.BIRTHDAY_ALERT)
+        self.assertIn(client_.name, notification.message)
+        self.assertFalse(notification.is_read)
+
+    def test_ensure_notification_idempotent_same_day(self):
+        self.tenant.birthday_alert_enabled = True
+        self.tenant.save(update_fields=["birthday_alert_enabled"])
+        self._make_birthday_client()
+        ensure_birthday_notification(self.tenant)
+        ensure_birthday_notification(self.tenant)
+        self.assertEqual(
+            TenantNotification.objects.filter(
+                tenant=self.tenant, kind=TenantNotificationKind.BIRTHDAY_ALERT
+            ).count(),
+            1,
+        )
+
+    def test_toast_poll_generates_birthday_notification(self):
+        self.tenant.birthday_alert_enabled = True
+        self.tenant.save(update_fields=["birthday_alert_enabled"])
+        self._make_birthday_client(name="Aniversariante Hoje")
+        self.client.force_login(self.admin)
+        response = self.client.get("/painel/avisos/toast/")
+        self.assertContains(response, "Aniversariante do dia")
+
+    def test_login_required_for_campaign(self):
+        response = self.client.get("/painel/clientes/aniversariantes/whatsapp/")
+        self.assertEqual(response.status_code, 302)
+
+    def test_campaign_lists_only_today_birthday_with_valid_phone(self):
+        self._make_birthday_client(name="Maria", phone="11911112222")
+        Client.objects.create(
+            tenant=self.tenant, phone="removido-1", name="Sem WhatsApp válido",
+            birth_day=self.today.day, birth_month=self.today.month,
+        )
+        tomorrow = self.today + datetime.timedelta(days=1)
+        Client.objects.create(
+            tenant=self.tenant, phone="11955556666", name="Outro Dia",
+            birth_day=tomorrow.day, birth_month=tomorrow.month,
+        )
+        self.client.force_login(self.admin)
+        response = self.client.get("/painel/clientes/aniversariantes/whatsapp/")
+        self.assertContains(response, "Maria")
+        # a mensagem vai dentro de um json_script, o acento em "aniversário"
+        # sai como ário — checa só a parte sem acento
+        self.assertContains(response, "Feliz anivers")
+        self.assertContains(response, "Toda a equipe do")
+        self.assertNotContains(response, "Sem WhatsApp válido")
+        self.assertNotContains(response, "Outro Dia")
+
+    def test_opening_campaign_marks_birthday_notifications_read(self):
+        self.tenant.birthday_alert_enabled = True
+        self.tenant.save(update_fields=["birthday_alert_enabled"])
+        self._make_birthday_client()
+        notification = ensure_birthday_notification(self.tenant)
+        self.assertFalse(notification.is_read)
+        self.client.force_login(self.admin)
+        self.client.get("/painel/clientes/aniversariantes/whatsapp/")
+        notification.refresh_from_db()
+        self.assertTrue(notification.is_read)
+
+    def test_campaign_scoped_to_tenant(self):
+        other_tenant, other_admin = make_tenant_with_admin("salao-b")
+        Client.objects.create(
+            tenant=other_tenant, phone="11911112222", name="ClienteOutroSalao",
+            birth_day=self.today.day, birth_month=self.today.month,
+        )
+        self.client.force_login(self.admin)
+        response = self.client.get("/painel/clientes/aniversariantes/whatsapp/")
+        self.assertNotContains(response, "ClienteOutroSalao")
+
+
+class PackageDomainTest(TestCase):
+    """Pacote de mensalidade — decisão do usuário em 2026-08-04: define quais
+    serviços um cliente mensalista já tem inclusos e se isso ainda gera
+    comissão pro funcionário. Camada em cima do mensalista tradicional."""
+
+    @classmethod
+    def setUpTestData(cls):
+        from apps.services.services import create_service
+
+        cls.tenant, cls.admin = make_tenant_with_admin("salao-a")
+        cls.corte = create_service(
+            tenant=cls.tenant, name="Corte", duration_minutes=60, price=Decimal("100.00")
+        )
+        cls.escova = create_service(
+            tenant=cls.tenant, name="Escova", duration_minutes=30, price=Decimal("50.00")
+        )
+
+    def test_create_package(self):
+        package = create_package(
+            tenant=self.tenant, name="Cabelo Ilimitado", description="Corte + escova à vontade",
+            price=Decimal("150.00"), service_ids=[self.corte.pk, self.escova.pk],
+            generates_commission=True, created_by=self.admin,
+        )
+        self.assertEqual(package.name, "Cabelo Ilimitado")
+        self.assertEqual(set(package.services.values_list("pk", flat=True)), {self.corte.pk, self.escova.pk})
+        self.assertTrue(package.is_active)
+        self.assertTrue(package.generates_commission)
+
+    def test_create_package_requires_name(self):
+        with self.assertRaises(ValidationError):
+            create_package(
+                tenant=self.tenant, name="", price=Decimal("150.00"),
+                service_ids=[self.corte.pk], generates_commission=True, created_by=self.admin,
+            )
+
+    def test_create_package_requires_positive_price(self):
+        with self.assertRaises(ValidationError):
+            create_package(
+                tenant=self.tenant, name="Pacote", price=Decimal("0"),
+                service_ids=[self.corte.pk], generates_commission=True, created_by=self.admin,
+            )
+
+    def test_create_package_requires_at_least_one_service(self):
+        with self.assertRaises(ValidationError):
+            create_package(
+                tenant=self.tenant, name="Pacote", price=Decimal("150.00"),
+                service_ids=[], generates_commission=True, created_by=self.admin,
+            )
+
+    def test_create_package_ignores_service_from_other_tenant(self):
+        other_tenant, _ = make_tenant_with_admin("salao-b")
+        from apps.services.services import create_service
+
+        other_service = create_service(
+            tenant=other_tenant, name="Corte Outro Salão", duration_minutes=60, price=Decimal("100")
+        )
+        with self.assertRaises(ValidationError):
+            create_package(
+                tenant=self.tenant, name="Pacote", price=Decimal("150.00"),
+                service_ids=[other_service.pk], generates_commission=True, created_by=self.admin,
+            )
+
+    def test_update_package(self):
+        package = create_package(
+            tenant=self.tenant, name="Pacote", price=Decimal("150.00"),
+            service_ids=[self.corte.pk], generates_commission=True, created_by=self.admin,
+        )
+        update_package(
+            package, name="Pacote Renovado", description="Nova descrição", price=Decimal("200.00"),
+            service_ids=[self.escova.pk], generates_commission=False,
+        )
+        package.refresh_from_db()
+        self.assertEqual(package.name, "Pacote Renovado")
+        self.assertEqual(package.price, Decimal("200.00"))
+        self.assertEqual(list(package.services.values_list("pk", flat=True)), [self.escova.pk])
+        self.assertFalse(package.generates_commission)
+
+    def test_set_package_active_toggle(self):
+        package = create_package(
+            tenant=self.tenant, name="Pacote", price=Decimal("150.00"),
+            service_ids=[self.corte.pk], generates_commission=True, created_by=self.admin,
+        )
+        set_package_active(package, False)
+        package.refresh_from_db()
+        self.assertFalse(package.is_active)
+
+
+class AssignPackageToClientTest(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        from apps.services.services import create_service
+
+        cls.tenant, cls.admin = make_tenant_with_admin("salao-a")
+        cls.corte = create_service(
+            tenant=cls.tenant, name="Corte", duration_minutes=60, price=Decimal("100.00")
+        )
+        cls.package = create_package(
+            tenant=cls.tenant, name="Cabelo Ilimitado", price=Decimal("150.00"),
+            service_ids=[cls.corte.pk], generates_commission=True, created_by=cls.admin,
+        )
+        cls.client_ = Client.objects.create(tenant=cls.tenant, phone="11911112222", name="Ana")
+
+    def test_assign_creates_real_cash_transaction(self):
+        from apps.finance.models import CashCategory, CashTransaction
+
+        assign_package_to_client(
+            self.client_, package=self.package, payment_method="pix", created_by=self.admin,
+        )
+        txn = CashTransaction.objects.get(tenant=self.tenant, category=CashCategory.PACKAGE_SALE)
+        self.assertEqual(txn.amount, Decimal("150.00"))
+        self.assertEqual(txn.payment_method, "pix")
+
+    def test_assign_marks_subscriber_and_sets_due_date_plus_one_month(self):
+        today = datetime.date.today()
+        assign_package_to_client(
+            self.client_, package=self.package, payment_method="pix", created_by=self.admin,
+        )
+        self.client_.refresh_from_db()
+        self.assertTrue(self.client_.is_subscriber)
+        self.assertEqual(self.client_.package, self.package)
+        self.assertEqual(self.client_.subscription_due_date, _add_months(today, 1))
+
+    def test_assign_rejects_package_from_other_tenant(self):
+        other_tenant, other_admin = make_tenant_with_admin("salao-b")
+        other_client = Client.objects.create(tenant=other_tenant, phone="11933334444", name="Bia")
+        with self.assertRaises(ValidationError):
+            assign_package_to_client(
+                other_client, package=self.package, payment_method="pix", created_by=other_admin,
+            )
+
+    def test_assign_rejects_inactive_package(self):
+        set_package_active(self.package, False)
+        with self.assertRaises(ValidationError):
+            assign_package_to_client(
+                self.client_, package=self.package, payment_method="pix", created_by=self.admin,
+            )
+
+    def test_turning_off_subscriber_clears_package(self):
+        assign_package_to_client(
+            self.client_, package=self.package, payment_method="pix", created_by=self.admin,
+        )
+        self.client_.refresh_from_db()
+        self.assertIsNotNone(self.client_.package)
+        set_subscriber_status(self.client_, is_subscriber=False)
+        self.client_.refresh_from_db()
+        self.assertIsNone(self.client_.package)
+
+
+class RenewSubscriptionWithPackageTest(TestCase):
+    """Renovar mensalidade de cliente com pacote ativo gera uma NOVA cobrança
+    no Caixa (decisão do usuário em 2026-08-04) — sem pacote, continua sendo
+    só um controle de data (comportamento original, sem cobrança)."""
+
+    @classmethod
+    def setUpTestData(cls):
+        from apps.services.services import create_service
+
+        cls.tenant, cls.admin = make_tenant_with_admin("salao-a")
+        cls.corte = create_service(
+            tenant=cls.tenant, name="Corte", duration_minutes=60, price=Decimal("100.00")
+        )
+        cls.package = create_package(
+            tenant=cls.tenant, name="Cabelo Ilimitado", price=Decimal("150.00"),
+            service_ids=[cls.corte.pk], generates_commission=True, created_by=cls.admin,
+        )
+        cls.client_ = Client.objects.create(tenant=cls.tenant, phone="11911112222", name="Ana")
+
+    def test_renew_without_package_does_not_charge(self):
+        from apps.finance.models import CashCategory, CashTransaction
+
+        set_subscriber_status(
+            self.client_, is_subscriber=True, due_date=datetime.date.today()
+        )
+        renew_subscription(self.client_)
+        self.assertFalse(
+            CashTransaction.objects.filter(tenant=self.tenant, category=CashCategory.PACKAGE_SALE).exists()
+        )
+
+    def test_renew_with_package_requires_payment_method(self):
+        assign_package_to_client(
+            self.client_, package=self.package, payment_method="pix", created_by=self.admin,
+        )
+        self.client_.refresh_from_db()
+        with self.assertRaises(ValidationError):
+            renew_subscription(self.client_)
+
+    def test_renew_with_package_creates_new_cash_transaction(self):
+        from apps.finance.models import CashCategory, CashTransaction
+
+        assign_package_to_client(
+            self.client_, package=self.package, payment_method="pix", created_by=self.admin,
+        )
+        self.client_.refresh_from_db()
+        renew_subscription(self.client_, payment_method="cash", created_by=self.admin)
+        txns = CashTransaction.objects.filter(tenant=self.tenant, category=CashCategory.PACKAGE_SALE)
+        # 1 da atribuição inicial + 1 da renovação (ordering padrão é
+        # -created_at, então a mais recente é a primeira)
+        self.assertEqual(txns.count(), 2)
+        self.assertEqual(txns.first().payment_method, "cash")
+        self.assertEqual(txns.first().amount, Decimal("150.00"))
+
+    def test_renew_with_package_still_extends_due_date(self):
+        assign_package_to_client(
+            self.client_, package=self.package, payment_method="pix", created_by=self.admin,
+        )
+        self.client_.refresh_from_db()
+        due_before = self.client_.subscription_due_date
+        renew_subscription(self.client_, payment_method="cash", created_by=self.admin)
+        self.client_.refresh_from_db()
+        self.assertEqual(self.client_.subscription_due_date, _add_months(due_before, 1))
+
+    def test_renew_panel_flow_for_package_client(self):
+        from apps.finance.models import CashCategory, CashTransaction
+
+        assign_package_to_client(
+            self.client_, package=self.package, payment_method="pix", created_by=self.admin,
+        )
+        self.client_.refresh_from_db()
+        self.client.force_login(self.admin)
+        response = self.client.get(f"/painel/clientes/{self.client_.pk}/mensalista/renovar/confirmar/")
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Cabelo Ilimitado")
+
+        response = self.client.post(
+            f"/painel/clientes/{self.client_.pk}/mensalista/renovar/",
+            {"payment_method": "pix"},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            CashTransaction.objects.filter(tenant=self.tenant, category=CashCategory.PACKAGE_SALE).count(),
+            2,
+        )
+
+
+class PackagePanelTest(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        from apps.services.services import create_service
+
+        cls.tenant, cls.admin = make_tenant_with_admin("salao-a")
+        cls.corte = create_service(
+            tenant=cls.tenant, name="Corte", duration_minutes=60, price=Decimal("100.00")
+        )
+        cls.client_ = Client.objects.create(tenant=cls.tenant, phone="11911112222", name="Ana")
+
+    def test_login_required(self):
+        response = self.client.get("/painel/clientes/pacotes/")
+        self.assertEqual(response.status_code, 302)
+
+    def test_admin_creates_package_via_panel(self):
+        self.client.force_login(self.admin)
+        response = self.client.post(
+            "/painel/clientes/pacotes/novo/",
+            {
+                "name": "Cabelo Ilimitado", "description": "", "price": "150,00",
+                "services": [self.corte.pk], "generates_commission": "on",
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(Package.objects.filter(tenant=self.tenant, name="Cabelo Ilimitado").exists())
+
+    def test_package_list_scoped_to_tenant(self):
+        other_tenant, _ = make_tenant_with_admin("salao-b")
+        Package.objects.create(
+            tenant=other_tenant, name="Pacote Outro Salão", price=Decimal("99.00"),
+        )
+        create_package(
+            tenant=self.tenant, name="Meu Pacote", price=Decimal("150.00"),
+            service_ids=[self.corte.pk], generates_commission=True, created_by=self.admin,
+        )
+        self.client.force_login(self.admin)
+        response = self.client.get("/painel/clientes/pacotes/")
+        self.assertContains(response, "Meu Pacote")
+        self.assertNotContains(response, "Pacote Outro Salão")
+
+    def test_assign_package_flow_via_panel(self):
+        from apps.finance.models import CashCategory, CashTransaction
+
+        package = create_package(
+            tenant=self.tenant, name="Cabelo Ilimitado", price=Decimal("150.00"),
+            service_ids=[self.corte.pk], generates_commission=True, created_by=self.admin,
+        )
+        self.client.force_login(self.admin)
+        response = self.client.post(
+            f"/painel/clientes/{self.client_.pk}/mensalista/pacote/",
+            {"package": package.pk, "payment_method": "cash"},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.client_.refresh_from_db()
+        self.assertEqual(self.client_.package, package)
+        self.assertTrue(self.client_.is_subscriber)
+        self.assertTrue(
+            CashTransaction.objects.filter(
+                tenant=self.tenant, category=CashCategory.PACKAGE_SALE, amount=Decimal("150.00")
+            ).exists()
+        )
+
+    def test_assign_package_scoped_to_tenant(self):
+        """Pacote de outro tenant nem existe pro form (queryset já filtra por
+        tenant) — 404, mesmo padrão de `_get_client`/`_get_package`."""
+        other_tenant, other_admin = make_tenant_with_admin("salao-b")
+        other_package = Package.objects.create(
+            tenant=other_tenant, name="Pacote Outro Salão", price=Decimal("99.00"), is_active=True,
+        )
+        self.client.force_login(self.admin)
+        response = self.client.post(
+            f"/painel/clientes/{self.client_.pk}/mensalista/pacote/",
+            {"package": other_package.pk, "payment_method": "cash"},
+        )
+        self.assertEqual(response.status_code, 404)
+        self.client_.refresh_from_db()
+        self.assertIsNone(self.client_.package)

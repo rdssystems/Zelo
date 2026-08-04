@@ -7,8 +7,11 @@
   <a class="inline-flex items-center gap-1 text-on-surface-variant hover:text-primary transition-colors text-sm mb-4" href="{% url 'employees:list' %}">
     <span class="material-symbols-outlined text-[18px]">arrow_back</span> Voltar para a equipe
   </a>
-  <h2 class="font-display text-headline-md text-on-surface">
+  <h2 class="font-display text-headline-md text-on-surface flex items-center gap-3">
     {% if employee %}{{ employee.full_name }}{% else %}Novo Funcionário{% endif %}
+    {% if employee.is_owner %}
+    <span class="bg-primary-container text-on-primary-container px-3 py-1 rounded-pill text-[11px] font-semibold uppercase tracking-wider">Dono</span>
+    {% endif %}
   </h2>
   {% if not employee %}
   <p class="text-on-surface-variant mt-2 max-w-2xl">Defina o e-mail e a senha de acesso do profissional ao painel.</p>
@@ -24,6 +27,29 @@
 <div class="grid grid-cols-1 {% if employee %}lg:grid-cols-2{% endif %} gap-8 items-start">
 
   <!-- Dados pessoais + comissão padrão -->
+  {% if employee.is_owner %}
+  <div class="bg-surface-container-lowest rounded-2xl shadow-[0_4px_40px_-10px_rgba(125,86,45,0.08)] border border-surface-container p-8">
+    <h3 class="text-label-caps uppercase text-outline mb-6">Dados do profissional</h3>
+    <div class="flex items-center gap-4 mb-6">
+      {% if employee.photo %}
+      <img alt="Foto {{ employee.full_name }}" class="w-16 h-16 rounded-full object-cover border-2 border-surface-container" src="{{ employee.photo.url }}"/>
+      {% else %}
+      <div class="w-16 h-16 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center font-display text-2xl border-2 border-surface-container">
+        {{ employee.full_name|first|upper }}
+      </div>
+      {% endif %}
+      <div>
+        <p class="font-semibold text-lg text-on-surface">{{ employee.full_name }}</p>
+        <p class="text-sm text-on-surface-variant">{{ employee.user.email }}</p>
+      </div>
+    </div>
+    <p class="text-sm text-on-surface-variant rounded-lg bg-surface-container px-4 py-3">
+      Nome, foto e login do responsável são editados em
+      <a class="text-primary font-semibold hover:underline" href="{% url 'tenants:settings' %}">Configurações</a>.
+      Aqui você define a jornada e os serviços que você atende, igual aos demais profissionais.
+    </p>
+  </div>
+  {% else %}
   <div class="bg-surface-container-lowest rounded-2xl shadow-[0_4px_40px_-10px_rgba(125,86,45,0.08)] border border-surface-container p-8">
     <h3 class="text-label-caps uppercase text-outline mb-6">Dados do profissional</h3>
     {% if form.non_field_errors %}
@@ -95,6 +121,7 @@
       </div>
     </form>
   </div>
+  {% endif %}
 
   {% if employee %}
   <div class="space-y-8">

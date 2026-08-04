@@ -54,6 +54,20 @@ class Appointment(TenantModel):
     price_at_booking = models.DecimalField(
         "preço no momento do agendamento", max_digits=10, decimal_places=2
     )
+    # Snapshot de qual pacote de mensalidade cobria este serviço no momento
+    # do agendamento (decisão do usuário em 2026-08-04) — preenchido em
+    # `apps.scheduling.services.create_appointment` quando o cliente é
+    # mensalista de um pacote que inclui o serviço. `price_at_booking`
+    # continua o valor de TABELA do serviço mesmo assim (nunca zerado) —
+    # é a base de cálculo de comissão; quem decide não cobrar do cliente no
+    # Caixa é este campo, não o preço (ver `complete_appointment`).
+    package = models.ForeignKey(
+        "clients.Package",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="covered_appointments",
+    )
     notes = models.TextField("observações", blank=True)
     canceled_by_client = models.BooleanField(
         "cancelado pelo cliente", default=False,

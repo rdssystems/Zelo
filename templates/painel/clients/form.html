@@ -41,6 +41,23 @@
         <label class="block text-label-caps uppercase text-outline mb-1" for="id_preferences">Preferências</label>
         <textarea class="block w-full px-0 py-2 bg-transparent border-0 border-b border-outline-variant focus:ring-0 focus:border-primary resize-none" id="id_preferences" name="preferences" rows="3" placeholder="Alergias, produto preferido, observações...">{{ form.preferences.value|default:'' }}</textarea>
       </div>
+      <div>
+        <label class="block text-label-caps uppercase text-outline mb-1">Aniversário (opcional)</label>
+        <div class="flex items-center gap-4">
+          <select class="flex-1 px-0 py-2 bg-transparent border-0 border-b {% if form.birth_day.errors %}border-error{% else %}border-outline-variant{% endif %} focus:ring-0 focus:border-primary" id="id_birth_day" name="birth_day">
+            {% for value, label in form.fields.birth_day.choices %}
+            <option value="{{ value }}" {% if form.birth_day.value|stringformat:"s" == value|stringformat:"s" %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+          <select class="flex-1 px-0 py-2 bg-transparent border-0 border-b {% if form.birth_month.errors %}border-error{% else %}border-outline-variant{% endif %} focus:ring-0 focus:border-primary" id="id_birth_month" name="birth_month">
+            {% for value, label in form.fields.birth_month.choices %}
+            <option value="{{ value }}" {% if form.birth_month.value|stringformat:"s" == value|stringformat:"s" %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        {% if form.birth_day.errors %}<p class="text-error text-sm mt-1">{{ form.birth_day.errors|join:" " }}</p>{% endif %}
+        <p class="text-xs text-on-surface-variant mt-1">Pra gerar o alerta de aniversário (Configurações).</p>
+      </div>
       <div class="pt-4 flex justify-end">
         <button class="px-8 py-3 rounded-pill bg-primary text-on-primary font-semibold hover:opacity-90 transition-opacity active:scale-95" type="submit">
           {% if client %}Salvar dados{% else %}Cadastrar cliente{% endif %}

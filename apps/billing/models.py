@@ -14,6 +14,13 @@ class Plan(models.Model):
     )
     is_active = models.BooleanField("ativo", default=True)
     order = models.PositiveSmallIntegerField("ordem de exibição", default=0)
+    max_employees = models.PositiveSmallIntegerField(
+        "limite de funcionários", null=True, blank=True,
+        help_text="Quantidade máxima de contas de funcionário (login próprio) permitida "
+        "neste plano. O perfil do responsável usando \"também atende\" (Configurações) "
+        "reaproveita o próprio login do dono e NUNCA conta aqui — ver "
+        "apps.employees.models.Employee.is_owner. Vazio = sem limite.",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

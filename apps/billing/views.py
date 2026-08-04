@@ -28,17 +28,17 @@ from .models import Plan, Subscription, SubscriptionStatus
 # model — só 3 planos conhecidos, ver 01-REQUISITOS.md §4.2). Chave = nome do
 # `Plan` no banco (seed em `apps/billing/migrations`).
 PLAN_HIGHLIGHTS = {
-    "Essencial": [
-        "Até 2 funcionários",
+    "Individual": [
+        "Só você atendendo — sem conta de funcionário extra",
         "Estoque básico (produto + baixa manual)",
     ],
     "Profissional": [
-        "Até 6 funcionários",
+        "Até 3 funcionários",
         "Estoque profissional completo (fornecedor, lote/validade, custo médio, inventário)",
         "Relatórios avançados (em breve)",
     ],
-    "Ilimitado": [
-        "Funcionários ilimitados",
+    "Studio": [
+        "Até 6 funcionários",
         "Estoque profissional completo",
         "Relatórios avançados (em breve)",
         "Notificação automática por WhatsApp (em breve)",

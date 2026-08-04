@@ -25,20 +25,29 @@
       <p class="text-sm text-on-surface-variant italic mb-6">Este cliente não tem um WhatsApp válido cadastrado — só é possível confirmar sem enviar mensagem.</p>
       {% endif %}
 
-      <div class="flex justify-end gap-3">
-        <button type="button" class="px-5 py-2.5 rounded-pill border border-outline-variant text-on-surface-variant font-medium hover:bg-surface-variant transition-colors"
-                onclick="document.getElementById('modal-slot').innerHTML = ''">Cancelar</button>
+      <div class="flex flex-col gap-3">
         <button type="button"
-                class="px-6 py-2.5 rounded-pill bg-primary text-on-primary font-semibold hover:opacity-90 transition-opacity active:scale-95 inline-flex items-center gap-2"
+                class="w-full px-6 py-2.5 rounded-pill bg-primary text-on-primary font-semibold hover:opacity-90 transition-opacity active:scale-95 inline-flex items-center justify-center gap-2 whitespace-nowrap"
                 {% if whatsapp_phone %}@click="window.open('https://wa.me/55{{ whatsapp_phone }}?text=' + encodeURIComponent(message), '_blank')"{% endif %}
                 hx-post="{{ confirm_url }}" hx-target="{{ target }}" hx-swap="outerHTML">
           {% if whatsapp_phone %}
           <span class="material-symbols-outlined text-[18px]">chat</span>
-          Confirmar e avisar no WhatsApp
+          Confirmar no WhatsApp
           {% else %}
           Confirmar
           {% endif %}
         </button>
+        <div class="flex gap-3">
+          <button type="button" class="flex-1 px-5 py-2.5 rounded-pill border border-outline-variant text-on-surface-variant font-medium hover:bg-surface-variant transition-colors whitespace-nowrap"
+                  onclick="document.getElementById('modal-slot').innerHTML = ''">Cancelar</button>
+          {% if whatsapp_phone %}
+          <button type="button"
+                  class="flex-1 px-5 py-2.5 rounded-pill border border-outline-variant text-on-surface font-medium hover:bg-surface-variant transition-colors whitespace-nowrap"
+                  hx-post="{{ confirm_url }}" hx-target="{{ target }}" hx-swap="outerHTML">
+            Só confirmar
+          </button>
+          {% endif %}
+        </div>
       </div>
     </div>
   </div>

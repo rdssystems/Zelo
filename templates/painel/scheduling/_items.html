@@ -8,8 +8,23 @@
       <p class="text-xs text-on-surface-variant">{{ appointment.end_time|time:"H:i" }}</p>
     </div>
     <div class="flex-1">
-      <p class="font-semibold text-on-surface">{{ appointment.service.name }}</p>
-      <p class="text-sm text-on-surface-variant">{{ appointment.client.name }} · com {{ appointment.employee.full_name }}</p>
+      <p class="font-semibold text-on-surface flex items-center gap-2 flex-wrap">
+        {{ appointment.service.name }}
+        {% if appointment.package_id %}
+        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-pill text-[11px] font-semibold uppercase bg-secondary-container text-on-secondary-container"
+              title="Incluso no pacote {{ appointment.package.name }}">
+          <span class="material-symbols-outlined text-[12px]">redeem</span>Mensalidade
+        </span>
+        {% endif %}
+      </p>
+      <p class="text-sm text-on-surface-variant flex items-center gap-1 flex-wrap">
+        <span>{{ appointment.client.name }} · com {{ appointment.employee.full_name }}</span>
+        <button type="button" title="Ver observações do cliente"
+                class="p-1 rounded-full text-outline hover:text-primary hover:bg-surface-container transition-colors align-middle"
+                hx-get="{% url 'clients:preferences_modal' appointment.client.pk %}" hx-target="#modal-slot" hx-swap="innerHTML">
+          <span class="material-symbols-outlined text-[16px] block">sticky_note_2</span>
+        </button>
+      </p>
     </div>
     <div>
       {% if appointment.status == "pending" %}
