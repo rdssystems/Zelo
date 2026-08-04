@@ -99,6 +99,27 @@ servidor, ler esse arquivo inteiro primeiro; depois de qualquer mudança feita n
 atualizá-lo. Se o arquivo não existir na sua sessão, perguntar ao usuário os dados de acesso
 antes de assumir.
 
+## Deploy (produção, implantado em 2026-08-04)
+
+Push em `main` no GitHub (`rdssystems/Zelo`) dispara deploy automático via GitHub Actions
+(`.github/workflows/deploy.yml` → SSH restrito → `atualizar.sh` na VPS: `git pull` + build +
+migrate + collectstatic + `up -d`). Detalhe técnico completo em `04-INFRAESTRUTURA.md` §5.
+
+**Antes de mesclar em `main` mudança não-trivial** (não só um typo/CSS): testar numa branch
+separada. Como nem toda máquina de trabalho tem Docker local, o jeito confiável é testar direto
+na VPS sem afetar produção — o `docker-compose.prod.yml` não monta o código via bind (só
+`docker-compose.override.yml`, que é só dev), então trocar de branch no checkout da VPS e
+buildar uma imagem de teste não mexe nos containers já rodando:
+```bash
+ssh -p 22022 root@<IP>   # ver VPS-INFRAESTRUTURA-ATUAL.md pro IP
+cd /root/zelo && git stash && git fetch origin && git checkout <branch>
+docker compose -f docker-compose.yml -f docker-compose.prod.yml build web
+docker compose -f docker-compose.yml -f docker-compose.prod.yml run --rm web python manage.py test
+git checkout main && git stash pop   # restaura o checkout de produção antes de sair
+```
+Só depois de testes passando: mesclar a branch em `main` localmente e `git push origin main` —
+esse push já dispara o deploy de verdade.
+
 ## Comandos úteis
 ```bash
 docker compose up -d

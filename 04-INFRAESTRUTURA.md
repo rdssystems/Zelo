@@ -2,11 +2,16 @@
 
 ## 1. Visão geral
 
-Deploy em **VPS próprio**, via Docker Compose, com Nginx como proxy reverso + SSL (Certbot).
+Deploy em VPS **compartilhada com outros produtos** (não exclusiva do Zellup — ver
+`VPS-INFRAESTRUTURA-ATUAL.md`, arquivo local não versionado, pra inventário completo). Entrada
+pública via **nginx-proxy-manager** (NPM, container à parte, fora do `docker-compose.yml` do
+Zellup — já servia outros domínios do host antes do Zellup existir), não um `nginx`/`certbot`
+dedicado no compose do projeto.
 
 ```
-Internet → Nginx (80/443, SSL) → Gunicorn (Django) → Postgres
-                                                      → Redis → Celery worker / beat
+Internet → Cloudflare (Full/strict) → nginx-proxy-manager (80/443, Let's Encrypt)
+         → Gunicorn (Django, container "web") → Postgres
+                                               → Redis → Celery worker / beat
 ```
 
 ## 2. Serviços no `docker-compose.yml`
@@ -18,8 +23,10 @@ Internet → Nginx (80/443, SSL) → Gunicorn (Django) → Postgres
 | `celery_beat` | mesma imagem do `web` | agenda tasks periódicas (ex: checar assinaturas vencidas) |
 | `db` | `postgres:16` | banco principal |
 | `redis` | `redis:7` | broker do Celery + cache |
-| `nginx` | `nginx:alpine` | proxy reverso, serve `static/`, TLS |
-| `certbot` | `certbot/certbot` | renovação automática de certificado |
+
+Estático é servido pelo próprio Gunicorn via **Whitenoise** (`config/settings.py::STORAGES`) —
+não tem serviço `nginx`/`static` dedicado. TLS e proxy reverso ficam no **nginx-proxy-manager**,
+que não faz parte deste `docker-compose.yml` (é da VPS, compartilhado — ver seção 5).
 
 ## 3. Ambientes
 
@@ -46,17 +53,37 @@ MEDIA_ROOT=/app/media
 STATIC_ROOT=/app/static
 ```
 
-## 5. Deploy — passo a passo (produção)
+## 5. Deploy — automático via GitHub Actions (implantado em 2026-08-04)
 
-1. `git pull` no VPS (ou pipeline CI simples via GitHub Actions + SSH deploy).
+Todo push em `main` do repo (`github.com/rdssystems/Zelo`) dispara o workflow
+`.github/workflows/deploy.yml`, que conecta via SSH na VPS e roda `atualizar.sh`
+(`/root/zelo/atualizar.sh`), que faz:
+1. `git pull origin main`.
 2. `docker compose -f docker-compose.yml -f docker-compose.prod.yml build`
-3. `docker compose ... run --rm web python manage.py migrate`
-4. `docker compose ... run --rm web python manage.py collectstatic --noinput`
-5. `docker compose ... up -d`
-6. Healthcheck simples em `/healthz/` (endpoint leve, sem tocar banco pesado, para monitoramento).
+3. `... run --rm web python manage.py migrate --noinput`
+4. `... run --rm web python manage.py collectstatic --noinput`
+5. `... up -d`
 
-Recomendo, quando o projeto estabilizar, configurar um pipeline no GitHub Actions
-(build → testes → deploy via SSH) em vez de deploy manual — mas isso pode entrar depois do MVP.
+A chave SSH usada pelo workflow é **dedicada** (não a de acesso pessoal), restrita no
+`authorized_keys` da VPS via `command="/root/zelo/atualizar.sh"` — mesmo que o secret do GitHub
+vaze, só dá pra rodar esse script, nada além disso. Healthcheck em `/healthz/` (endpoint leve,
+sem tocar banco pesado) pra monitoramento.
+
+**Prática adotada pra mudanças não-triviais** (evita testar direto em produção, já que não há
+Docker local disponível em toda máquina de trabalho):
+1. Commitar numa branch separada (não `main`) e dar push.
+2. Na VPS, `git checkout` dessa branch **sem afetar os containers em produção** — o
+   `docker-compose.prod.yml` não usa bind-mount do código (diferente do `docker-compose.override.yml`
+   de dev), então trocar a branch no disco não muda o que já está rodando.
+3. Buildar uma imagem de teste isolada (`docker compose ... build web`) e rodar
+   `... run --rm web python manage.py test` contra o Postgres/Redis reais da VPS, num container
+   descartável — valida com fidelidade total ao ambiente de produção, sem arriscá-lo.
+4. Se os testes passarem: `git checkout main` de volta na VPS (restaura o checkout de produção),
+   mesclar a branch em `main` localmente, `git push origin main` — o passo 4 sozinho já dispara
+   o deploy automático de verdade.
+
+Deploy manual (sem passar pelo Actions) continua possível rodando `atualizar.sh` direto na VPS
+via SSH, se precisar.
 
 ## 6. Backups
 
