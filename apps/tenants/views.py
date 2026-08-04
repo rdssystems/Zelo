@@ -95,7 +95,13 @@ def signup_view(request):
                 # caminho local. O cadastro via Google já chega com e-mail
                 # verificado pelo próprio Google (ver adapters.py), não passa
                 # por aqui. Não bloqueia o login acima, é só validação.
-                EmailAddress.objects.add_email(request, user, user.email, confirm=True)
+                # `add_email` não marca `primary=True` sozinho (ver
+                # allauth/account/managers.py) — precisa do `set_as_primary`
+                # explícito, senão o EmailAddress fica "órfão" sem primary.
+                email_address = EmailAddress.objects.add_email(
+                    request, user, user.email, confirm=True
+                )
+                email_address.set_as_primary()
                 messages.success(
                     request,
                     f"Salão criado! Sua página pública é /{tenant.slug}/ — "

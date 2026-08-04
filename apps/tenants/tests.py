@@ -1,6 +1,7 @@
 import datetime
 from decimal import Decimal
 
+from allauth.account.models import EmailAddress
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import AnonymousUser
 from django.core.exceptions import ValidationError
@@ -726,6 +727,20 @@ class SignUpViewTest(TestCase):
         # já autenticado após o cadastro
         response = self.client.get("/painel/servicos/")
         self.assertEqual(response.status_code, 200)
+
+    def test_signup_creates_unverified_primary_email_and_sends_confirmation(self):
+        """Regressão: `EmailAddress.objects.add_email()` não marca `primary`
+        sozinho (ver allauth/account/managers.py) — sem o `set_as_primary`
+        explícito em `signup_view`, o e-mail ficava órfão sem primary."""
+        from django.core import mail
+
+        self.client.post("/cadastrar/", self._valid_payload())
+        user = User.objects.get(email="dona@espacobeleza.com")
+        email_address = EmailAddress.objects.get(user=user, email=user.email)
+        self.assertTrue(email_address.primary)
+        self.assertFalse(email_address.verified)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn("Confirme seu e-mail", mail.outbox[0].subject)
 
     def test_password_mismatch_rejected(self):
         response = self.client.post(
