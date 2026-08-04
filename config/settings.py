@@ -134,9 +134,11 @@ SOCIALACCOUNT_ADAPTER = "apps.accounts.adapters.ZellupSocialAccountAdapter"
 ACCOUNT_USER_MODEL_USERNAME_FIELD = None
 ACCOUNT_LOGIN_METHODS = {"email"}
 ACCOUNT_SIGNUP_FIELDS = ["email*"]
-# Google já verifica o e-mail — não precisamos do fluxo de verificação do
-# allauth (que dependeria de EMAIL_HOST configurado em produção).
-ACCOUNT_EMAIL_VERIFICATION = "none"
+# "optional": pedimos confirmação de e-mail (cadastro local, ver
+# apps/tenants/views.py::signup_view), mas não bloqueia login — o cadastro
+# via Google já vem com e-mail verificado pelo próprio Google, então nunca
+# precisa desse fluxo.
+ACCOUNT_EMAIL_VERIFICATION = "optional"
 SOCIALACCOUNT_QUERY_EMAIL = True
 # Sem isso, o allauth mostra uma tela intermediária própria ("Você está
 # prestes a fazer login com uma conta de terceiros...", sem nenhum estilo

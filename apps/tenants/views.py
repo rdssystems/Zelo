@@ -1,3 +1,4 @@
+from allauth.account.models import EmailAddress
 from django.contrib import messages
 from django.contrib.auth import login as auth_login
 from django.contrib.auth import logout as auth_logout
@@ -90,6 +91,11 @@ def signup_view(request):
                 # "multiple authentication backends" que o allauth introduziu
                 # (ver AUTHENTICATION_BACKENDS em config/settings.py).
                 auth_login(request, user, backend="django.contrib.auth.backends.ModelBackend")
+                # Dispara e-mail de confirmação (allauth) — só pra este
+                # caminho local. O cadastro via Google já chega com e-mail
+                # verificado pelo próprio Google (ver adapters.py), não passa
+                # por aqui. Não bloqueia o login acima, é só validação.
+                EmailAddress.objects.add_email(request, user, user.email, confirm=True)
                 messages.success(
                     request,
                     f"Salão criado! Sua página pública é /{tenant.slug}/ — "

@@ -118,7 +118,10 @@
           <input class="w-full bg-surface-container-high border-0 border-b border-outline-variant focus:border-primary focus:ring-0 text-on-surface font-body-md text-body-md px-4 py-3 transition-colors placeholder:text-on-surface-variant/50 focus:shadow-[0_1px_0_0_#f2ca50]" id="id_username" name="username" placeholder="seu@email.com" type="email" autocomplete="email" autofocus required/>
         </div>
         <div class="space-y-1">
-          <label class="block font-label-md text-label-md text-on-surface-variant" for="id_password">SENHA</label>
+          <div class="flex items-center justify-between">
+            <label class="block font-label-md text-label-md text-on-surface-variant" for="id_password">SENHA</label>
+            <a class="font-label-md text-label-md text-primary hover:text-primary-fixed-dim underline underline-offset-4 decoration-primary/50 transition-colors" href="{% url 'account_reset_password' %}">Esqueceu a senha?</a>
+          </div>
           <input class="w-full bg-surface-container-high border-0 border-b border-outline-variant focus:border-primary focus:ring-0 text-on-surface font-body-md text-body-md px-4 py-3 transition-colors placeholder:text-on-surface-variant/50 focus:shadow-[0_1px_0_0_#f2ca50]" id="id_password" name="password" placeholder="••••••••" type="password" autocomplete="current-password" required/>
         </div>
         <input name="next" type="hidden" value="{{ next }}"/>
@@ -172,7 +175,10 @@
           <input class="bg-transparent border-0 border-b border-on-background focus:ring-0 focus:border-primary px-0 py-2 font-body-lg text-body-lg text-on-background placeholder-surface-variant transition-colors" id="id_username" name="username" placeholder="seu@email.com" type="email" autocomplete="email" autofocus required/>
         </div>
         <div class="flex flex-col">
-          <label class="font-label-caps text-label-caps text-on-surface-variant mb-2" for="id_password">Senha</label>
+          <div class="flex items-center justify-between mb-2">
+            <label class="font-label-caps text-label-caps text-on-surface-variant" for="id_password">Senha</label>
+            <a class="font-label-caps text-label-caps text-primary hover:text-on-background underline underline-offset-4 decoration-outline-variant transition-colors" href="{% url 'account_reset_password' %}">Esqueceu a senha?</a>
+          </div>
           <input class="bg-transparent border-0 border-b border-on-background focus:ring-0 focus:border-primary px-0 py-2 font-body-lg text-body-lg text-on-background placeholder-surface-variant transition-colors" id="id_password" name="password" placeholder="••••••••" type="password" autocomplete="current-password" required/>
         </div>
         <input name="next" type="hidden" value="{{ next }}"/>

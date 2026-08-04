@@ -1,0 +1,8 @@
+{% load account %}{% user_display user as user_display %}Olá, {{ user_display }}.
+
+Confirme seu e-mail pra finalizar o cadastro do seu salão no Zellup:
+{{ activate_url }}
+
+Se você não criou essa conta, pode ignorar este e-mail.
+
+Equipe Zellup

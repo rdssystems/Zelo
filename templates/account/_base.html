@@ -1,0 +1,49 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>{% block title %}Zellup{% endblock %}</title>
+{% include "_favicon.html" %}
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,600..800;1,6..96,600..800&family=Chivo:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+        theme: { extend: {
+            colors: {
+                "surface-variant": "#e9e1dc", "outline": "#8d716b", "error-container": "#ffdad6",
+                "secondary": "#5f5e5b", "surface": "#fff8f5", "error": "#ba1a1a",
+                "surface-container-highest": "#e9e1dc", "primary-container": "#cb4830",
+                "surface-container-high": "#efe6e2", "on-error-container": "#93000a",
+                "outline-variant": "#e0bfb8", "on-background": "#1e1b18", "primary": "#aa301a",
+                "surface-container": "#f5ece7", "surface-container-low": "#fbf2ed",
+                "on-surface": "#1e1b18", "background": "#fff8f5", "on-surface-variant": "#59413c",
+                "on-primary": "#ffffff", "success-container": "#dff0d8", "on-success-container": "#2d5a2a"
+            },
+            borderRadius: { DEFAULT: "0.25rem", lg: "0.5rem", xl: "0.75rem" },
+            fontFamily: { body: ["Chivo"], display: ["\"Bodoni Moda\""] }
+        } }
+    }
+</script>
+<style>
+  /* Sombra "carimbada" reaproveitada do cartão de login — assinatura visual do Zellup */
+  .stamp-shadow { box-shadow: 10px 10px 0px 0px rgba(30,27,24,0.06); }
+</style>
+</head>
+<body class="bg-background text-on-background font-body min-h-screen flex flex-col items-center justify-center p-6 antialiased">
+  <div class="w-full max-w-md">
+    <div class="text-center mb-8">
+      <a href="/" class="font-display text-4xl text-primary tracking-tight">Zellup<span class="text-on-background">.</span></a>
+    </div>
+    <div class="bg-surface border border-on-background/10 rounded-lg p-8 stamp-shadow">
+      {% block content %}{% endblock %}
+    </div>
+    <p class="text-center text-sm text-on-surface-variant mt-6">
+      <a class="hover:text-primary underline underline-offset-4 decoration-outline-variant transition-colors" href="{% url 'login' %}">Voltar para o login</a>
+    </p>
+  </div>
+</body>
+</html>
