@@ -1,209 +1,83 @@
-{% load static %}
+{% extends entrance_base %}
 {% load socialaccount %}
-<!DOCTYPE html>
-<html class="{% if theme == 'barbearia' %}dark{% else %}light{% endif %}" lang="pt-BR">
-<head>
-<meta charset="utf-8"/>
-<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>Entrar — Zellup</title>
-{% include "_favicon.html" %}
-<link href="https://fonts.googleapis.com" rel="preconnect"/>
-<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
-{% if theme == "barbearia" %}
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&amp;family=Source+Sans+3:ital,wght@0,200..900;1,200..900&amp;display=swap" rel="stylesheet"/>
-{% else %}
-<link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400..900;1,6..96,400..900&amp;family=Chivo:ital,wght@0,100..900;1,100..900&amp;display=swap" rel="stylesheet"/>
-{% endif %}
-<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-<link href="{% static 'css/login.css' %}" rel="stylesheet"/>
-{% if theme == "barbearia" %}
-<script id="tailwind-config">
-    tailwind.config = {
-        darkMode: "class",
-        theme: { extend: {
-            "colors": {
-                "surface-variant": "#353530", "on-primary": "#3c2f00", "surface-container-highest": "#353530",
-                "surface-bright": "#3a3935", "error-container": "#93000a", "surface-container-lowest": "#0e0e0b",
-                "error": "#ffb4ab", "surface-container": "#20201c", "outline": "#99907c",
-                "on-error-container": "#ffdad6", "on-background": "#e5e2db", "surface": "#131410",
-                "surface-container-high": "#2a2a26", "on-secondary": "#3f2c20", "inverse-surface": "#e5e2db",
-                "primary-container": "#d4af37", "primary-fixed-dim": "#e9c349", "on-tertiary": "#313030",
-                "on-surface": "#e5e2db", "outline-variant": "#4d4635", "on-primary-container": "#554300",
-                "primary": "#f2ca50", "on-error": "#690005", "surface-dim": "#131410",
-                "surface-container-low": "#1c1c18", "inverse-on-surface": "#31312c", "on-surface-variant": "#d0c5af",
-                "background": "#131410"
-            },
-            "borderRadius": { "DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem" },
-            "fontFamily": {
-                "label-md": ["\"Source Sans 3\""], "headline-lg-mobile": ["Playfair Display"], "headline-lg": ["Playfair Display"],
-                "body-lg": ["\"Source Sans 3\""], "display-lg": ["Playfair Display"], "display-md": ["Playfair Display"],
-                "body-md": ["\"Source Sans 3\""]
-            },
-            "fontSize": {
-                "label-md": ["14px", { "lineHeight": "20px", "letterSpacing": "0.1em", "fontWeight": "700" }],
-                "headline-lg-mobile": ["28px", { "lineHeight": "36px", "fontWeight": "600" }],
-                "headline-lg": ["32px", { "lineHeight": "40px", "fontWeight": "600" }],
-                "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
-                "display-lg": ["56px", { "lineHeight": "64px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
-                "display-md": ["40px", { "lineHeight": "48px", "letterSpacing": "-0.01em", "fontWeight": "700" }],
-                "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }]
-            }
-        } }
-    }
-</script>
-{% else %}
-<script id="tailwind-config">
-    tailwind.config = {
-        darkMode: "class",
-        theme: { extend: {
-            "colors": {
-                "surface-variant": "#e9e1dc", "on-error": "#ffffff", "outline": "#8d716b",
-                "error-container": "#ffdad6", "secondary": "#5f5e5b", "surface": "#fff8f5",
-                "on-secondary": "#ffffff", "on-primary": "#ffffff", "error": "#ba1a1a",
-                "surface-container-highest": "#e9e1dc", "surface-container-lowest": "#ffffff", "primary-container": "#cb4830",
-                "surface-container-high": "#efe6e2", "on-error-container": "#93000a", "surface-dim": "#e1d8d4",
-                "outline-variant": "#e0bfb8", "on-background": "#1e1b18", "primary": "#aa301a",
-                "surface-container": "#f5ece7", "surface-container-low": "#fbf2ed", "on-surface": "#1e1b18",
-                "surface-bright": "#fff8f5", "background": "#fff8f5", "on-surface-variant": "#59413c"
-            },
-            "borderRadius": { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" },
-            "spacing": { "section-gap": "8rem", "gutter": "1.5rem", "stack-md": "1.5rem", "stack-sm": "0.5rem", "stack-lg": "3rem", "margin-edge": "2rem" },
-            "fontFamily": {
-                "body-lg": ["Chivo"], "display-lg-mobile": ["Bodoni Moda"], "label-caps": ["Chivo"],
-                "display-lg": ["Bodoni Moda"], "headline-lg": ["Bodoni Moda"], "body-md": ["Chivo"], "headline-md": ["Bodoni Moda"]
-            },
-            "fontSize": {
-                "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
-                "display-lg-mobile": ["48px", { "lineHeight": "52px", "letterSpacing": "-0.02em", "fontWeight": "800" }],
-                "label-caps": ["12px", { "lineHeight": "16px", "letterSpacing": "0.1em", "fontWeight": "700" }],
-                "display-lg": ["84px", { "lineHeight": "92px", "letterSpacing": "-0.04em", "fontWeight": "800" }],
-                "headline-lg": ["40px", { "lineHeight": "48px", "fontWeight": "700" }],
-                "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
-                "headline-md": ["32px", { "lineHeight": "40px", "fontWeight": "600" }]
-            }
-        } }
-    }
-</script>
-{% endif %}
-</head>
-{% if theme == "barbearia" %}
-<body class="bg-surface text-on-surface min-h-screen flex items-center justify-center font-body-md overflow-x-hidden antialiased">
-<div class="fixed inset-0 texture-overlay z-0"></div>
-<div class="w-full min-h-screen flex flex-col md:flex-row relative z-10">
-  <div class="w-full md:w-1/2 bg-login-barbearia bg-surface-container-lowest flex flex-col justify-center items-center p-8 md:p-16 relative overflow-hidden min-h-[30vh] md:min-h-screen inner-shadow-brass border-b md:border-b-0 md:border-r border-outline-variant">
-    <div class="relative z-10 text-center flex flex-col items-center">
-      <div class="w-16 h-16 md:w-24 md:h-24 mb-6 text-primary flex items-center justify-center border-2 border-primary rounded-full inner-shadow-brass bg-surface-container/50 backdrop-blur-sm">
-        <span class="material-symbols-outlined text-4xl md:text-5xl" style="font-variation-settings: 'FILL' 0, 'wght' 200;">cut</span>
-      </div>
-      <h1 class="font-display-md text-display-md md:font-display-lg md:text-display-lg text-primary tracking-tighter mb-4">Zellup</h1>
-      <p class="font-body-lg text-body-lg text-on-surface-variant max-w-sm text-center italic">O cuidado que seu negócio merece.</p>
-    </div>
-  </div>
-  <div class="w-full md:w-1/2 bg-surface flex flex-col justify-center px-8 md:px-16 py-12 md:py-0 relative">
-    <div class="max-w-md w-full mx-auto space-y-8">
-      <div class="text-center md:text-left">
-        <h2 class="font-headline-lg-mobile text-headline-lg-mobile md:font-headline-lg md:text-headline-lg text-on-surface mb-2">Bem-vindo de volta</h2>
-        <p class="font-body-md text-body-md text-on-surface-variant">Acesse sua conta para gerenciar seus agendamentos.</p>
-      </div>
-      {% if form.errors %}
-      <div class="rounded-DEFAULT bg-error-container text-on-error-container px-4 py-3 text-sm" role="alert">
-        E-mail ou senha inválidos. Verifique e tente novamente.
-      </div>
-      {% endif %}
-      <form class="space-y-6" method="post">
-        {% csrf_token %}
-        <div class="space-y-1">
-          <label class="block font-label-md text-label-md text-on-surface-variant" for="id_username">E-MAIL</label>
-          <input class="w-full bg-surface-container-high border-0 border-b border-outline-variant focus:border-primary focus:ring-0 text-on-surface font-body-md text-body-md px-4 py-3 transition-colors placeholder:text-on-surface-variant/50 focus:shadow-[0_1px_0_0_#f2ca50]" id="id_username" name="username" placeholder="seu@email.com" type="email" autocomplete="email" autofocus required/>
-        </div>
-        <div class="space-y-1">
-          <div class="flex items-center justify-between">
-            <label class="block font-label-md text-label-md text-on-surface-variant" for="id_password">SENHA</label>
-            <a class="font-label-md text-label-md text-primary hover:text-primary-fixed-dim underline underline-offset-4 decoration-primary/50 transition-colors" href="{% url 'account_reset_password' %}">Esqueceu a senha?</a>
-          </div>
-          <input class="w-full bg-surface-container-high border-0 border-b border-outline-variant focus:border-primary focus:ring-0 text-on-surface font-body-md text-body-md px-4 py-3 transition-colors placeholder:text-on-surface-variant/50 focus:shadow-[0_1px_0_0_#f2ca50]" id="id_password" name="password" placeholder="••••••••" type="password" autocomplete="current-password" required/>
-        </div>
-        <input name="next" type="hidden" value="{{ next }}"/>
-        <button class="w-full brushed-metal text-on-primary font-label-md text-label-md py-4 rounded-DEFAULT hover:brightness-110 active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(242,202,80,0.15)]" type="submit">
-          ENTRAR
-          <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0, 'wght' 400;">arrow_forward</span>
-        </button>
-      </form>
-      <div class="flex items-center gap-4 py-2">
-        <div class="flex-1 h-px bg-outline-variant"></div>
-        <span class="font-label-md text-label-md text-on-surface-variant uppercase tracking-widest">ou</span>
-        <div class="flex-1 h-px bg-outline-variant"></div>
-      </div>
-      <a class="w-full bg-transparent border border-primary text-primary font-label-md text-label-md py-4 rounded-DEFAULT hover:bg-primary/5 active:scale-[0.98] transition-all flex items-center justify-center gap-3" href="{% provider_login_url 'google' %}">
-        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-          <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"></path>
-          <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"></path>
-          <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"></path>
-          <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"></path>
-        </svg>
-        CONTINUAR COM GOOGLE
-      </a>
-      <p class="text-center font-body-md text-body-md text-on-surface-variant pt-4">
-        Ainda não tem um salão cadastrado? <a class="text-primary hover:text-primary-fixed-dim underline underline-offset-4 decoration-primary/50 transition-colors" href="{% url 'signup' %}">Cadastre-se</a>
-      </p>
-    </div>
-  </div>
+{% block title %}Entrar — Zellup{% endblock %}
+{% block content %}
+{% if entrance_theme == "barbearia" %}
+<div class="text-center md:text-left">
+  <h2 class="font-headline-lg-mobile text-headline-lg-mobile md:font-headline-lg md:text-headline-lg text-on-surface mb-2">Bem-vindo de volta</h2>
+  <p class="font-body-md text-body-md text-on-surface-variant">Acesse sua conta para gerenciar seus agendamentos.</p>
 </div>
-{% else %}
-<body class="bg-background text-on-background font-body-md min-h-screen w-screen overflow-x-hidden flex flex-col md:flex-row">
-  <div class="relative w-full md:w-[60%] h-[40vh] md:h-screen bg-login-salao bg-surface-container flex flex-col justify-center items-center md:items-start p-8 md:p-section-gap overflow-hidden z-10 border-b md:border-b-0 md:border-r border-on-background border-opacity-10">
-    <div class="relative z-10 max-w-xl text-center md:text-left">
-      <h1 class="font-display-lg-mobile text-display-lg-mobile md:font-display-lg md:text-display-lg text-primary tracking-tight mb-stack-sm md:mb-stack-md leading-none">Zellup<span class="text-on-background">.</span></h1>
-      <p class="font-headline-md text-headline-md text-on-surface-variant italic mb-stack-lg max-w-md hidden md:block">
-        A arte de agendar com elegância e precisão.
-      </p>
-    </div>
-  </div>
-  <div class="w-full md:w-[40%] min-h-[60vh] md:h-screen flex items-center justify-center p-gutter md:p-margin-edge relative z-20 bg-background md:bg-transparent">
-    <div class="w-full max-w-md bg-surface p-stack-lg rounded-none border border-on-background md:-ml-24 shadow-[16px_16px_0px_0px_rgba(30,27,24,1)] relative bg-clip-padding">
-      <h2 class="font-headline-lg text-headline-lg text-on-background mb-stack-md text-center">Entrar</h2>
-      {% if form.errors %}
-      <div class="mb-stack-md rounded-DEFAULT bg-error-container text-on-error-container px-4 py-3 text-sm" role="alert">
-        E-mail ou senha inválidos. Verifique e tente novamente.
-      </div>
-      {% endif %}
-      <form class="space-y-stack-md flex flex-col" method="post">
-        {% csrf_token %}
-        <div class="flex flex-col">
-          <label class="font-label-caps text-label-caps text-on-surface-variant mb-2" for="id_username">E-mail</label>
-          <input class="bg-transparent border-0 border-b border-on-background focus:ring-0 focus:border-primary px-0 py-2 font-body-lg text-body-lg text-on-background placeholder-surface-variant transition-colors" id="id_username" name="username" placeholder="seu@email.com" type="email" autocomplete="email" autofocus required/>
-        </div>
-        <div class="flex flex-col">
-          <div class="flex items-center justify-between mb-2">
-            <label class="font-label-caps text-label-caps text-on-surface-variant" for="id_password">Senha</label>
-            <a class="font-label-caps text-label-caps text-primary hover:text-on-background underline underline-offset-4 decoration-outline-variant transition-colors" href="{% url 'account_reset_password' %}">Esqueceu a senha?</a>
-          </div>
-          <input class="bg-transparent border-0 border-b border-on-background focus:ring-0 focus:border-primary px-0 py-2 font-body-lg text-body-lg text-on-background placeholder-surface-variant transition-colors" id="id_password" name="password" placeholder="••••••••" type="password" autocomplete="current-password" required/>
-        </div>
-        <input name="next" type="hidden" value="{{ next }}"/>
-        <div class="pt-stack-sm flex flex-col gap-4">
-          <button class="w-full bg-primary text-on-primary font-label-caps text-label-caps py-4 px-6 border border-primary hover:bg-surface hover:text-primary transition-colors uppercase tracking-widest" type="submit">
-            Entrar
-          </button>
-          <div class="relative flex py-4 items-center">
-            <div class="flex-grow border-t border-outline-variant"></div>
-            <span class="flex-shrink-0 mx-4 font-label-caps text-label-caps text-on-surface-variant">OU</span>
-            <div class="flex-grow border-t border-outline-variant"></div>
-          </div>
-          <a class="w-full bg-transparent text-on-background font-label-caps text-label-caps py-4 px-6 border border-on-background hover:bg-on-background hover:text-surface transition-colors uppercase tracking-widest flex items-center justify-center gap-2" href="{% provider_login_url 'google' %}">
-            <span class="material-symbols-outlined">login</span>
-            Continuar com Google
-          </a>
-        </div>
-      </form>
-      <div class="mt-stack-lg text-center">
-        <a class="font-body-md text-body-md text-on-surface-variant hover:text-primary transition-colors underline underline-offset-4 decoration-outline-variant hover:decoration-primary" href="{% url 'signup' %}">
-          Ainda não tem um salão cadastrado? Cadastre-se
-        </a>
-      </div>
-    </div>
-  </div>
+{% if form.errors %}
+<div class="rounded-DEFAULT bg-error-container text-on-error-container px-4 py-3 text-sm" role="alert">
+  E-mail ou senha inválidos. Verifique e tente novamente.
+</div>
 {% endif %}
-</body>
-</html>
+<form class="space-y-6" method="post">
+  {% csrf_token %}
+  <div class="space-y-1">
+    <label class="block font-label-md text-label-md text-on-surface-variant" for="id_username">E-MAIL</label>
+    <input class="w-full bg-surface-container-high border-0 border-b border-outline-variant focus:border-primary focus:ring-0 text-on-surface font-body-md text-body-md px-4 py-3 transition-colors placeholder:text-on-surface-variant/50 focus:shadow-[0_1px_0_0_#f2ca50]" id="id_username" name="username" placeholder="seu@email.com" type="email" autocomplete="email" autofocus required/>
+  </div>
+  <div class="space-y-1">
+    <div class="flex items-center justify-between">
+      <label class="block font-label-md text-label-md text-on-surface-variant" for="id_password">SENHA</label>
+      <a class="font-label-md text-label-md text-primary hover:text-primary-fixed-dim underline underline-offset-4 decoration-primary/50 transition-colors" href="{% url 'account_reset_password' %}">Esqueceu a senha?</a>
+    </div>
+    <input class="w-full bg-surface-container-high border-0 border-b border-outline-variant focus:border-primary focus:ring-0 text-on-surface font-body-md text-body-md px-4 py-3 transition-colors placeholder:text-on-surface-variant/50 focus:shadow-[0_1px_0_0_#f2ca50]" id="id_password" name="password" placeholder="••••••••" type="password" autocomplete="current-password" required/>
+  </div>
+  <input name="next" type="hidden" value="{{ next }}"/>
+  <button class="w-full brushed-metal text-on-primary font-label-md text-label-md py-4 rounded-DEFAULT hover:brightness-110 active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(242,202,80,0.15)]" type="submit">
+    ENTRAR
+    <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0, 'wght' 400;">arrow_forward</span>
+  </button>
+</form>
+<div class="flex items-center gap-4 py-2">
+  <div class="flex-1 h-px bg-outline-variant"></div>
+  <span class="font-label-md text-label-md text-on-surface-variant uppercase tracking-widest">ou</span>
+  <div class="flex-1 h-px bg-outline-variant"></div>
+</div>
+<a class="w-full bg-transparent border border-primary text-primary font-label-md text-label-md py-4 rounded-DEFAULT hover:bg-primary/5 active:scale-[0.98] transition-all flex items-center justify-center gap-3" href="{% provider_login_url 'google' %}">
+  <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+    <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"></path>
+    <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"></path>
+    <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"></path>
+    <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"></path>
+  </svg>
+  CONTINUAR COM GOOGLE
+</a>
+<p class="text-center font-body-md text-body-md text-on-surface-variant pt-4">
+  Ainda não tem um salão cadastrado? <a class="text-primary hover:text-primary-fixed-dim underline underline-offset-4 decoration-primary/50 transition-colors" href="{% url 'signup' %}">Cadastre-se</a>
+</p>
+{% else %}
+<h2 class="font-display text-3xl font-bold text-on-surface text-center mb-1">Entrar</h2>
+<p class="text-on-surface-variant text-center text-sm mb-8">Acesse sua conta e cuide da agenda do seu salão</p>
+{% if form.errors %}
+<div class="mb-6 rounded-lg bg-error-container text-on-error-container px-4 py-3 text-sm" role="alert">
+  E-mail ou senha inválidos. Verifique e tente novamente.
+</div>
+{% endif %}
+<form method="post">
+  {% csrf_token %}
+  <div class="space-y-6">
+    <div class="relative">
+      <label class="block text-xs font-semibold uppercase tracking-widest text-outline mb-1" for="id_username">E-mail</label>
+      <input class="block w-full px-0 py-2 bg-transparent border-0 border-b border-outline-variant focus:ring-0 focus:border-primary text-lg" id="id_username" name="username" type="email" placeholder="seu@email.com" autocomplete="email" autofocus required/>
+    </div>
+    <div class="relative">
+      <div class="flex items-center justify-between mb-1">
+        <label class="block text-xs font-semibold uppercase tracking-widest text-outline" for="id_password">Senha</label>
+        <a class="text-xs font-semibold text-primary hover:underline" href="{% url 'account_reset_password' %}">Esqueceu a senha?</a>
+      </div>
+      <input class="block w-full px-0 py-2 bg-transparent border-0 border-b border-outline-variant focus:ring-0 focus:border-primary text-lg" id="id_password" name="password" placeholder="••••••••" type="password" autocomplete="current-password" required/>
+    </div>
+  </div>
+  <input name="next" type="hidden" value="{{ next }}"/>
+  <button class="mt-8 w-full bg-primary text-on-primary font-semibold text-lg py-3 rounded-full hover:opacity-90 transition-opacity active:scale-95" type="submit">Entrar</button>
+</form>
+{% include "painel/_google_button.html" %}
+<p class="text-center text-sm text-on-surface-variant mt-6">
+  Ainda não tem um salão cadastrado?
+  <a class="text-primary font-semibold hover:underline" href="{% url 'signup' %}">Cadastre-se</a>
+</p>
+{% endif %}
+{% endblock %}

@@ -16,18 +16,11 @@ def painel_home(request):
 
 
 class ZellupLoginView(LoginView):
-    """`LoginView` padrão do Django, só injetando `theme` no contexto —
-    decisão do usuário em 2026-08-03: `/painel/login/` é a mesma URL em
-    todo host, mas o subdomínio (`barbearia.`/`salao.`) decide qual das 2
-    telas (ver `templates/painel/login.html`) é renderizada. Fora dos
-    subdomínios conhecidos, `theme_from_host` retorna `None` e o template
-    cai no visual padrão (salão)."""
+    """`LoginView` padrão do Django — decisão do usuário em 2026-08-03:
+    `/painel/login/` é a mesma URL em todo host, mas o subdomínio
+    (`barbearia.`/`salao.`) decide qual tema é renderizado (ver
+    `entrance_theme`/`entrance_base`, `apps/tenants/context_processors.py` —
+    disponíveis em `templates/painel/login.html` sem precisar de contexto
+    próprio aqui)."""
 
     template_name = "painel/login.html"
-
-    def get_context_data(self, **kwargs):
-        from apps.tenants.services import theme_from_host
-
-        context = super().get_context_data(**kwargs)
-        context["theme"] = theme_from_host(self.request.get_host())
-        return context

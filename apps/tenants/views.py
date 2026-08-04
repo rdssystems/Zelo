@@ -108,11 +108,7 @@ def signup_view(request):
                     f"você já pode configurar tudo por aqui.",
                 )
                 return redirect("painel_home")
-    return render(
-        request,
-        "painel/signup.html",
-        {"form": form, "error": error, "detected_theme": detected_theme},
-    )
+    return render(request, "painel/signup.html", {"form": form, "error": error})
 
 
 # ---------------------------------------------------------------------------

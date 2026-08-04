@@ -1,0 +1,42 @@
+{% load static %}
+<!DOCTYPE html>
+<html class="light" lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>{% block title %}Zellup{% endblock %}</title>
+{% include "_favicon.html" %}
+<script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Playfair+Display:wght@600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>.material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24; }</style>
+<script>
+  tailwind.config = { theme: { extend: {
+    colors: {
+      "background": "#fff8f5", "surface-container-lowest": "#ffffff",
+      "on-surface": "#1f1b17", "on-surface-variant": "#50453b",
+      "outline": "#82756a", "outline-variant": "#d4c4b7",
+      "primary": "#7d562d", "on-primary": "#ffffff",
+      "error": "#ba1a1a", "error-container": "#ffdad6", "on-error-container": "#93000a",
+      "success-container": "#dff0d8", "on-success-container": "#2d5a2a"
+    },
+    fontFamily: { "display": ["Playfair Display", "serif"], "sans": ["Inter", "sans-serif"] }
+  } } }
+</script>
+{% block extra_head %}{% endblock %}
+</head>
+<body class="bg-background font-sans text-on-surface min-h-screen flex items-center justify-center p-6">
+  <div class="w-full max-w-md">
+    <div class="text-center mb-10">
+      <h1 class="font-display text-5xl font-bold text-primary tracking-tight">Zellup</h1>
+      <p class="text-on-surface-variant mt-2">{% block tagline %}Cuidado e agenda pro seu salão{% endblock %}</p>
+    </div>
+    <div class="bg-surface-container-lowest rounded-2xl shadow-[0_4px_40px_-10px_rgba(125,86,45,0.15)] p-8">
+      {% block content %}{% endblock %}
+    </div>
+    {% block below_card %}{% endblock %}
+  </div>
+</body>
+</html>

@@ -1,15 +1,47 @@
-{% extends "account/_base.html" %}
+{% extends entrance_base %}
 {% block title %}Confirmar e-mail — Zellup{% endblock %}
 {% block content %}
+{% if entrance_theme == "barbearia" %}
 {% if can_confirm %}
-<div class="text-center">
-  <h1 class="font-display text-2xl text-on-background mb-2">Confirmar seu e-mail</h1>
-  <p class="text-sm text-on-surface-variant mb-6">
-    Confirme que <strong class="text-on-background">{{ email }}</strong> é o e-mail da sua conta Zellup.
+<div class="text-center md:text-left">
+  <h2 class="font-headline-lg-mobile text-headline-lg-mobile md:font-headline-lg md:text-headline-lg text-on-surface mb-2">Confirmar seu e-mail</h2>
+  <p class="font-body-md text-body-md text-on-surface-variant mb-6">
+    Confirme que <strong class="text-on-surface">{{ email }}</strong> é o e-mail da sua conta Zellup.
   </p>
   <form method="post">
     {% csrf_token %}
-    <button class="w-full bg-primary text-on-primary font-semibold text-sm uppercase tracking-wide py-3 rounded hover:brightness-110 active:scale-[0.98] transition-all" type="submit">
+    <button class="w-full brushed-metal text-on-primary font-label-md text-label-md py-4 rounded-DEFAULT hover:brightness-110 active:scale-[0.98] transition-all" type="submit">
+      CONFIRMAR E-MAIL
+    </button>
+  </form>
+</div>
+{% elif confirmation %}
+<div class="text-center md:text-left">
+  <h2 class="font-headline-lg-mobile text-headline-lg-mobile md:font-headline-lg md:text-headline-lg text-on-surface mb-2">E-mail confirmado</h2>
+  <p class="font-body-md text-body-md text-on-surface-variant mb-6"><strong class="text-on-surface">{{ email }}</strong> já está confirmado.</p>
+  <a class="inline-block brushed-metal text-on-primary font-label-md text-label-md py-4 px-6 rounded-DEFAULT hover:brightness-110 transition-all" href="{% url 'painel_home' %}">
+    IR PARA O PAINEL
+  </a>
+</div>
+{% else %}
+<div class="text-center md:text-left">
+  <h2 class="font-headline-lg-mobile text-headline-lg-mobile md:font-headline-lg md:text-headline-lg text-on-surface mb-2">Link inválido ou expirado</h2>
+  <p class="font-body-md text-body-md text-on-surface-variant">
+    Esse link de confirmação já foi usado ou não é mais válido. Se você ainda não confirmou seu
+    e-mail, entre na sua conta que enviamos um novo link.
+  </p>
+</div>
+{% endif %}
+{% else %}
+{% if can_confirm %}
+<div class="text-center">
+  <h2 class="font-display text-2xl font-bold text-on-surface mb-2">Confirmar seu e-mail</h2>
+  <p class="text-on-surface-variant text-sm mb-6">
+    Confirme que <strong class="text-on-surface">{{ email }}</strong> é o e-mail da sua conta Zellup.
+  </p>
+  <form method="post">
+    {% csrf_token %}
+    <button class="w-full bg-primary text-on-primary font-semibold text-lg py-3 rounded-full hover:opacity-90 transition-opacity active:scale-95" type="submit">
       Confirmar e-mail
     </button>
   </form>
@@ -17,23 +49,22 @@
 {% elif confirmation %}
 <div class="text-center">
   <div class="w-14 h-14 mx-auto mb-5 rounded-full bg-success-container flex items-center justify-center text-on-success-container">
-    <svg class="w-7 h-7" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-      <path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round"/>
-    </svg>
+    <span class="material-symbols-outlined text-3xl">check</span>
   </div>
-  <h1 class="font-display text-2xl text-on-background mb-2">E-mail confirmado</h1>
-  <p class="text-sm text-on-surface-variant mb-6"><strong class="text-on-background">{{ email }}</strong> já está confirmado.</p>
-  <a class="inline-block bg-primary text-on-primary font-semibold text-sm uppercase tracking-wide py-3 px-6 rounded hover:brightness-110 transition-all" href="{% url 'painel_home' %}">
+  <h2 class="font-display text-2xl font-bold text-on-surface mb-2">E-mail confirmado</h2>
+  <p class="text-on-surface-variant text-sm mb-6"><strong class="text-on-surface">{{ email }}</strong> já está confirmado.</p>
+  <a class="inline-block bg-primary text-on-primary font-semibold py-3 px-6 rounded-full hover:opacity-90 transition-opacity" href="{% url 'painel_home' %}">
     Ir para o painel
   </a>
 </div>
 {% else %}
 <div class="text-center">
-  <h1 class="font-display text-2xl text-on-background mb-2">Link inválido ou expirado</h1>
-  <p class="text-sm text-on-surface-variant">
+  <h2 class="font-display text-2xl font-bold text-on-surface mb-2">Link inválido ou expirado</h2>
+  <p class="text-on-surface-variant text-sm">
     Esse link de confirmação já foi usado ou não é mais válido. Se você ainda não confirmou seu
     e-mail, entre na sua conta que enviamos um novo link.
   </p>
 </div>
+{% endif %}
 {% endif %}
 {% endblock %}

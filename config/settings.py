@@ -83,6 +83,7 @@ TEMPLATES = [
                 "django.contrib.messages.context_processors.messages",
                 "apps.notifications.context_processors.unread_announcements",
                 "apps.billing.context_processors.sidebar_plan",
+                "apps.tenants.context_processors.entrance_theme",
             ],
             **(
                 {
