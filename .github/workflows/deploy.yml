@@ -3,6 +3,7 @@ name: Deploy Zellup (produção)
 on:
   push:
     branches: [main]
+  workflow_dispatch: {}
 
 jobs:
   deploy:
