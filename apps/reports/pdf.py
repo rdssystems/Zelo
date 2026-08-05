@@ -9,6 +9,7 @@ recalcula nada diferente do que está na tela, só formata pra documento.
 
 import io
 
+from django.conf import settings
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
@@ -22,6 +23,15 @@ from . import services as report_ops
 BRAND_COLOR = colors.HexColor("#7d562d")
 LIGHT_BG = colors.HexColor("#f5efe6")
 LINE_COLOR = colors.HexColor("#d9d0c5")
+
+# Ícone quadrado já existente do Zellup (não há um logotipo próprio em
+# static/ hoje — o app inteiro usa o nome "Zellup" como texto estilizado,
+# nunca uma imagem, ver templates/painel/base.html) — reaproveitado aqui em
+# vez de inventar um logo novo.
+ZELLUP_ICON_PATH = settings.BASE_DIR / "static" / "favicon" / "apple-touch-icon.png"
+
+HEADER_TOP_MARGIN = 3.2 * cm
+FOOTER_BOTTOM_MARGIN = 2.2 * cm
 
 
 def _money(value):
@@ -55,11 +65,83 @@ def _table(data, col_widths=None, header=True):
     return table
 
 
+def _draw_image_safe(canvas, path, x, y, size):
+    """Desenha um quadrado `size`x`size` em `(x, y)` — silenciosamente não
+    desenha nada se o arquivo não existir/não abrir (ex: logo do tenant foi
+    removido do disco por fora do app). Devolve se desenhou ou não, pra quem
+    chama decidir o layout do texto ao lado."""
+    try:
+        canvas.drawImage(
+            str(path), x, y, width=size, height=size,
+            preserveAspectRatio=True, anchor="sw", mask="auto",
+        )
+        return True
+    except Exception:
+        return False
+
+
+def _make_header_footer(tenant):
+    tenant_logo_path = None
+    if tenant.logo:
+        try:
+            tenant_logo_path = tenant.logo.path
+        except Exception:
+            tenant_logo_path = None
+
+    def draw(canvas, doc):
+        canvas.saveState()
+        width, height = A4
+        logo_size = 1.1 * cm
+        logo_y = height - 1.9 * cm
+        text_baseline = height - 1.4 * cm
+
+        # Esquerda — ícone + nome do Zellup (plataforma).
+        left_x = 2 * cm
+        has_zellup_icon = _draw_image_safe(canvas, ZELLUP_ICON_PATH, left_x, logo_y, logo_size)
+        text_x = left_x + (logo_size + 0.3 * cm if has_zellup_icon else 0)
+        canvas.setFont("Helvetica-Bold", 12)
+        canvas.setFillColor(BRAND_COLOR)
+        canvas.drawString(text_x, text_baseline, "Zellup")
+
+        # Direita — nome do salão/barbearia + logo dele (se tiver).
+        right_edge = width - 2 * cm
+        canvas.setFont("Helvetica-Bold", 12)
+        canvas.setFillColor(colors.black)
+        name_width = canvas.stringWidth(tenant.name, "Helvetica-Bold", 12)
+        name_x = right_edge - name_width
+        if tenant_logo_path:
+            logo_x = name_x - 0.3 * cm - logo_size
+            if _draw_image_safe(canvas, tenant_logo_path, logo_x, logo_y, logo_size):
+                name_x = name_x  # nome fica encostado no logo, à direita dele
+        canvas.drawString(name_x, text_baseline, tenant.name)
+
+        canvas.setStrokeColor(LINE_COLOR)
+        canvas.line(2 * cm, height - 2.3 * cm, width - 2 * cm, height - 2.3 * cm)
+
+        # Rodapé.
+        canvas.setStrokeColor(LINE_COLOR)
+        canvas.line(2 * cm, FOOTER_BOTTOM_MARGIN - 0.3 * cm, width - 2 * cm, FOOTER_BOTTOM_MARGIN - 0.3 * cm)
+        canvas.setFont("Helvetica-Oblique", 8)
+        canvas.setFillColor(colors.grey)
+        canvas.drawString(
+            2 * cm, FOOTER_BOTTOM_MARGIN - 0.7 * cm,
+            "Arquivo gerado automaticamente pela plataforma Zellup — zellup.com.br",
+        )
+        canvas.drawRightString(
+            width - 2 * cm, FOOTER_BOTTOM_MARGIN - 0.7 * cm, f"Página {canvas.getPageNumber()}"
+        )
+
+        canvas.restoreState()
+
+    return draw
+
+
 def generate_report_pdf(*, tenant, sections, today, month_start, start, end):
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(
         buffer, pagesize=A4,
-        leftMargin=2 * cm, rightMargin=2 * cm, topMargin=2 * cm, bottomMargin=2 * cm,
+        leftMargin=2 * cm, rightMargin=2 * cm,
+        topMargin=HEADER_TOP_MARGIN, bottomMargin=FOOTER_BOTTOM_MARGIN,
         title=f"Relatório — {tenant.name}",
         # Sem compressão: PDF de relatório é pequeno (só texto/tabela), e
         # deixar sem FlateDecode facilita inspecionar/testar o conteúdo.
@@ -83,7 +165,8 @@ def generate_report_pdf(*, tenant, sections, today, month_start, start, end):
     if "dre" in sections:
         story += _dre_section(tenant, start, end, styles)
 
-    doc.build(story)
+    header_footer = _make_header_footer(tenant)
+    doc.build(story, onFirstPage=header_footer, onLaterPages=header_footer)
     return buffer.getvalue()
 
 

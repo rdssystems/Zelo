@@ -365,6 +365,33 @@ class ReportsPdfTest(TestCase):
         # do serviço (sem acento) já prova que o conteúdo do tenant certo saiu.
         self.assertIn(b"Corte Feminino", response.content)
 
+    def test_header_and_footer_present(self):
+        self.client.force_login(self.admin)
+        response = self._post(["visao_geral"])
+        self.assertIn(b"Zellup", response.content)
+        self.assertIn(
+            b"Arquivo gerado automaticamente pela plataforma Zellup", response.content
+        )
+
+    def test_generates_pdf_with_tenant_logo(self):
+        """Exercita o desenho do logo do tenant no cabeçalho (não só o
+        caminho sem logo, que é o que os outros testes cobrem)."""
+        import io
+
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from PIL import Image
+
+        buffer = io.BytesIO()
+        Image.new("RGB", (300, 300), (10, 20, 30)).save(buffer, format="JPEG")
+        buffer.seek(0)
+        self.tenant.logo = SimpleUploadedFile("logo.jpg", buffer.read(), content_type="image/jpeg")
+        self.tenant.save()
+
+        self.client.force_login(self.admin)
+        response = self._post(["visao_geral"])
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.content.startswith(b"%PDF"))
+
     def test_empty_sections_falls_back_to_all(self):
         """Botão "Gerar PDF" fica desabilitado sem nenhuma seção marcada no
         modal, mas o servidor não deve depender só do JS pra essa regra."""

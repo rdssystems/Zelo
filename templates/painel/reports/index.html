@@ -37,6 +37,7 @@
 
   <form class="flex flex-wrap items-center gap-4 mb-8 bg-surface-container-lowest border border-surface-variant rounded-xl p-4"
         method="get" x-show="tab !== 'visao-geral'" x-cloak>
+    <input type="hidden" name="tab" x-model="tab"/>
     <div class="flex items-center gap-2">
       <label class="text-sm text-on-surface-variant">De</label>
       <input class="bg-transparent border-0 border-b border-outline-variant text-on-surface focus:ring-0 focus:border-primary" name="start" type="date" value="{{ start|date:'Y-m-d' }}"/>
@@ -292,7 +293,11 @@
 <script>
 function reportsPage() {
   return {
-    tab: 'visao-geral',
+    // Mantém a aba ativa ao filtrar (o filtro é um GET normal, recarrega a
+    // página) — lê de volta da query string em vez de sempre voltar pra
+    // "visao-geral". O campo hidden `tab` no form do filtro é quem garante
+    // que o valor atual vai junto no submit.
+    tab: new URLSearchParams(window.location.search).get('tab') || 'visao-geral',
     pdfModalOpen: false,
     visaoGeral: true,
     faturamento: true,
