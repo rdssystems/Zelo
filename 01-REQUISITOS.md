@@ -280,8 +280,14 @@ dois links coexistem, por instrução explícita do usuário).
 
 ## 4. Requisitos funcionais — Fase 2 (planejar modelo de dados agora, não construir agora)
 
-- RF37: Relatórios (faturamento por período, por funcionário, por serviço, produtos mais vendidos,
-  DRE simplificado).
+- RF37 ✅ *(implementado em 2026-08-05)*: Relatórios (faturamento por período, por funcionário,
+  por serviço, produtos mais vendidos, DRE simplificado) — `/painel/relatorios/`
+  (`apps/reports/`), período escolhido pelo usuário (reaproveita
+  `apps.finance.services.period_summary` pro DRE). ⚠️ **Pendente**: usuário apontou que ter
+  `/painel/dashboard/` (janela fixa hoje/mês) e `/painel/relatorios/` (período livre) como duas
+  telas separadas parece redundante — sugestão do agente foi fundir em uma página só (abas
+  "Visão Geral" + "Relatórios"), mas a decisão **ainda não foi tomada**, sessão seguiu pra outros
+  assuntos antes de fechar isso. Retomar antes de considerar RF37 totalmente encerrado.
 - RF38: Notificação automática por WhatsApp (confirmação e lembrete de agendamento) — API oficial
   Meta ou provedor tipo Twilio/Z-API.
 - RF39: Notificação de estoque baixo por e-mail/WhatsApp.
@@ -452,14 +458,18 @@ negócio, é o ritmo de execução escolhido. Retomar por aqui na próxima sess�
    100%, alerta de falha no Discord distinguindo estágio local vs offsite (testado com falha
    simulada de verdade). Detalhe técnico completo em `VPS-INFRAESTRUTURA-ATUAL.md` §3.5 (não
    duplicar aqui, aquele arquivo é a fonte da verdade de infraestrutura).
-2. **Monitoramento** *(próximo item, ainda não iniciado)* — 3 camadas discutidas com o usuário:
-   (a) uptime externo (UptimeRobot batendo em `/healthz/` a cada poucos minutos → Discord), (b)
-   erro de aplicação (Sentry — já era recomendação pendente desde a avaliação inicial de infra —
-   com integração nativa de alerta no Discord), (c) eventos operacionais direto do código (mesmo
-   padrão de webhook Discord já validado no item 1, ex: falha de webhook Asaas). Decisão de qual
-   camada atacar primeiro ainda em aberto com o usuário.
-3. **RF37** — Relatórios (faturamento por período/funcionário/serviço, produtos mais vendidos,
-   DRE simplificado) — ver linha 283.
+2. **Monitoramento** *(ainda não iniciado — usuário pulou pro item 3 antes)* — 3 camadas
+   discutidas: (a) uptime externo (UptimeRobot batendo em `/healthz/` a cada poucos minutos →
+   Discord), (b) erro de aplicação (Sentry, com integração nativa de alerta no Discord), (c)
+   eventos operacionais direto do código (mesmo padrão de webhook Discord já validado no item 1).
+   Decisão de qual camada atacar primeiro ainda em aberto.
+3. **RF37 — Relatórios** ✅ *(implementado em 2026-08-05, com ressalva)* — ver linha 283 (o
+   detalhe e a pendência de fundir com o Dashboard estão lá, não duplicado aqui).
+   - **Extra não planejado, feito no mesmo dia**: compressão de imagem no upload (logo, capa,
+     fundo, foto de funcionário/responsável) — não fazia parte do roadmap, usuário pediu ao notar
+     que nenhum upload tinha limite de tamanho. `apps/utils.py::compress_uploaded_image`,
+     redimensiona a até 1600px preservando formato/transparência, ligado no `save()` de `Tenant`
+     e `Employee`.
 4. **RF40** — Avaliação do atendimento pelo cliente (nota + comentário pós-serviço) — ver linha
    288.
 5. **RF42** — App mobile *(último da lista, de propósito)* — a API REST via DRF já é construída
