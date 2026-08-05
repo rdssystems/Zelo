@@ -74,9 +74,9 @@
   <header id="navbar" class="fixed top-0 left-0 right-0 z-50 transition-all duration-300 bg-background/80 backdrop-blur-md border-b border-transparent">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
       <!-- Logo -->
-      <a href="/" class="flex items-center gap-2 group">
+      <a href="/" class="flex items-center gap-3 group">
+        <img src="{% static 'img/brand/zellup-mark.png' %}" alt="" class="w-10 h-10 rounded-lg"/>
         <span class="font-display text-3xl font-bold tracking-tight text-on-surface group-hover:text-primary transition-colors">Zellup</span>
-        <span class="inline-block w-2 h-2 rounded-full bg-accent"></span>
       </a>
 
       <!-- Menu de Navegação Desktop -->
@@ -910,7 +910,10 @@
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div class="flex flex-col md:flex-row items-center justify-between gap-8 pb-8 border-b border-white/10">
         <div class="text-center md:text-left">
-          <a href="/" class="font-display text-2xl font-bold text-white tracking-tight">Zellup</a>
+          <a href="/" class="inline-flex items-center gap-2">
+            <img src="{% static 'img/brand/zellup-mark.png' %}" alt="" class="w-8 h-8 rounded-md"/>
+            <span class="font-display text-2xl font-bold text-white tracking-tight">Zellup</span>
+          </a>
           <p class="text-xs text-gray-500 mt-1 max-w-sm">
             Agendamento 24h, gestão de comissões e caixa integrado para salões de beleza e barbearias.
           </p>

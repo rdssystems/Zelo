@@ -24,11 +24,9 @@ BRAND_COLOR = colors.HexColor("#7d562d")
 LIGHT_BG = colors.HexColor("#f5efe6")
 LINE_COLOR = colors.HexColor("#d9d0c5")
 
-# Ícone quadrado já existente do Zellup (não há um logotipo próprio em
-# static/ hoje — o app inteiro usa o nome "Zellup" como texto estilizado,
-# nunca uma imagem, ver templates/painel/base.html) — reaproveitado aqui em
-# vez de inventar um logo novo.
-ZELLUP_ICON_PATH = settings.BASE_DIR / "static" / "favicon" / "apple-touch-icon.png"
+# Identidade visual oficial (2026-08-06, pasta "zellup identidade visual"
+# fornecida pelo usuário) — monograma processado em static/img/brand/.
+ZELLUP_ICON_PATH = settings.BASE_DIR / "static" / "img" / "brand" / "zellup-mark.png"
 
 HEADER_TOP_MARGIN = 3.2 * cm
 FOOTER_BOTTOM_MARGIN = 2.2 * cm
