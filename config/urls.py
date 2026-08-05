@@ -59,6 +59,7 @@ urlpatterns = [
     path("painel/estoque/", include("apps.inventory.urls")),
     path("painel/clientes/", include("apps.clients.urls")),
     path("painel/dashboard/", include("apps.dashboard.urls")),
+    path("painel/relatorios/", include("apps.reports.urls")),
     path("painel/agenda/", include("apps.scheduling.urls")),
     path("painel/caixa/", include("apps.finance.urls")),
     path("painel/configuracoes/", include("apps.tenants.urls")),

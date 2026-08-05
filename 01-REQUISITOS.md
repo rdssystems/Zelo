@@ -441,6 +441,37 @@ funcionário além do limite, esconder telas de estoque profissional pra quem n�
 provavelmente em `apps/tenants/services.py` ou um middleware novo, decisão de onde colocar ainda
 em aberto.
 
+### 4.3 Roadmap de profissionalização do painel (combinado com o usuário em 2026-08-05)
+
+Ordem de execução acordada com o usuário — cada item só começa depois do anterior estar
+concluído e validado ("um a um, sob orientação do usuário"); não é ranking de prioridade de
+negócio, é o ritmo de execução escolhido. Retomar por aqui na próxima sessão sobre este assunto.
+
+1. ✅ **Backup offsite** *(concluído 2026-08-05)* — Restic + Cloudflare R2, rodando 2x/dia (3h e
+   14h), retenção 7 diários + 4 semanais + 6 mensais, restore já validado com checksum batendo
+   100%, alerta de falha no Discord distinguindo estágio local vs offsite (testado com falha
+   simulada de verdade). Detalhe técnico completo em `VPS-INFRAESTRUTURA-ATUAL.md` §3.5 (não
+   duplicar aqui, aquele arquivo é a fonte da verdade de infraestrutura).
+2. **Monitoramento** *(próximo item, ainda não iniciado)* — 3 camadas discutidas com o usuário:
+   (a) uptime externo (UptimeRobot batendo em `/healthz/` a cada poucos minutos → Discord), (b)
+   erro de aplicação (Sentry — já era recomendação pendente desde a avaliação inicial de infra —
+   com integração nativa de alerta no Discord), (c) eventos operacionais direto do código (mesmo
+   padrão de webhook Discord já validado no item 1, ex: falha de webhook Asaas). Decisão de qual
+   camada atacar primeiro ainda em aberto com o usuário.
+3. **RF37** — Relatórios (faturamento por período/funcionário/serviço, produtos mais vendidos,
+   DRE simplificado) — ver linha 283.
+4. **RF40** — Avaliação do atendimento pelo cliente (nota + comentário pós-serviço) — ver linha
+   288.
+5. **RF42** — App mobile *(último da lista, de propósito)* — a API REST via DRF já é construída
+   desde o início do projeto pensando nisso (regra do `CLAUDE.md`), então o gap aqui é o app em
+   si, não a base técnica.
+
+Origem da lista: levantamento de gaps numa sessão de 2026-08-05, comparando o Zellup com o que
+sistemas de salão concorrentes costumam oferecer, cruzado com pendências já registradas em
+`VPS-INFRAESTRUTURA-ATUAL.md` (backup externo, Sentry) — inclui também a discussão paralela sobre
+split de pagamento via Asaas (fora desta lista — depende de CNPJ, registrado só na conversa, não
+em requisito formal ainda).
+
 ## 5. Requisitos não-funcionais
 
 - RNF01: Isolamento de dados garantido entre tenants em **todas** as queries (nunca vazar dado

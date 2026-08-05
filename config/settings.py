@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     "apps.notifications",
     "apps.public",
     "apps.dashboard",
+    "apps.reports",
 ]
 
 MIDDLEWARE = [

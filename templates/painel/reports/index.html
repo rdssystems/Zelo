@@ -1,0 +1,164 @@
+{% extends "painel/base.html" %}
+
+{% block title %}Zellup — Relatórios{% endblock %}
+
+{% block content %}
+<div class="mb-8">
+  <h2 class="font-display text-headline-md text-on-surface mb-2">Relatórios</h2>
+  <p class="text-on-surface-variant">Escolha o período pra analisar faturamento e o resumo financeiro (DRE).</p>
+</div>
+
+<form class="flex flex-wrap items-center gap-4 mb-8 bg-surface-container-lowest border border-surface-variant rounded-xl p-4" method="get">
+  <div class="flex items-center gap-2">
+    <label class="text-sm text-on-surface-variant">De</label>
+    <input class="bg-transparent border-0 border-b border-outline-variant text-on-surface focus:ring-0 focus:border-primary" name="start" type="date" value="{{ start|date:'Y-m-d' }}"/>
+  </div>
+  <div class="flex items-center gap-2">
+    <label class="text-sm text-on-surface-variant">Até</label>
+    <input class="bg-transparent border-0 border-b border-outline-variant text-on-surface focus:ring-0 focus:border-primary" name="end" type="date" value="{{ end|date:'Y-m-d' }}"/>
+  </div>
+  <button class="md:ml-auto px-6 py-2 rounded-pill bg-primary-container text-on-primary-container font-semibold text-sm hover:opacity-90 transition-opacity" type="submit">Filtrar</button>
+</form>
+
+<div x-data="{ tab: 'faturamento' }">
+  <div class="flex gap-2 mb-8 border-b border-surface-variant">
+    <button type="button" @click="tab = 'faturamento'"
+            class="px-5 py-3 text-sm font-semibold border-b-2 transition-colors"
+            :class="tab === 'faturamento' ? 'border-primary text-primary' : 'border-transparent text-on-surface-variant hover:text-on-surface'">
+      Faturamento
+    </button>
+    <button type="button" @click="tab = 'dre'"
+            class="px-5 py-3 text-sm font-semibold border-b-2 transition-colors"
+            :class="tab === 'dre' ? 'border-primary text-primary' : 'border-transparent text-on-surface-variant hover:text-on-surface'">
+      DRE simplificado
+    </button>
+  </div>
+
+  <div x-show="tab === 'faturamento'" x-cloak>
+    <section class="bg-surface-container-lowest rounded-2xl border border-surface-variant shadow-sm p-6 mb-8">
+      <h3 class="text-label-caps uppercase text-outline mb-4">Faturamento no período</h3>
+      <div class="h-64">
+        <canvas id="revenue-chart"></canvas>
+      </div>
+    </section>
+
+    <section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div class="bg-surface-container-lowest rounded-2xl border border-surface-variant shadow-sm p-6">
+        <h3 class="text-label-caps uppercase text-outline mb-4">Serviços — por faturamento</h3>
+        <div class="h-64">
+          <canvas id="services-chart"></canvas>
+        </div>
+      </div>
+      <div class="bg-surface-container-lowest rounded-2xl border border-surface-variant shadow-sm p-6">
+        <h3 class="text-label-caps uppercase text-outline mb-4">Produtos mais vendidos</h3>
+        <div class="h-64">
+          <canvas id="products-chart"></canvas>
+        </div>
+      </div>
+      <div class="bg-surface-container-lowest rounded-2xl border border-surface-variant shadow-sm p-6">
+        <h3 class="text-label-caps uppercase text-outline mb-4">Faturamento por funcionário</h3>
+        <div class="h-64">
+          <canvas id="employees-chart"></canvas>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div x-show="tab === 'dre'" x-cloak>
+    <section class="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
+      <div class="bg-primary-container/20 p-6 rounded-xl border border-primary/20 shadow-sm">
+        <span class="text-label-caps uppercase text-primary block mb-2">Entradas</span>
+        <div class="font-display text-2xl text-primary">R$ {{ dre.total_in }}</div>
+      </div>
+      <div class="bg-surface-container-lowest p-6 rounded-xl border border-surface-variant shadow-sm">
+        <span class="text-label-caps uppercase text-on-surface-variant block mb-2">Saídas</span>
+        <div class="font-display text-2xl text-on-surface">R$ {{ dre.total_out }}</div>
+      </div>
+      <div class="bg-surface-container-lowest p-6 rounded-xl border border-surface-variant shadow-sm">
+        <span class="text-label-caps uppercase text-on-surface-variant block mb-2">Saldo do período</span>
+        <div class="font-display text-2xl {% if dre.balance < 0 %}text-error{% else %}text-on-surface{% endif %}">R$ {{ dre.balance }}</div>
+      </div>
+    </section>
+
+    <section class="bg-surface-container-lowest rounded-2xl border border-surface-variant shadow-sm overflow-hidden">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="border-b border-surface-variant text-left">
+            <th class="px-6 py-3 text-label-caps uppercase text-outline">Categoria</th>
+            <th class="px-6 py-3 text-label-caps uppercase text-outline text-right">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in dre.by_category %}
+          <tr class="border-b border-surface-variant last:border-0">
+            <td class="px-6 py-3 text-on-surface">{{ row.category }}</td>
+            <td class="px-6 py-3 text-on-surface text-right font-medium">R$ {{ row.total }}</td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="2" class="px-6 py-6 text-center text-on-surface-variant">Nenhuma movimentação neste período.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </section>
+  </div>
+</div>
+
+<script>
+(function () {
+  const revenueData = {{ revenue_chart_json|safe }};
+  const servicesData = {{ services_chart_json|safe }};
+  const productsData = {{ products_chart_json|safe }};
+  const employeesData = {{ employees_chart_json|safe }};
+
+  new Chart(document.getElementById('revenue-chart'), {
+    type: 'line',
+    data: {
+      labels: revenueData.labels,
+      datasets: [{
+        label: 'Faturamento',
+        data: revenueData.values,
+        borderColor: '#7d562d',
+        backgroundColor: 'rgba(125, 86, 45, 0.1)',
+        fill: true,
+        tension: 0.3,
+        pointRadius: 0,
+      }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: { y: { beginAtZero: true } },
+    },
+  });
+
+  new Chart(document.getElementById('services-chart'), {
+    type: 'bar',
+    data: { labels: servicesData.labels, datasets: [{ data: servicesData.values, backgroundColor: '#d4a373' }] },
+    options: {
+      indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+    },
+  });
+
+  new Chart(document.getElementById('products-chart'), {
+    type: 'bar',
+    data: { labels: productsData.labels, datasets: [{ data: productsData.values, backgroundColor: '#fedbcc' }] },
+    options: {
+      indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+    },
+  });
+
+  new Chart(document.getElementById('employees-chart'), {
+    type: 'bar',
+    data: { labels: employeesData.labels, datasets: [{ data: employeesData.values, backgroundColor: '#72594d' }] },
+    options: {
+      indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+    },
+  });
+})();
+</script>
+{% endblock %}
