@@ -747,3 +747,31 @@ class EmployeeSeatLimitTest(TestCase):
             employee_ops.set_employee_active(employee, True)
         employee.refresh_from_db()
         self.assertFalse(employee.is_active)
+
+
+class EmployeePhotoCompressionTest(TestCase):
+    """Mesma regra de `apps.tenants.tests.TenantImageCompressionTest`, mas
+    pro campo `Employee.photo` — precisa estar ligada nos dois models, não
+    só no Tenant."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.tenant, _ = make_tenant_with_admin("salao-foto")
+
+    def test_large_photo_is_resized_on_save(self):
+        import io
+
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from PIL import Image
+
+        employee = make_employee(self.tenant, email="ana@salao-foto.com")
+
+        buffer = io.BytesIO()
+        Image.new("RGB", (2400, 1800), (200, 100, 50)).save(buffer, format="JPEG")
+        buffer.seek(0)
+        employee.photo = SimpleUploadedFile("foto.jpg", buffer.read(), content_type="image/jpeg")
+        employee.save()
+        employee.refresh_from_db()
+
+        with Image.open(employee.photo) as saved:
+            self.assertLessEqual(max(saved.size), 1600)
