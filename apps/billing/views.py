@@ -30,19 +30,27 @@ from .models import Plan, Subscription, SubscriptionStatus
 PLAN_HIGHLIGHTS = {
     "Individual": [
         "Só você atendendo — sem conta de funcionário extra",
-        "Estoque básico (produto + baixa manual)",
+        "Estoque básico",
     ],
     "Profissional": [
         "Até 3 funcionários",
+        "1 login por funcionário",
         "Estoque profissional completo (fornecedor, lote/validade, custo médio, inventário)",
+        "Comissão automática por profissional",
+        "CRM completo com histórico por cliente",
+        "Pacotes de mensalidade",
+        "Alerta de aniversário do cliente",
         "Relatórios avançados (em breve)",
     ],
     "Studio": [
         "Até 6 funcionários",
-        "Estoque profissional completo",
+        "1 login por funcionário",
+        "Estoque profissional completo (fornecedor, lote/validade, custo médio, inventário)",
+        "Comissão automática por profissional",
+        "CRM completo com histórico por cliente",
+        "Pacotes de mensalidade",
+        "Alerta de aniversário do cliente",
         "Relatórios avançados (em breve)",
-        "Notificação automática por WhatsApp (em breve)",
-        "Suporte prioritário",
     ],
 }
 

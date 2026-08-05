@@ -93,9 +93,9 @@
         <a href="#entrar" class="hidden sm:inline-flex items-center justify-center text-sm font-medium text-on-surface hover:text-primary px-4 py-2.5 transition-colors">
           Já sou cliente
         </a>
-        <a href="{% url 'signup' %}" class="inline-flex items-center justify-center px-5 py-2.5 rounded-xl bg-primary text-white text-sm font-semibold shadow-sm hover:bg-primary-hover transition-all transform hover:-translate-y-0.5">
+        <button type="button" class="js-plan-cta inline-flex items-center justify-center px-5 py-2.5 rounded-xl bg-primary text-white text-sm font-semibold shadow-sm hover:bg-primary-hover transition-all transform hover:-translate-y-0.5">
           Começar grátis
-        </a>
+        </button>
       </div>
     </div>
   </header>
@@ -121,9 +121,9 @@
         </p>
 
         <div class="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
-          <a href="{% url 'signup' %}" class="w-full sm:w-auto inline-flex items-center justify-center px-8 py-4 rounded-xl bg-primary text-white font-semibold text-base shadow-lg shadow-primary/20 hover:bg-primary-hover transition-all transform hover:-translate-y-0.5">
+          <button type="button" class="js-plan-cta w-full sm:w-auto inline-flex items-center justify-center px-8 py-4 rounded-xl bg-primary text-white font-semibold text-base shadow-lg shadow-primary/20 hover:bg-primary-hover transition-all transform hover:-translate-y-0.5">
             Começar grátis — 14 dias
-          </a>
+          </button>
           <a href="#como-funciona" class="w-full sm:w-auto inline-flex items-center justify-center px-7 py-4 rounded-xl bg-surface border border-outline text-on-surface font-medium text-base hover:bg-surface-subtle hover:border-outline/80 transition-all">
             Ver como funciona
             <svg class="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
@@ -361,9 +361,9 @@
         </div>
 
         <div class="mt-14 text-center">
-          <a href="{% url 'signup' %}" class="inline-flex items-center justify-center px-8 py-4 rounded-xl bg-accent text-dark-bg font-semibold text-base shadow-lg hover:bg-accent-highlight transition-all">
+          <button type="button" class="js-plan-cta inline-flex items-center justify-center px-8 py-4 rounded-xl bg-accent text-dark-bg font-semibold text-base shadow-lg hover:bg-accent-highlight transition-all">
             Começar grátis agora
-          </a>
+          </button>
         </div>
       </div>
     </section>
@@ -607,11 +607,11 @@
                 Pra quem trabalha sozinho(a) — você atende, sem conta de funcionário extra.
               </p>
               <div class="mt-6 flex items-baseline">
-                <span class="text-3xl font-extrabold text-on-surface">R$ 49</span>
+                <span class="text-3xl font-extrabold text-on-surface">R$ 69</span>
                 <span class="text-xl font-bold text-on-surface">,90</span>
                 <span class="text-sm font-medium text-on-surface-variant ml-1">/mês</span>
               </div>
-              
+
               <ul class="mt-8 space-y-3 text-sm text-on-surface-variant">
                 <li class="flex items-center gap-2.5">
                   <svg class="w-5 h-5 text-primary shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
@@ -619,7 +619,7 @@
                 </li>
                 <li class="flex items-center gap-2.5">
                   <svg class="w-5 h-5 text-primary shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                  <span>Estoque básico (produto + baixa manual)</span>
+                  <span>Estoque básico</span>
                 </li>
                 <li class="flex items-center gap-2.5">
                   <svg class="w-5 h-5 text-primary shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
@@ -631,11 +631,11 @@
                 </li>
               </ul>
             </div>
-            
+
             <div class="mt-8">
-              <a href="{% url 'signup' %}" class="w-full inline-flex items-center justify-center px-6 py-3 rounded-xl bg-surface-subtle border border-outline text-on-surface font-semibold text-sm hover:bg-outline/40 transition-colors">
+              <button type="button" class="js-plan-cta w-full inline-flex items-center justify-center px-6 py-3 rounded-xl bg-surface-subtle border border-outline text-on-surface font-semibold text-sm hover:bg-outline/40 transition-colors">
                 Começar grátis
-              </a>
+              </button>
             </div>
           </div>
 
@@ -649,15 +649,19 @@
                 O mais escolhido — até 3 funcionários com acessos individuais.
               </p>
               <div class="mt-6 flex items-baseline">
-                <span class="text-3xl font-extrabold text-on-surface">R$ 99</span>
+                <span class="text-3xl font-extrabold text-on-surface">R$ 129</span>
                 <span class="text-xl font-bold text-on-surface">,90</span>
                 <span class="text-sm font-medium text-on-surface-variant ml-1">/mês</span>
               </div>
-              
+
               <ul class="mt-8 space-y-3 text-sm text-on-surface-variant">
                 <li class="flex items-center gap-2.5 font-medium text-on-surface">
                   <svg class="w-5 h-5 text-primary shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
                   <span>Até 3 funcionários na equipe</span>
+                </li>
+                <li class="flex items-center gap-2.5">
+                  <svg class="w-5 h-5 text-primary shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                  <span>1 login por funcionário</span>
                 </li>
                 <li class="flex items-center gap-2.5">
                   <svg class="w-5 h-5 text-primary shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
@@ -667,6 +671,18 @@
                   <svg class="w-5 h-5 text-primary shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
                   <span>Comissão automática por profissional</span>
                 </li>
+                <li class="flex items-center gap-2.5">
+                  <svg class="w-5 h-5 text-primary shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                  <span>CRM completo com histórico por cliente</span>
+                </li>
+                <li class="flex items-center gap-2.5">
+                  <svg class="w-5 h-5 text-primary shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                  <span>Pacotes de mensalidade</span>
+                </li>
+                <li class="flex items-center gap-2.5">
+                  <svg class="w-5 h-5 text-primary shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                  <span>Alerta de aniversário do cliente</span>
+                </li>
                 <li class="flex items-center gap-2.5 text-on-surface-variant/80">
                   <svg class="w-5 h-5 text-accent shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
                   <span>Relatórios avançados (em breve)</span>
@@ -675,9 +691,9 @@
             </div>
 
             <div class="mt-8">
-              <a href="{% url 'signup' %}" class="w-full inline-flex items-center justify-center px-6 py-3.5 rounded-xl bg-primary text-white font-semibold text-sm shadow-md hover:bg-primary-hover transition-all">
+              <button type="button" class="js-plan-cta w-full inline-flex items-center justify-center px-6 py-3.5 rounded-xl bg-primary text-white font-semibold text-sm shadow-md hover:bg-primary-hover transition-all">
                 Começar grátis — 14 dias
-              </a>
+              </button>
             </div>
           </div>
 
@@ -685,7 +701,7 @@
             <div>
               <h3 class="font-display text-2xl font-bold text-on-surface">STUDIO</h3>
               <p class="text-xs text-on-surface-variant mt-2 min-h-[32px]">
-                Pra equipes maiores — até 6 funcionários com suporte prioritário.
+                Pra equipes maiores — até 6 funcionários com acessos individuais.
               </p>
               <div class="mt-6 flex items-baseline">
                 <span class="text-3xl font-extrabold text-on-surface">R$ 179</span>
@@ -700,23 +716,39 @@
                 </li>
                 <li class="flex items-center gap-2.5">
                   <svg class="w-5 h-5 text-primary shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                  <span>Estoque profissional completo</span>
+                  <span>1 login por funcionário</span>
                 </li>
                 <li class="flex items-center gap-2.5">
                   <svg class="w-5 h-5 text-primary shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                  <span>Suporte prioritário via WhatsApp</span>
+                  <span>Estoque profissional completo (fornecedor, lote/validade, custo médio, inventário)</span>
+                </li>
+                <li class="flex items-center gap-2.5">
+                  <svg class="w-5 h-5 text-primary shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                  <span>Comissão automática por profissional</span>
+                </li>
+                <li class="flex items-center gap-2.5">
+                  <svg class="w-5 h-5 text-primary shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                  <span>CRM completo com histórico por cliente</span>
+                </li>
+                <li class="flex items-center gap-2.5">
+                  <svg class="w-5 h-5 text-primary shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                  <span>Pacotes de mensalidade</span>
+                </li>
+                <li class="flex items-center gap-2.5">
+                  <svg class="w-5 h-5 text-primary shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                  <span>Alerta de aniversário do cliente</span>
                 </li>
                 <li class="flex items-center gap-2.5 text-on-surface-variant/80">
                   <svg class="w-5 h-5 text-accent shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                  <span>Notificação automática por WhatsApp (em breve)</span>
+                  <span>Relatórios avançados (em breve)</span>
                 </li>
               </ul>
             </div>
 
             <div class="mt-8">
-              <a href="{% url 'signup' %}" class="w-full inline-flex items-center justify-center px-6 py-3 rounded-xl bg-surface-subtle border border-outline text-on-surface font-semibold text-sm hover:bg-outline/40 transition-colors">
+              <button type="button" class="js-plan-cta w-full inline-flex items-center justify-center px-6 py-3 rounded-xl bg-surface-subtle border border-outline text-on-surface font-semibold text-sm hover:bg-outline/40 transition-colors">
                 Começar grátis
-              </a>
+              </button>
             </div>
           </div>
 
@@ -860,9 +892,9 @@
         </p>
 
         <div class="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
-          <a href="{% url 'signup' %}" class="w-full sm:w-auto inline-flex items-center justify-center px-9 py-4 rounded-xl bg-white text-primary font-bold text-base shadow-xl hover:bg-surface-subtle transition-all transform hover:-translate-y-0.5">
+          <button type="button" class="js-plan-cta w-full sm:w-auto inline-flex items-center justify-center px-9 py-4 rounded-xl bg-white text-primary font-bold text-base shadow-xl hover:bg-surface-subtle transition-all transform hover:-translate-y-0.5">
             Começar grátis — 14 dias, sem cartão
-          </a>
+          </button>
         </div>
 
         <p class="mt-4 text-xs text-white/70">
@@ -899,7 +931,63 @@
     </div>
   </footer>
 
+  <!-- MODAL: escolha salão ou barbearia (planos) -->
+  <div id="plan-modal" class="hidden fixed inset-0 z-[60] items-center justify-center p-4">
+    <div id="plan-modal-backdrop" class="absolute inset-0 bg-dark-bg/70 backdrop-blur-sm"></div>
+    <div class="relative bg-surface rounded-2xl shadow-2xl max-w-2xl w-full p-6 sm:p-8 max-h-[90vh] overflow-y-auto">
+      <button id="plan-modal-close" type="button" class="absolute top-4 right-4 text-on-surface-variant hover:text-on-surface transition-colors" aria-label="Fechar">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+      <div class="text-center mb-6">
+        <h3 class="font-display text-2xl sm:text-3xl font-bold text-on-surface">Você é salão de beleza ou barbearia?</h3>
+        <p class="mt-2 text-sm text-on-surface-variant">Escolha pra começar seu teste grátis de 14 dias já no visual certo pro seu negócio.</p>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <a href="{{ request.scheme }}://barbearia.{{ request.get_host }}/cadastrar/" class="group rounded-xl border border-outline bg-surface overflow-hidden shadow-sm hover:shadow-lg transition-all transform hover:-translate-y-1">
+          <div class="h-32 overflow-hidden relative">
+            <img src="{% static 'img/landing-barbearia-card.png' %}" alt="Interior de Barbearia" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"/>
+            <div class="absolute inset-0 bg-gradient-to-t from-dark-bg/80 via-dark-bg/20 to-transparent"></div>
+          </div>
+          <div class="p-4">
+            <h4 class="font-display text-lg font-bold text-on-surface group-hover:text-primary transition-colors">Sou Barbearia</h4>
+            <span class="inline-flex items-center text-xs font-semibold text-primary mt-1">Continuar &rarr;</span>
+          </div>
+        </a>
+        <a href="{{ request.scheme }}://salao.{{ request.get_host }}/cadastrar/" class="group rounded-xl border border-outline bg-surface overflow-hidden shadow-sm hover:shadow-lg transition-all transform hover:-translate-y-1">
+          <div class="h-32 overflow-hidden relative">
+            <img src="{% static 'img/landing-salao-card.png' %}" alt="Interior de Salão de Beleza" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"/>
+            <div class="absolute inset-0 bg-gradient-to-t from-dark-bg/80 via-dark-bg/20 to-transparent"></div>
+          </div>
+          <div class="p-4">
+            <h4 class="font-display text-lg font-bold text-on-surface group-hover:text-primary transition-colors">Sou Salão de Beleza</h4>
+            <span class="inline-flex items-center text-xs font-semibold text-primary mt-1">Continuar &rarr;</span>
+          </div>
+        </a>
+      </div>
+    </div>
+  </div>
+
   <script>
+    (function () {
+      const modal = document.getElementById('plan-modal');
+      const openModal = () => {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        document.body.classList.add('overflow-hidden');
+      };
+      const closeModal = () => {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+        document.body.classList.remove('overflow-hidden');
+      };
+      document.querySelectorAll('.js-plan-cta').forEach(btn => btn.addEventListener('click', openModal));
+      document.getElementById('plan-modal-close').addEventListener('click', closeModal);
+      document.getElementById('plan-modal-backdrop').addEventListener('click', closeModal);
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') closeModal();
+      });
+    })();
+
     document.querySelectorAll('.accordion-trigger').forEach(trigger => {
       trigger.addEventListener('click', () => {
         const content = trigger.nextElementSibling;

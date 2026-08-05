@@ -366,12 +366,12 @@ em qualquer assinatura não-ativa sem `trial_ends_at`).
 
 **3 planos seedados ✅ *(implementado, `billing/migrations/0005_seed_plans.py`)*:**
 
-| | Essencial | Profissional | Ilimitado |
+| | Individual | Profissional | Studio |
 |---|---|---|---|
-| Preço | R$ 49,90/mês | R$ 99,90/mês | R$ 179,90/mês |
-| Funcionários (marketing) | até 2 | até 6 | ilimitado |
+| Preço | R$ 69,90/mês *(atualizado em 2026-08-05)* | R$ 129,90/mês *(atualizado em 2026-08-05)* | R$ 179,90/mês |
+| Funcionários (marketing) | 0 (só o dono) | até 3 | até 6 |
 | Estoque (marketing) | básico | profissional completo (RF43-46) | profissional completo |
-| Relatórios/WhatsApp (marketing) | — | relatórios (quando existir) | relatórios + WhatsApp |
+| Extras (marketing) | — | comissão automática, CRM completo, pacotes de mensalidade, relatórios (em breve) | idem Profissional *(único diferencial é o limite de funcionários, decisão de 2026-08-05)* |
 
 ⚠️ **O texto acima é só copy de marketing** (`apps/billing/views.py::PLAN_HIGHLIGHTS`), exibido
 na vitrine — **não existe enforcement real ainda**. `Plan` continua sem campo de limite
