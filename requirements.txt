@@ -12,3 +12,4 @@ django-allauth>=65.0,<66.0
 requests>=2.32
 pyjwt>=2.9
 cryptography>=43.0
+reportlab>=4.2

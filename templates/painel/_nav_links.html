@@ -7,9 +7,6 @@
   <span class="material-symbols-outlined {% if active != 'my_commissions' %}text-outline group-hover:text-primary{% endif %} transition-colors" {% if active == 'my_commissions' %}style="font-variation-settings: 'FILL' 1;"{% endif %}>payments</span><span>Minha Comissão</span>
 </a>
 {% else %}
-<a class="flex items-center gap-4 px-4 py-3 rounded-lg {% if active == 'dashboard' %}text-primary font-bold border-r-4 border-primary bg-primary-container/10{% else %}text-on-surface-variant font-medium hover:bg-surface-container-high group{% endif %} transition-colors" href="{% url 'dashboard:index' %}">
-  <span class="material-symbols-outlined {% if active != 'dashboard' %}text-outline group-hover:text-primary{% endif %} transition-colors" {% if active == 'dashboard' %}style="font-variation-settings: 'FILL' 1;"{% endif %}>dashboard</span><span>Dashboard</span>
-</a>
 <a class="flex items-center gap-4 px-4 py-3 rounded-lg {% if active == 'reports' %}text-primary font-bold border-r-4 border-primary bg-primary-container/10{% else %}text-on-surface-variant font-medium hover:bg-surface-container-high group{% endif %} transition-colors" href="{% url 'reports:index' %}">
   <span class="material-symbols-outlined {% if active != 'reports' %}text-outline group-hover:text-primary{% endif %} transition-colors" {% if active == 'reports' %}style="font-variation-settings: 'FILL' 1;"{% endif %}>monitoring</span><span>Relatórios</span>
 </a>

@@ -4,7 +4,7 @@ from django.contrib import admin
 from django.contrib.auth import views as auth_views
 from django.http import JsonResponse
 from django.urls import include, path
-from django.views.generic import TemplateView
+from django.views.generic import RedirectView, TemplateView
 from rest_framework.routers import DefaultRouter
 
 from apps.accounts.views import ZellupLoginView, painel_home
@@ -58,7 +58,9 @@ urlpatterns = [
     path("painel/funcionarios/", include("apps.employees.urls")),
     path("painel/estoque/", include("apps.inventory.urls")),
     path("painel/clientes/", include("apps.clients.urls")),
-    path("painel/dashboard/", include("apps.dashboard.urls")),
+    # Dashboard foi incorporado em Relatórios (aba "Visão Geral") em
+    # 2026-08-05 — redirect pra não quebrar bookmark/link antigo.
+    path("painel/dashboard/", RedirectView.as_view(pattern_name="reports:index", permanent=False)),
     path("painel/relatorios/", include("apps.reports.urls")),
     path("painel/agenda/", include("apps.scheduling.urls")),
     path("painel/caixa/", include("apps.finance.urls")),

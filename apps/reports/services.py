@@ -1,21 +1,121 @@
-"""Agregações do relatório com período flexível (RF37).
+"""Agregações de Relatórios (RF37) — página unificada com 3 abas:
 
-O resumo por categoria (DRE simplificado) já existe pronto em
-`apps.finance.services.period_summary` — não duplicado aqui, a view importa
-direto de lá. Este módulo cobre só o que ainda faltava: tendência de
-faturamento, top serviços/produtos/funcionários por período escolhido pelo
-usuário (o dashboard já tem equivalentes, mas com janela fixa de 30 dias/mês
-atual — ver `apps/dashboard/views.py`).
+- **Visão Geral**: KPIs de hoje/mês e alertas operacionais (era `apps.dashboard`,
+  incorporado aqui em 2026-08-05 pra não ter duas telas de "dashboard"
+  redundantes — decisão do usuário).
+- **Faturamento**: tendência + rankings (serviço/produto/funcionário) com
+  período escolhido pelo usuário, não fixo.
+- **DRE simplificado**: reaproveita `apps.finance.services.period_summary`
+  direto, não duplicado aqui.
 """
 
 import datetime
 from decimal import Decimal
 
-from django.db.models import Sum
+from django.db.models import Count, Sum
 from django.db.models.functions import TruncDate
 
-from apps.finance.models import CashCategory, CashFlowType, CashTransaction
+from apps.clients.models import Client
+from apps.finance.models import CashCategory, CashFlowType, CashTransaction, Commission, CommissionStatus
+from apps.inventory.models import Product
 from apps.scheduling.models import Appointment, AppointmentStatus
+
+
+def month_bounds(today):
+    return today.replace(day=1), today
+
+
+# ---------------------------------------------------------------------------
+# Visão Geral — KPIs de hoje/mês (janela fixa, sem filtro de período)
+# ---------------------------------------------------------------------------
+
+
+def revenue_kpis(tenant, today, month_start):
+    month_qs = CashTransaction.objects.for_tenant(tenant).filter(
+        created_at__date__range=(month_start, today)
+    )
+    today_qs = CashTransaction.objects.for_tenant(tenant).filter(created_at__date=today)
+
+    def _sum(qs, flow_type):
+        return qs.filter(type=flow_type).aggregate(total=Sum("amount"))["total"] or Decimal("0")
+
+    month_in = _sum(month_qs, CashFlowType.IN)
+    month_out = _sum(month_qs, CashFlowType.OUT)
+    today_in = _sum(today_qs, CashFlowType.IN)
+    today_out = _sum(today_qs, CashFlowType.OUT)
+    return {
+        "month_in": month_in,
+        "month_out": month_out,
+        "month_balance": month_in - month_out,
+        "today_balance": today_in - today_out,
+    }
+
+
+def appointments_today(tenant, today):
+    counts = dict(
+        Appointment.objects.for_tenant(tenant)
+        .filter(date=today)
+        .values_list("status")
+        .annotate(count=Count("id"))
+    )
+    return {status: counts.get(status, 0) for status, _ in AppointmentStatus.choices}
+
+
+def pending_commissions_total(tenant):
+    return Commission.objects.for_tenant(tenant).filter(
+        status=CommissionStatus.PENDING
+    ).aggregate(total=Sum("calculated_amount"))["total"] or Decimal("0")
+
+
+def stock_kpis(tenant):
+    products = Product.objects.for_tenant(tenant).filter(is_active=True)
+    return {
+        "low_stock_count": sum(1 for p in products if p.is_low_stock),
+        "total_products": products.count(),
+    }
+
+
+def client_kpis(tenant, today, month_start):
+    clients = Client.objects.for_tenant(tenant)
+    return {
+        "total_clients": clients.count(),
+        "new_this_month": clients.filter(created_at__date__gte=month_start).count(),
+        "subscribers_overdue": sum(1 for c in clients if c.subscription_is_overdue),
+        "subscribers_due_soon": sum(1 for c in clients if c.subscription_is_due_soon),
+        "credit_liability": clients.aggregate(total=Sum("credit_balance"))["total"] or Decimal("0"),
+    }
+
+
+def appointments_by_status_this_month(tenant, today, month_start):
+    rows = (
+        Appointment.objects.for_tenant(tenant)
+        .filter(date__range=(month_start, today))
+        .values_list("status")
+        .annotate(count=Count("id"))
+    )
+    counts = dict(rows)
+    labels = [label for value, label in AppointmentStatus.choices if counts.get(value)]
+    values = [counts[value] for value, label in AppointmentStatus.choices if counts.get(value)]
+    return labels, values
+
+
+def commission_by_employee_this_month(tenant, today, month_start, limit=5):
+    rows = (
+        Commission.objects.for_tenant(tenant)
+        .filter(created_at__date__range=(month_start, today))
+        .values("employee__full_name")
+        .annotate(total=Sum("calculated_amount"))
+        .order_by("-total")[:limit]
+    )
+    return (
+        [row["employee__full_name"] for row in rows],
+        [float(row["total"]) for row in rows],
+    )
+
+
+# ---------------------------------------------------------------------------
+# Faturamento — período escolhido pelo usuário
+# ---------------------------------------------------------------------------
 
 
 def revenue_trend(tenant, start_date, end_date):
@@ -38,9 +138,9 @@ def revenue_trend(tenant, start_date, end_date):
 
 
 def top_services(tenant, start_date, end_date, limit=10):
-    """Ranking por faturamento (não por quantidade — o dashboard já mostra
-    popularidade por contagem; aqui o corte é o valor que cada serviço
-    trouxe no período)."""
+    """Ranking por faturamento (não por quantidade — a aba Visão Geral já
+    mostra popularidade por contagem no gráfico de comissão; aqui o corte é
+    o valor que cada serviço trouxe no período)."""
     rows = (
         Appointment.objects.for_tenant(tenant)
         .filter(status=AppointmentStatus.COMPLETED, date__range=(start_date, end_date))
@@ -70,8 +170,8 @@ def top_products(tenant, start_date, end_date, limit=10):
 
 def revenue_by_employee(tenant, start_date, end_date, limit=10):
     """Faturamento gerado por funcionário (valor do serviço), diferente da
-    comissão (que já aparece no dashboard) — aqui é quanto cada um trouxe
-    de receita bruta pro salão."""
+    comissão (aba Visão Geral) — aqui é quanto cada um trouxe de receita
+    bruta pro salão."""
     rows = (
         Appointment.objects.for_tenant(tenant)
         .filter(status=AppointmentStatus.COMPLETED, date__range=(start_date, end_date))
