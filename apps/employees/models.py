@@ -51,6 +51,12 @@ class Employee(TenantModel):
     def __str__(self):
         return self.full_name
 
+    def save(self, *args, **kwargs):
+        from apps.utils import compress_uploaded_image
+
+        compress_uploaded_image(self.photo)
+        super().save(*args, **kwargs)
+
     @property
     def is_owner(self):
         """True para o perfil sincronizado por `services.sync_owner_employee`

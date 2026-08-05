@@ -149,6 +149,15 @@ class Tenant(models.Model):
     def __str__(self):
         return self.name
 
+    def save(self, *args, **kwargs):
+        from apps.utils import compress_uploaded_image
+
+        compress_uploaded_image(self.logo)
+        compress_uploaded_image(self.cover_image)
+        compress_uploaded_image(self.background_image)
+        compress_uploaded_image(self.owner_photo)
+        super().save(*args, **kwargs)
+
     @property
     def whatsapp_wa_me_number(self):
         """Só dígitos, com DDI — usado pra montar link `wa.me` (ex.: aviso de

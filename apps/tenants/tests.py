@@ -1021,3 +1021,65 @@ class DeleteAccountPanelTest(TestCase):
         # sessão encerrada — próxima página do painel exige login de novo
         response = self.client.get("/painel/servicos/")
         self.assertEqual(response.status_code, 302)
+
+
+def _make_test_image(width, height, image_format="JPEG", mode="RGB", color=(200, 100, 50)):
+    import io
+
+    from PIL import Image
+
+    buffer = io.BytesIO()
+    Image.new(mode, (width, height), color).save(buffer, format=image_format)
+    buffer.seek(0)
+    content_type = f"image/{image_format.lower()}"
+    return SimpleUploadedFile(f"foto.{image_format.lower()}", buffer.read(), content_type=content_type)
+
+
+class TenantImageCompressionTest(TestCase):
+    """Upload de imagem sem limite nenhum hoje (regra 2026-08-05) — logo/
+    capa/fundo/foto do responsável precisam ser redimensionados e
+    recomprimidos no `save()` do model, sem depender de cada form/view
+    lembrar de fazer isso."""
+
+    def test_large_logo_is_resized_on_save(self):
+        from PIL import Image
+
+        tenant = Tenant.objects.create(name="Salão Foto", slug="salao-foto")
+        tenant.logo = _make_test_image(2400, 1800, "JPEG")
+        tenant.save()
+        tenant.refresh_from_db()
+        with Image.open(tenant.logo) as saved:
+            self.assertLessEqual(max(saved.size), 1600)
+
+    def test_small_image_is_not_upscaled(self):
+        from PIL import Image
+
+        tenant = Tenant.objects.create(name="Salão Foto Pequena", slug="salao-foto-pequena")
+        tenant.logo = _make_test_image(400, 300, "JPEG")
+        tenant.save()
+        tenant.refresh_from_db()
+        with Image.open(tenant.logo) as saved:
+            self.assertEqual(saved.size, (400, 300))
+
+    def test_png_transparency_preserved(self):
+        from PIL import Image
+
+        tenant = Tenant.objects.create(name="Salão PNG", slug="salao-png")
+        tenant.logo = _make_test_image(2000, 2000, "PNG", mode="RGBA", color=(0, 0, 0, 0))
+        tenant.save()
+        tenant.refresh_from_db()
+        with Image.open(tenant.logo) as saved:
+            self.assertEqual(saved.format, "PNG")
+            self.assertEqual(saved.mode, "RGBA")
+            self.assertLessEqual(max(saved.size), 1600)
+
+    def test_resaving_without_changing_image_does_not_reprocess(self):
+        tenant = Tenant.objects.create(name="Salão Resave", slug="salao-resave")
+        tenant.logo = _make_test_image(2400, 1800, "JPEG")
+        tenant.save()
+        original_name = tenant.logo.name
+
+        tenant.name = "Salão Resave Renomeado"
+        tenant.save()
+
+        self.assertEqual(tenant.logo.name, original_name)
