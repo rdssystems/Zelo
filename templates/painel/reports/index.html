@@ -3,35 +3,172 @@
 {% block title %}Zellup — Relatórios{% endblock %}
 
 {% block content %}
-<div class="mb-8">
-  <h2 class="font-display text-headline-md text-on-surface mb-2">Relatórios</h2>
-  <p class="text-on-surface-variant">Escolha o período pra analisar faturamento e o resumo financeiro (DRE).</p>
+<div class="mb-8 flex flex-wrap items-start justify-between gap-4">
+  <div>
+    <h2 class="font-display text-headline-md text-on-surface mb-2">Relatórios</h2>
+    <p class="text-on-surface-variant">Visão geral do salão, faturamento e resumo financeiro (DRE).</p>
+  </div>
 </div>
 
-<form class="flex flex-wrap items-center gap-4 mb-8 bg-surface-container-lowest border border-surface-variant rounded-xl p-4" method="get">
-  <div class="flex items-center gap-2">
-    <label class="text-sm text-on-surface-variant">De</label>
-    <input class="bg-transparent border-0 border-b border-outline-variant text-on-surface focus:ring-0 focus:border-primary" name="start" type="date" value="{{ start|date:'Y-m-d' }}"/>
+<div x-data="reportsPage()">
+  <div class="flex flex-wrap items-center justify-between gap-4 mb-8 border-b border-surface-variant">
+    <div class="flex gap-2">
+      <button type="button" @click="tab = 'visao-geral'"
+              class="px-5 py-3 text-sm font-semibold border-b-2 transition-colors"
+              :class="tab === 'visao-geral' ? 'border-primary text-primary' : 'border-transparent text-on-surface-variant hover:text-on-surface'">
+        Visão Geral
+      </button>
+      <button type="button" @click="tab = 'faturamento'"
+              class="px-5 py-3 text-sm font-semibold border-b-2 transition-colors"
+              :class="tab === 'faturamento' ? 'border-primary text-primary' : 'border-transparent text-on-surface-variant hover:text-on-surface'">
+        Faturamento
+      </button>
+      <button type="button" @click="tab = 'dre'"
+              class="px-5 py-3 text-sm font-semibold border-b-2 transition-colors"
+              :class="tab === 'dre' ? 'border-primary text-primary' : 'border-transparent text-on-surface-variant hover:text-on-surface'">
+        DRE simplificado
+      </button>
+    </div>
+    <button type="button" @click="pdfModalOpen = true"
+            class="mb-2 px-5 py-2.5 rounded-pill border border-outline-variant text-on-surface font-semibold text-sm hover:bg-surface-container-high transition-colors inline-flex items-center gap-2">
+      <span class="material-symbols-outlined text-[18px]">picture_as_pdf</span> Exportar PDF
+    </button>
   </div>
-  <div class="flex items-center gap-2">
-    <label class="text-sm text-on-surface-variant">Até</label>
-    <input class="bg-transparent border-0 border-b border-outline-variant text-on-surface focus:ring-0 focus:border-primary" name="end" type="date" value="{{ end|date:'Y-m-d' }}"/>
-  </div>
-  <button class="md:ml-auto px-6 py-2 rounded-pill bg-primary-container text-on-primary-container font-semibold text-sm hover:opacity-90 transition-opacity" type="submit">Filtrar</button>
-</form>
 
-<div x-data="{ tab: 'faturamento' }">
-  <div class="flex gap-2 mb-8 border-b border-surface-variant">
-    <button type="button" @click="tab = 'faturamento'"
-            class="px-5 py-3 text-sm font-semibold border-b-2 transition-colors"
-            :class="tab === 'faturamento' ? 'border-primary text-primary' : 'border-transparent text-on-surface-variant hover:text-on-surface'">
-      Faturamento
-    </button>
-    <button type="button" @click="tab = 'dre'"
-            class="px-5 py-3 text-sm font-semibold border-b-2 transition-colors"
-            :class="tab === 'dre' ? 'border-primary text-primary' : 'border-transparent text-on-surface-variant hover:text-on-surface'">
-      DRE simplificado
-    </button>
+  <form class="flex flex-wrap items-center gap-4 mb-8 bg-surface-container-lowest border border-surface-variant rounded-xl p-4"
+        method="get" x-show="tab !== 'visao-geral'" x-cloak>
+    <div class="flex items-center gap-2">
+      <label class="text-sm text-on-surface-variant">De</label>
+      <input class="bg-transparent border-0 border-b border-outline-variant text-on-surface focus:ring-0 focus:border-primary" name="start" type="date" value="{{ start|date:'Y-m-d' }}"/>
+    </div>
+    <div class="flex items-center gap-2">
+      <label class="text-sm text-on-surface-variant">Até</label>
+      <input class="bg-transparent border-0 border-b border-outline-variant text-on-surface focus:ring-0 focus:border-primary" name="end" type="date" value="{{ end|date:'Y-m-d' }}"/>
+    </div>
+    <button class="md:ml-auto px-6 py-2 rounded-pill bg-primary-container text-on-primary-container font-semibold text-sm hover:opacity-90 transition-opacity" type="submit">Filtrar</button>
+  </form>
+
+  <div x-show="tab === 'visao-geral'" x-cloak>
+    {% if subscribers_overdue or low_stock_count %}
+    <div class="flex flex-wrap gap-4 mb-8">
+      {% if subscribers_overdue %}
+      <a href="{% url 'clients:list' %}" class="flex items-center gap-4 bg-error-container/20 border border-error/20 rounded-2xl px-6 py-4 hover:bg-error-container/30 transition-colors">
+        <span class="font-display text-3xl text-error">{{ subscribers_overdue }}</span>
+        <div>
+          <p class="text-sm font-semibold text-error">Mensalidade{{ subscribers_overdue|pluralize }} vencida{{ subscribers_overdue|pluralize }}</p>
+          <p class="text-xs text-on-surface-variant">Cliente{{ subscribers_overdue|pluralize }} precisa{{ subscribers_overdue|pluralize:"m" }} renovar</p>
+        </div>
+      </a>
+      {% endif %}
+      {% if subscribers_due_soon %}
+      <a href="{% url 'clients:list' %}" class="flex items-center gap-4 bg-secondary-container/40 border border-secondary/20 rounded-2xl px-6 py-4 hover:bg-secondary-container/60 transition-colors">
+        <span class="font-display text-3xl text-secondary">{{ subscribers_due_soon }}</span>
+        <div>
+          <p class="text-sm font-semibold text-on-secondary-container">Mensalidade{{ subscribers_due_soon|pluralize }} vencendo em breve</p>
+          <p class="text-xs text-on-surface-variant">Próximos 7 dias</p>
+        </div>
+      </a>
+      {% endif %}
+      {% if low_stock_count %}
+      <a href="{% url 'inventory:list' %}" class="flex items-center gap-4 bg-error-container/20 border border-error/20 rounded-2xl px-6 py-4 hover:bg-error-container/30 transition-colors">
+        <span class="font-display text-3xl text-error">{{ low_stock_count }}</span>
+        <div>
+          <p class="text-sm font-semibold text-error">Produto{{ low_stock_count|pluralize }} com estoque baixo</p>
+          <p class="text-xs text-on-surface-variant">Verificar reposição</p>
+        </div>
+      </a>
+      {% endif %}
+    </div>
+    {% else %}
+    <div class="flex items-center gap-3 bg-[#e8f5e9] border border-[#2e7d32]/20 rounded-2xl px-6 py-4 mb-8">
+      <span class="material-symbols-outlined text-[#2e7d32]">check_circle</span>
+      <p class="text-sm font-medium text-[#2e7d32]">Nada pedindo atenção urgente hoje — mensalidades em dia, estoque ok.</p>
+    </div>
+    {% endif %}
+
+    <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <div class="bg-primary-container/20 p-6 rounded-xl border border-primary/20 shadow-sm">
+        <span class="text-label-caps uppercase text-primary block mb-2">Faturamento do mês</span>
+        <div class="font-display text-2xl text-primary">R$ {{ month_in }}</div>
+      </div>
+      <div class="bg-surface-container-lowest p-6 rounded-xl border border-surface-variant shadow-sm">
+        <span class="text-label-caps uppercase text-on-surface-variant block mb-2">Saldo do caixa hoje</span>
+        <div class="font-display text-2xl text-on-surface">R$ {{ today_balance }}</div>
+      </div>
+      <div class="bg-surface-container-lowest p-6 rounded-xl border border-surface-variant shadow-sm">
+        <span class="text-label-caps uppercase text-on-surface-variant block mb-2">Comissões pendentes</span>
+        <div class="font-display text-2xl text-on-surface">R$ {{ pending_commissions_total }}</div>
+      </div>
+      <div class="bg-surface-container-lowest p-6 rounded-xl border border-surface-variant shadow-sm">
+        <span class="text-label-caps uppercase text-on-surface-variant block mb-2">Crédito de clientes em aberto</span>
+        <div class="font-display text-2xl text-on-surface">R$ {{ credit_liability }}</div>
+      </div>
+    </section>
+
+    <section class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-10">
+      <div class="bg-surface-container-lowest rounded-2xl border border-surface-variant shadow-sm p-6 lg:col-span-1">
+        <h3 class="text-label-caps uppercase text-outline mb-4">Atendimentos hoje</h3>
+        <div class="space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-sm text-on-surface-variant">Pendentes</span>
+            <span class="font-semibold text-on-surface">{{ appointments_today.pending }}</span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-sm text-on-surface-variant">Confirmados</span>
+            <span class="font-semibold text-on-surface">{{ appointments_today.confirmed }}</span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-sm text-on-surface-variant">Em atendimento</span>
+            <span class="font-semibold text-primary">{{ appointments_today.in_progress }}</span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-sm text-on-surface-variant">Concluídos</span>
+            <span class="font-semibold text-[#2e7d32]">{{ appointments_today.completed }}</span>
+          </div>
+        </div>
+      </div>
+      <div class="bg-surface-container-lowest rounded-2xl border border-surface-variant shadow-sm p-6 lg:col-span-1">
+        <h3 class="text-label-caps uppercase text-outline mb-4">Clientes</h3>
+        <div class="space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-sm text-on-surface-variant">Total</span>
+            <span class="font-semibold text-on-surface">{{ total_clients }}</span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-sm text-on-surface-variant">Novos este mês</span>
+            <span class="font-semibold text-on-surface">{{ new_this_month }}</span>
+          </div>
+        </div>
+      </div>
+      <div class="bg-surface-container-lowest rounded-2xl border border-surface-variant shadow-sm p-6 lg:col-span-1">
+        <h3 class="text-label-caps uppercase text-outline mb-4">Estoque</h3>
+        <div class="space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-sm text-on-surface-variant">Produtos ativos</span>
+            <span class="font-semibold text-on-surface">{{ total_products }}</span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-sm text-on-surface-variant">Estoque baixo</span>
+            <span class="font-semibold {% if low_stock_count %}text-error{% else %}text-on-surface{% endif %}">{{ low_stock_count }}</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div class="bg-surface-container-lowest rounded-2xl border border-surface-variant shadow-sm p-6">
+        <h3 class="text-label-caps uppercase text-outline mb-4">Atendimentos por status (mês)</h3>
+        <div class="h-56">
+          <canvas id="status-chart"></canvas>
+        </div>
+      </div>
+      <div class="bg-surface-container-lowest rounded-2xl border border-surface-variant shadow-sm p-6">
+        <h3 class="text-label-caps uppercase text-outline mb-4">Comissão por funcionário (mês)</h3>
+        <div class="h-56">
+          <canvas id="commission-chart"></canvas>
+        </div>
+      </div>
+    </section>
   </div>
 
   <div x-show="tab === 'faturamento'" x-cloak>
@@ -103,14 +240,95 @@
       </table>
     </section>
   </div>
+
+  <div class="fixed inset-0 z-50 flex items-center justify-center p-4" x-show="pdfModalOpen" x-cloak>
+    <div class="absolute inset-0 bg-inverse-surface/40 backdrop-blur-sm" @click="pdfModalOpen = false"></div>
+    <div class="relative w-full max-w-md bg-surface-container-lowest rounded-2xl shadow-2xl overflow-hidden">
+      <form method="post" action="{% url 'reports:pdf' %}" class="p-8">
+        {% csrf_token %}
+        <input type="hidden" name="start" value="{{ start|date:'Y-m-d' }}"/>
+        <input type="hidden" name="end" value="{{ end|date:'Y-m-d' }}"/>
+
+        <div class="flex items-center gap-3 mb-2">
+          <div class="w-10 h-10 rounded-full bg-primary-container/40 flex items-center justify-center shrink-0">
+            <span class="material-symbols-outlined text-primary">picture_as_pdf</span>
+          </div>
+          <h3 class="font-display text-xl font-bold text-on-surface">Exportar relatório em PDF</h3>
+        </div>
+        <p class="text-sm text-on-surface-variant mb-6">Escolha o que incluir no documento — o período usado é o mesmo filtrado na aba Faturamento/DRE ({{ start|date:'d/m/Y' }} a {{ end|date:'d/m/Y' }}).</p>
+
+        <label class="flex items-center gap-3 py-2 border-b border-surface-variant cursor-pointer">
+          <input type="checkbox" class="w-4 h-4" :checked="allSelected" @change="toggleAll($event.target.checked)"/>
+          <span class="text-sm font-semibold text-on-surface">Selecionar tudo</span>
+        </label>
+
+        <div class="space-y-1 mt-3 mb-6">
+          <label class="flex items-center gap-3 py-2 cursor-pointer">
+            <input type="checkbox" name="sections" value="visao_geral" class="w-4 h-4" x-model="visaoGeral"/>
+            <span class="text-sm text-on-surface">Visão Geral (KPIs do mês, atendimentos, estoque)</span>
+          </label>
+          <label class="flex items-center gap-3 py-2 cursor-pointer">
+            <input type="checkbox" name="sections" value="faturamento" class="w-4 h-4" x-model="faturamento"/>
+            <span class="text-sm text-on-surface">Faturamento (tendência + rankings do período)</span>
+          </label>
+          <label class="flex items-center gap-3 py-2 cursor-pointer">
+            <input type="checkbox" name="sections" value="dre" class="w-4 h-4" x-model="dre"/>
+            <span class="text-sm text-on-surface">DRE simplificado (entradas/saídas por categoria)</span>
+          </label>
+        </div>
+
+        <div class="flex justify-end gap-3">
+          <button type="button" class="px-5 py-2.5 rounded-pill border border-outline-variant text-on-surface-variant font-medium hover:bg-surface-variant transition-colors" @click="pdfModalOpen = false">Cancelar</button>
+          <button type="submit" :disabled="!visaoGeral && !faturamento && !dre"
+                  class="px-6 py-2.5 rounded-pill bg-primary-container text-on-primary-container font-semibold hover:opacity-90 transition-opacity disabled:opacity-40 disabled:pointer-events-none">
+            Gerar PDF
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
 </div>
 
 <script>
+function reportsPage() {
+  return {
+    tab: 'visao-geral',
+    pdfModalOpen: false,
+    visaoGeral: true,
+    faturamento: true,
+    dre: true,
+    get allSelected() {
+      return this.visaoGeral && this.faturamento && this.dre;
+    },
+    toggleAll(value) {
+      this.visaoGeral = this.faturamento = this.dre = value;
+    },
+  };
+}
+
 (function () {
+  const statusData = {{ status_chart_json|safe }};
+  const commissionData = {{ commission_chart_json|safe }};
   const revenueData = {{ revenue_chart_json|safe }};
   const servicesData = {{ services_chart_json|safe }};
   const productsData = {{ products_chart_json|safe }};
   const employeesData = {{ employees_chart_json|safe }};
+  const palette = ['#7d562d', '#d4a373', '#72594d', '#fedbcc', '#ba1a1a', '#eae1db'];
+
+  new Chart(document.getElementById('status-chart'), {
+    type: 'doughnut',
+    data: { labels: statusData.labels, datasets: [{ data: statusData.values, backgroundColor: palette }] },
+    options: { responsive: true, maintainAspectRatio: false },
+  });
+
+  new Chart(document.getElementById('commission-chart'), {
+    type: 'bar',
+    data: { labels: commissionData.labels, datasets: [{ data: commissionData.values, backgroundColor: '#72594d' }] },
+    options: {
+      indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+    },
+  });
 
   new Chart(document.getElementById('revenue-chart'), {
     type: 'line',
