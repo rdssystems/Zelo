@@ -219,31 +219,41 @@ def _birthday_entry(client, tenant):
         "name": client.name,
         "phone": client.phone,
         "message": _default_birthday_message(client, tenant),
+        "sent_url": reverse("clients:birthday_whatsapp_sent", args=[client.id]),
     }
 
 
 @tenant_admin_required
 def birthday_whatsapp_campaign(request):
     """Modal aberto a partir da notificação de aniversariante do dia (sininho
-    ou toast) — abrir este modal é o que "reconhece" o alerta: marca todas as
-    notificações `birthday_alert` não lidas do tenant como lidas, o mesmo
-    clique já leva à lista de aniversariantes com mensagem pronta (editável),
-    um a um, mesmo padrão de `subscription_whatsapp_campaign`. Só entram
+    ou toast) — lista só quem AINDA não recebeu a mensagem hoje
+    (`apps.clients.services.pending_birthday_clients_today`). Abrir o modal
+    não "reconhece" mais o alerta sozinho — ele some do sininho só quando a
+    mensagem é enviada de fato pra cada um (clique em "Enviar", ver
+    `birthday_whatsapp_sent`) — decisão do usuário em 2026-08-05. Só entram
     clientes com telefone válido — anonimizado via LGPD não tem como ser
     contatado (e também não teria mais aniversário cadastrado)."""
-    from apps.notifications.models import TenantNotificationKind
-    from apps.notifications.services import unread_tenant_notifications
-
-    unread_tenant_notifications(request.tenant).filter(
-        kind=TenantNotificationKind.BIRTHDAY_ALERT
-    ).update(is_read=True, read_at=timezone.now())
-
-    clients = [c for c in client_ops.clients_with_birthday_today(request.tenant) if c.phone.isdigit()]
+    clients = [
+        c for c in client_ops.pending_birthday_clients_today(request.tenant) if c.phone.isdigit()
+    ]
     return render(
         request,
         "painel/clients/_birthday_campaign_modal.html",
         {"birthday_clients": [_birthday_entry(c, request.tenant) for c in clients]},
     )
+
+
+@tenant_admin_required
+def birthday_whatsapp_sent(request, pk):
+    """POST chamado pelo JS do modal (`_birthday_campaign_modal.html`) no
+    exato momento em que o admin clica "Enviar" pra um cliente — é isso que
+    faz o alerta daquele aniversário parar de aparecer (ver
+    `apps.clients.services.mark_birthday_message_sent`)."""
+    if request.method != "POST":
+        return HttpResponse(status=405)
+    client = _get_client(request, pk)
+    client_ops.mark_birthday_message_sent(client)
+    return HttpResponse(status=204)
 
 
 def _history_context(client):

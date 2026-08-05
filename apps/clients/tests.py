@@ -22,7 +22,9 @@ from .services import (
     ensure_birthday_notification,
     format_phone_display,
     get_or_create_client,
+    mark_birthday_message_sent,
     normalize_phone,
+    pending_birthday_clients_today,
     redeem_client_credit_for_appointment,
     remove_client_credit,
     renew_subscription,
@@ -966,7 +968,9 @@ class BirthdayAlertTest(TestCase):
     """RF: alerta de aniversário — decisão do usuário em 2026-08-04.
     `Tenant.birthday_alert_enabled` liga o alerta; a notificação (mesmo
     modelo `TenantNotification` já usado pra cancelamento de agendamento)
-    só some quando o admin abre o modal de envio de mensagem."""
+    só some quando a mensagem É ENVIADA de fato pra todo mundo pendente
+    (clique em "Enviar" no modal), não só por abrir o modal — decisão do
+    usuário em 2026-08-05."""
 
     @classmethod
     def setUpTestData(cls):
@@ -1058,7 +1062,7 @@ class BirthdayAlertTest(TestCase):
         self.assertNotContains(response, "Sem WhatsApp válido")
         self.assertNotContains(response, "Outro Dia")
 
-    def test_opening_campaign_marks_birthday_notifications_read(self):
+    def test_opening_campaign_does_not_mark_birthday_notifications_read(self):
         self.tenant.birthday_alert_enabled = True
         self.tenant.save(update_fields=["birthday_alert_enabled"])
         self._make_birthday_client()
@@ -1067,7 +1071,51 @@ class BirthdayAlertTest(TestCase):
         self.client.force_login(self.admin)
         self.client.get("/painel/clientes/aniversariantes/whatsapp/")
         notification.refresh_from_db()
+        self.assertFalse(notification.is_read)
+
+    def test_mark_birthday_message_sent_sets_greeted_date(self):
+        client_ = self._make_birthday_client()
+        self.assertIsNone(client_.last_birthday_greeted_on)
+        mark_birthday_message_sent(client_)
+        client_.refresh_from_db()
+        self.assertEqual(client_.last_birthday_greeted_on, self.today)
+
+    def test_pending_excludes_already_greeted_client(self):
+        client_ = self._make_birthday_client()
+        self.assertEqual(list(pending_birthday_clients_today(self.tenant)), [client_])
+        mark_birthday_message_sent(client_)
+        self.assertEqual(list(pending_birthday_clients_today(self.tenant)), [])
+
+    def test_campaign_excludes_already_greeted_client(self):
+        client_ = self._make_birthday_client(name="Maria")
+        mark_birthday_message_sent(client_)
+        self.client.force_login(self.admin)
+        response = self.client.get("/painel/clientes/aniversariantes/whatsapp/")
+        self.assertNotContains(response, "Maria")
+
+    def test_sending_last_pending_message_closes_notification(self):
+        self.tenant.birthday_alert_enabled = True
+        self.tenant.save(update_fields=["birthday_alert_enabled"])
+        client_ = self._make_birthday_client()
+        notification = ensure_birthday_notification(self.tenant)
+        self.client.force_login(self.admin)
+        response = self.client.post(
+            f"/painel/clientes/aniversariantes/whatsapp/{client_.pk}/enviar/"
+        )
+        self.assertEqual(response.status_code, 204)
+        notification.refresh_from_db()
         self.assertTrue(notification.is_read)
+
+    def test_sending_message_for_one_of_two_keeps_notification_open(self):
+        self.tenant.birthday_alert_enabled = True
+        self.tenant.save(update_fields=["birthday_alert_enabled"])
+        client_1 = self._make_birthday_client(name="Maria", phone="11911112222")
+        self._make_birthday_client(name="Joana", phone="11933334444")
+        notification = ensure_birthday_notification(self.tenant)
+        self.client.force_login(self.admin)
+        self.client.post(f"/painel/clientes/aniversariantes/whatsapp/{client_1.pk}/enviar/")
+        notification.refresh_from_db()
+        self.assertFalse(notification.is_read)
 
     def test_campaign_scoped_to_tenant(self):
         other_tenant, other_admin = make_tenant_with_admin("salao-b")

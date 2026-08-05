@@ -16,6 +16,11 @@ urlpatterns = [
         views.birthday_whatsapp_campaign,
         name="birthday_whatsapp_campaign",
     ),
+    path(
+        "aniversariantes/whatsapp/<int:pk>/enviar/",
+        views.birthday_whatsapp_sent,
+        name="birthday_whatsapp_sent",
+    ),
     path("novo/", views.client_create, name="create"),
     path("pacotes/", views.package_list, name="package_list"),
     path("pacotes/novo/", views.package_create, name="package_create"),

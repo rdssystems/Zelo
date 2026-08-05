@@ -71,6 +71,10 @@ function birthdayCampaign() {
       if (!this.current) return;
       const text = encodeURIComponent(this.message);
       window.open(`https://wa.me/55${this.current.phone}?text=${text}`, "_blank");
+      fetch(this.current.sent_url, {
+        method: "POST",
+        headers: { "X-CSRFToken": "{{ csrf_token }}" },
+      });
       this.index += 1;
       this.message = this.current ? this.current.message : "";
     },

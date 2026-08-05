@@ -43,6 +43,13 @@ class Client(TenantModel):
     # ou nenhum — validado em apps/clients/services.py.
     birth_day = models.PositiveSmallIntegerField("dia de nascimento", null=True, blank=True)
     birth_month = models.PositiveSmallIntegerField("mês de nascimento", null=True, blank=True)
+    # Marca a última vez que a mensagem de parabéns foi ENVIADA (clique em
+    # "Enviar" no modal), não quando o modal foi aberto — decisão do usuário
+    # em 2026-08-05: abrir a lista não deve fazer o alerta sumir do sininho,
+    # só o envio de fato (ver apps.clients.services.mark_birthday_message_sent).
+    last_birthday_greeted_on = models.DateField(
+        "último parabéns enviado em", null=True, blank=True
+    )
     # Derivado — NUNCA editar direto (CLAUDE.md regra 2, mesma regra de
     # Product.current_stock). Só muda via apps/clients/services.py
     # (add/remove/redeem_client_credit), sempre com um

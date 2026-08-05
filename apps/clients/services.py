@@ -445,13 +445,52 @@ def clients_with_birthday_today(tenant):
     ).order_by("name")
 
 
+def pending_birthday_clients_today(tenant):
+    """Aniversariantes de hoje que ainda NÃO receberam a mensagem de
+    parabéns (ver `mark_birthday_message_sent`) — é essa lista que aparece
+    no modal de envio e que decide se o alerta do sininho continua ativo."""
+    from django.utils import timezone
+
+    today = timezone.localdate()
+    return clients_with_birthday_today(tenant).exclude(last_birthday_greeted_on=today)
+
+
+def mark_birthday_message_sent(client):
+    """Registra que a mensagem de parabéns de hoje foi enviada a este
+    cliente (clique em "Enviar" no modal, não só abrir a lista) e, se não
+    sobrar mais nenhum aniversariante pendente, encerra o alerta do dia no
+    sininho — decisão do usuário em 2026-08-05."""
+    from django.utils import timezone
+
+    today = timezone.localdate()
+    client.last_birthday_greeted_on = today
+    client.save(update_fields=["last_birthday_greeted_on"])
+    _close_birthday_notification_if_all_greeted(client.tenant)
+    return client
+
+
+def _close_birthday_notification_if_all_greeted(tenant):
+    if pending_birthday_clients_today(tenant).exists():
+        return
+
+    from django.utils import timezone
+
+    from apps.notifications.models import TenantNotification, TenantNotificationKind
+
+    today = timezone.localdate()
+    TenantNotification.objects.for_tenant(tenant).filter(
+        kind=TenantNotificationKind.BIRTHDAY_ALERT, is_read=False, created_at__date=today,
+    ).update(is_read=True, read_at=timezone.now())
+
+
 def ensure_birthday_notification(tenant):
     """Garante (idempotente) UMA `TenantNotification` por dia quando há
-    aniversariante — chamado a cada poll do sininho/toast
-    (`apps.notifications.views.agenda_toast_poll`), sem precisar de tarefa
-    agendada (Celery) separada. Só cria se `Tenant.birthday_alert_enabled`;
-    a notificação some do sininho só quando o admin abrir o modal de envio
-    (`apps.clients.views.birthday_whatsapp_campaign` marca como lida)."""
+    aniversariante PENDENTE (ainda sem mensagem enviada) — chamado a cada
+    poll do sininho/toast (`apps.notifications.views.agenda_toast_poll`),
+    sem precisar de tarefa agendada (Celery) separada. Só cria se
+    `Tenant.birthday_alert_enabled`; a notificação some do sininho quando a
+    mensagem É ENVIADA de fato pra todos (`mark_birthday_message_sent`), não
+    só por abrir o modal — decisão do usuário em 2026-08-05."""
     if not tenant.birthday_alert_enabled:
         return None
 
@@ -460,7 +499,7 @@ def ensure_birthday_notification(tenant):
     from apps.notifications.models import TenantNotification, TenantNotificationKind
     from apps.notifications.services import create_tenant_notification
 
-    clients = list(clients_with_birthday_today(tenant))
+    clients = list(pending_birthday_clients_today(tenant))
     if not clients:
         return None
 
