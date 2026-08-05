@@ -1,6 +1,6 @@
 <div id="hours-section" class="bg-surface-container-lowest rounded-2xl shadow-[0_4px_40px_-10px_rgba(125,86,45,0.08)] border border-surface-container p-8">
   <h3 class="text-label-caps uppercase text-outline mb-2">Jornada de trabalho</h3>
-  <p class="text-sm text-on-surface-variant mb-6">Marque os dias em que o profissional atende e o horário de início e fim.</p>
+  <p class="text-sm text-on-surface-variant mb-6">Marque os dias em que o profissional atende e o horário de início e fim. Use "Marcar intervalo" pra pausa recorrente todo dia (almoço, por exemplo).</p>
 
   {% if hours_error %}
   <div class="mb-4 rounded-lg bg-error-container text-on-error-container px-4 py-3 text-sm">{{ hours_error }}</div>
@@ -8,18 +8,34 @@
   <div class="mb-4 rounded-lg bg-secondary-container text-on-secondary-container px-4 py-3 text-sm">Jornada salva.</div>
   {% endif %}
 
-  <form hx-post="{% url 'employees:working_hours' employee.pk %}" hx-target="#hours-section" hx-swap="outerHTML" class="space-y-3">
+  <form hx-post="{% url 'employees:working_hours' employee.pk %}" hx-target="#hours-section" hx-swap="outerHTML" class="space-y-3"
+        x-data="{ hasBreak: {{ any_day_has_break|yesno:'true,false' }} }">
     {% csrf_token %}
+    <div class="flex justify-end pb-2">
+      <button type="button" @click="hasBreak = !hasBreak"
+              class="px-5 py-2 rounded-pill font-semibold text-sm transition-colors"
+              :class="hasBreak ? 'bg-primary text-on-primary' : 'bg-primary-container text-on-primary-container hover:opacity-90'">
+        <span x-text="hasBreak ? 'Remover intervalo' : 'Marcar intervalo'"></span>
+      </button>
+    </div>
     {% for day in weekdays %}
     <div class="flex flex-wrap items-center gap-4 py-2 border-b border-surface-variant/50 last:border-0" x-data="{ on: {% if day.entry %}true{% else %}false{% endif %} }">
       <label class="flex items-center gap-3 w-40 shrink-0 cursor-pointer">
         <input class="rounded border-outline-variant text-primary focus:ring-primary" type="checkbox" name="day_{{ day.weekday }}_active" x-model="on"/>
         <span class="text-on-surface" :class="on ? 'font-semibold' : 'text-on-surface-variant'">{{ day.label }}</span>
       </label>
-      <div class="flex items-center gap-2" x-show="on" x-cloak>
+      <div class="flex items-center gap-2 flex-wrap" x-show="on" x-cloak>
         <input class="rounded-lg border-outline-variant bg-transparent text-on-surface focus:border-primary focus:ring-primary py-1.5" type="time" name="day_{{ day.weekday }}_start" value="{% if day.entry %}{{ day.entry.start_time|time:'H:i' }}{% else %}09:00{% endif %}"/>
         <span class="text-outline">até</span>
         <input class="rounded-lg border-outline-variant bg-transparent text-on-surface focus:border-primary focus:ring-primary py-1.5" type="time" name="day_{{ day.weekday }}_end" value="{% if day.entry %}{{ day.entry.end_time|time:'H:i' }}{% else %}18:00{% endif %}"/>
+        <template x-if="hasBreak">
+          <div class="flex items-center gap-2 pl-4 ml-1 border-l border-surface-variant">
+            <span class="text-label-caps uppercase text-outline">Intervalo</span>
+            <input class="rounded-lg border-outline-variant bg-transparent text-on-surface focus:border-primary focus:ring-primary py-1.5" type="time" name="day_{{ day.weekday }}_start_2" value="{% if day.entry.start_time_2 %}{{ day.entry.start_time_2|time:'H:i' }}{% endif %}"/>
+            <span class="text-outline">até</span>
+            <input class="rounded-lg border-outline-variant bg-transparent text-on-surface focus:border-primary focus:ring-primary py-1.5" type="time" name="day_{{ day.weekday }}_end_2" value="{% if day.entry.end_time_2 %}{{ day.entry.end_time_2|time:'H:i' }}{% endif %}"/>
+          </div>
+        </template>
       </div>
     </div>
     {% endfor %}

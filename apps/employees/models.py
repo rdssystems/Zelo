@@ -78,6 +78,13 @@ class WorkingHours(TenantModel):
     )
     start_time = models.TimeField("início")
     end_time = models.TimeField("fim")
+    # 2º turno opcional (decisão do usuário em 2026-08-06) — cobre pausa
+    # recorrente todo dia (almoço etc.) sem precisar cadastrar uma
+    # ScheduleException manualmente a cada dia. Tudo-ou-nada: os dois
+    # preenchidos ou nenhum. `apps.scheduling.availability` trata como uma
+    # 2ª janela de disponibilidade nesse dia da semana.
+    start_time_2 = models.TimeField("início do 2º turno", null=True, blank=True)
+    end_time_2 = models.TimeField("fim do 2º turno", null=True, blank=True)
     is_active = models.BooleanField("ativo", default=True)
 
     class Meta:
@@ -88,6 +95,18 @@ class WorkingHours(TenantModel):
             models.CheckConstraint(
                 name="workinghours_end_after_start",
                 condition=models.Q(end_time__gt=models.F("start_time")),
+            ),
+            models.CheckConstraint(
+                name="workinghours_second_shift_valid",
+                condition=(
+                    models.Q(start_time_2__isnull=True, end_time_2__isnull=True)
+                    | models.Q(
+                        start_time_2__isnull=False,
+                        end_time_2__isnull=False,
+                        end_time_2__gt=models.F("start_time_2"),
+                        start_time_2__gte=models.F("end_time"),
+                    )
+                ),
             ),
         ]
 

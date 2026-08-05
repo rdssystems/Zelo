@@ -1,4 +1,5 @@
 import datetime
+import unittest.mock
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
@@ -242,6 +243,134 @@ class AvailabilitySplitShiftTest(TestCase):
         self.assertNotIn(datetime.time(13, 0), slots[self.monday])
 
 
+class AvailabilityRecurringBreakTest(TestCase):
+    """2º turno em `WorkingHours` (start_time_2/end_time_2) — pausa
+    recorrente todo dia (ex. almoço), decisão do usuário em 2026-08-06.
+    Diferente de `AvailabilitySplitShiftTest` (que usa 2 linhas separadas
+    via ORM direto): aqui é 1 linha só, pelo caminho real do painel
+    (`set_working_hours`)."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.tenant, cls.admin = make_tenant_with_admin("salao-a")
+        cls.employee = make_employee(cls.tenant)
+        cls.monday = next_weekday(datetime.date(2026, 8, 1), 0)
+        cls.service = create_service(
+            tenant=cls.tenant, name="Corte", duration_minutes=60, price=Decimal("100")
+        )
+
+    def test_break_splits_the_day_in_two_windows(self):
+        set_working_hours(
+            self.employee,
+            [{
+                "weekday": 0, "start_time": datetime.time(9, 0), "end_time": datetime.time(12, 0),
+                "start_time_2": datetime.time(13, 0), "end_time_2": datetime.time(18, 0),
+            }],
+        )
+        slots = get_available_slots(self.employee, self.service, self.monday, self.monday)
+        self.assertNotIn(datetime.time(12, 0), slots[self.monday])
+        self.assertIn(datetime.time(9, 0), slots[self.monday])
+        self.assertIn(datetime.time(13, 0), slots[self.monday])
+
+    def test_only_one_side_of_break_is_rejected(self):
+        with self.assertRaises(ValidationError):
+            set_working_hours(
+                self.employee,
+                [{
+                    "weekday": 0, "start_time": datetime.time(9, 0), "end_time": datetime.time(18, 0),
+                    "start_time_2": datetime.time(13, 0), "end_time_2": None,
+                }],
+            )
+
+    def test_break_before_first_shift_ends_is_rejected(self):
+        with self.assertRaises(ValidationError):
+            set_working_hours(
+                self.employee,
+                [{
+                    "weekday": 0, "start_time": datetime.time(9, 0), "end_time": datetime.time(18, 0),
+                    "start_time_2": datetime.time(11, 0), "end_time_2": datetime.time(12, 0),
+                }],
+            )
+
+    def test_break_end_before_break_start_is_rejected(self):
+        with self.assertRaises(ValidationError):
+            set_working_hours(
+                self.employee,
+                [{
+                    "weekday": 0, "start_time": datetime.time(9, 0), "end_time": datetime.time(12, 0),
+                    "start_time_2": datetime.time(14, 0), "end_time_2": datetime.time(13, 0),
+                }],
+            )
+
+    def test_no_break_still_works_as_before(self):
+        """`start_time_2`/`end_time_2` nem sequer precisam vir no dict —
+        compatibilidade com todo o resto da suíte que já chama
+        `set_working_hours` sem eles."""
+        set_working_hours(
+            self.employee,
+            [{"weekday": 0, "start_time": datetime.time(9, 0), "end_time": datetime.time(18, 0)}],
+        )
+        slots = get_available_slots(self.employee, self.service, self.monday, self.monday)
+        self.assertIn(datetime.time(12, 0), slots[self.monday])
+
+
+class AvailabilityPastSlotCutoffTest(TestCase):
+    """Horário de hoje que já passou não pode mais ser agendado (decisão do
+    usuário em 2026-08-06) — corta exatamente quando bate o horário, sem
+    antecedência mínima. Dias futuros não são afetados."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.tenant, cls.admin = make_tenant_with_admin("salao-a")
+        cls.employee = make_employee(cls.tenant)
+        cls.service = create_service(
+            tenant=cls.tenant, name="Corte", duration_minutes=60, price=Decimal("100")
+        )
+
+    def _set_hours_for_weekday(self, weekday):
+        set_working_hours(
+            self.employee,
+            [{"weekday": weekday, "start_time": datetime.time(9, 0), "end_time": datetime.time(18, 0)}],
+        )
+
+    def test_slots_before_now_hidden_today(self):
+        today = datetime.date(2026, 8, 6)  # quinta-feira
+        self._set_hours_for_weekday(today.weekday())
+        with unittest.mock.patch("apps.scheduling.availability.timezone") as mock_tz:
+            mock_tz.localdate.return_value = today
+            mock_tz.localtime.return_value = datetime.datetime.combine(today, datetime.time(15, 0))
+            slots = get_available_slots(self.employee, self.service, today, today)
+        self.assertNotIn(datetime.time(9, 0), slots[today])
+        self.assertNotIn(datetime.time(14, 0), slots[today])
+        # 15h é o próprio "agora" mockado — já corta (ver
+        # test_slot_at_exact_current_time_is_cut), só o que vem DEPOIS sobra.
+        self.assertNotIn(datetime.time(15, 0), slots[today])
+        self.assertIn(datetime.time(16, 0), slots[today])
+        self.assertIn(datetime.time(17, 0), slots[today])
+
+    def test_slot_at_exact_current_time_is_cut(self):
+        """"Corta quando dá o horário" — às 15:00 em ponto, o slot das 15:00
+        já não aparece mais (não só a partir de 15:01)."""
+        today = datetime.date(2026, 8, 6)
+        self._set_hours_for_weekday(today.weekday())
+        with unittest.mock.patch("apps.scheduling.availability.timezone") as mock_tz:
+            mock_tz.localdate.return_value = today
+            mock_tz.localtime.return_value = datetime.datetime.combine(today, datetime.time(15, 0))
+            slots = get_available_slots(self.employee, self.service, today, today)
+        self.assertNotIn(datetime.time(15, 0), slots[today])
+        self.assertIn(datetime.time(16, 0), slots[today])
+
+    def test_future_day_not_affected_by_current_time(self):
+        today = datetime.date(2026, 8, 6)
+        tomorrow = today + datetime.timedelta(days=1)
+        self._set_hours_for_weekday(tomorrow.weekday())
+        with unittest.mock.patch("apps.scheduling.availability.timezone") as mock_tz:
+            mock_tz.localdate.return_value = today
+            mock_tz.localtime.return_value = datetime.datetime.combine(today, datetime.time(23, 0))
+            slots = get_available_slots(self.employee, self.service, tomorrow, tomorrow)
+        self.assertIn(datetime.time(9, 0), slots[tomorrow])
+
+
 class AvailabilityBookedAppointmentTest(TestCase):
     @classmethod
     def setUpTestData(cls):
@@ -372,7 +501,11 @@ class AvailabilityMultiDayRangeTest(TestCase):
     def setUpTestData(cls):
         cls.tenant, cls.admin = make_tenant_with_admin("salao-a")
         cls.employee = make_employee(cls.tenant)
-        cls.monday = next_weekday(datetime.date(2026, 8, 1), 0)
+        # Âncora 14 dias à frente de "hoje" (não uma data fixa) — desde que
+        # get_available_slots passou a cortar horário passado de hoje
+        # (2026-08-06), uma data fixa podia coincidir com o "hoje" de
+        # verdade no momento em que a suíte roda e quebrar o teste à toa.
+        cls.monday = next_weekday(datetime.date.today() + datetime.timedelta(days=14), 0)
         cls.wednesday = cls.monday + datetime.timedelta(days=2)
         # jornada só em segunda e quarta
         set_working_hours(
@@ -522,6 +655,35 @@ class CreateAppointmentTest(TestCase):
         )
         appointment.refresh_from_db()
         self.assertEqual(appointment.price_at_booking, Decimal("100.00"))
+
+    def test_client_booking_creates_tenant_notification(self):
+        """`created_by=None` é como a página pública marca "foi o cliente"
+        (mesmo critério de `Appointment.created_by`, ver
+        03-MODELO-DE-DADOS.md) — decisão do usuário em 2026-08-06, estende
+        RF06g pra também notificar agendamento novo, não só cancelamento."""
+        from apps.notifications.models import TenantNotification, TenantNotificationKind
+
+        appointment = create_appointment(
+            tenant=self.tenant, client=self.client_, employee=self.employee,
+            service=self.service, date=self.monday, start_time=datetime.time(9, 0),
+        )
+        notification = TenantNotification.objects.get(tenant=self.tenant)
+        self.assertEqual(notification.kind, TenantNotificationKind.APPOINTMENT_CREATED_BY_CLIENT)
+        self.assertEqual(notification.appointment_id, appointment.pk)
+        self.assertIn(self.client_.name, notification.message)
+        self.assertFalse(notification.is_read)
+
+    def test_admin_booking_does_not_create_notification(self):
+        """Agendamento criado pelo próprio painel (admin/funcionário
+        marcando pro cliente) não precisa notificar quem acabou de agir."""
+        from apps.notifications.models import TenantNotification
+
+        create_appointment(
+            tenant=self.tenant, client=self.client_, employee=self.employee,
+            service=self.service, date=self.monday, start_time=datetime.time(9, 0),
+            created_by=self.admin,
+        )
+        self.assertFalse(TenantNotification.objects.filter(tenant=self.tenant).exists())
 
     def test_rejects_already_taken_slot(self):
         book(

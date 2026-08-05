@@ -200,7 +200,10 @@ def delete_employee(employee):
 def set_working_hours(employee, entries):
     """Substitui a jornada semanal inteira (RF10).
 
-    `entries`: lista de dicts {weekday, start_time, end_time}.
+    `entries`: lista de dicts {weekday, start_time, end_time,
+    start_time_2 (opcional), end_time_2 (opcional)}. O 2º turno cobre pausa
+    recorrente todo dia (almoço etc. — decisão do usuário em 2026-08-06):
+    tudo-ou-nada (os dois ou nenhum), e precisa vir depois do 1º turno.
     """
     for entry in entries:
         if entry["end_time"] <= entry["start_time"]:
@@ -208,6 +211,23 @@ def set_working_hours(employee, entries):
                 "O horário de fim deve ser depois do horário de início "
                 f"({entry['start_time']:%H:%M}–{entry['end_time']:%H:%M})."
             )
+        start_2 = entry.get("start_time_2")
+        end_2 = entry.get("end_time_2")
+        if bool(start_2) != bool(end_2):
+            raise ValidationError(
+                "Informe início e fim do intervalo juntos, ou deixe os dois em branco."
+            )
+        if start_2 and end_2:
+            if end_2 <= start_2:
+                raise ValidationError(
+                    "O fim do intervalo deve ser depois do início do intervalo "
+                    f"({start_2:%H:%M}–{end_2:%H:%M})."
+                )
+            if start_2 < entry["end_time"]:
+                raise ValidationError(
+                    "O intervalo precisa começar depois do fim do 1º turno "
+                    f"({entry['end_time']:%H:%M})."
+                )
     WorkingHours.objects.filter(employee=employee).delete()
     WorkingHours.objects.bulk_create(
         [
@@ -217,6 +237,8 @@ def set_working_hours(employee, entries):
                 weekday=entry["weekday"],
                 start_time=entry["start_time"],
                 end_time=entry["end_time"],
+                start_time_2=entry.get("start_time_2"),
+                end_time_2=entry.get("end_time_2"),
             )
             for entry in entries
         ]

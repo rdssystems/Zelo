@@ -68,7 +68,7 @@ def create_appointment(
     # depois faz `complete_appointment` não cobrar o cliente de novo.
     package = _covering_package(client, service)
     try:
-        return Appointment.objects.create(
+        appointment = Appointment.objects.create(
             tenant=tenant,
             client=client,
             employee=employee,
@@ -88,6 +88,25 @@ def create_appointment(
         raise ValidationError(
             "Esse horário acabou de ser reservado por outra pessoa. Escolha outro horário."
         )
+
+    # `created_by=None` é como `apps.public.views` sinaliza que foi o
+    # cliente quem marcou (ver 03-MODELO-DE-DADOS.md) — mesmo critério que
+    # `canceled_by_client` usa pra decidir se gera notificação (decisão do
+    # usuário em 2026-08-06, estendendo RF06g pra também cobrir agendamento
+    # novo, não só cancelamento).
+    if created_by is None:
+        create_tenant_notification(
+            tenant,
+            kind=TenantNotificationKind.APPOINTMENT_CREATED_BY_CLIENT,
+            title="Novo agendamento! 📅",
+            message=(
+                f"{client.name} agendou {service.name} para o dia "
+                f"{date.strftime('%d/%m/%Y')} às {start_time.strftime('%H:%M')} "
+                f"com {employee.full_name}."
+            ),
+            appointment=appointment,
+        )
+    return appointment
 
 
 @transaction.atomic

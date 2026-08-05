@@ -7,7 +7,10 @@ from .models import CommissionType, Employee, EmployeeService, WorkingHours
 class WorkingHoursSerializer(serializers.ModelSerializer):
     class Meta:
         model = WorkingHours
-        fields = ["weekday", "start_time", "end_time", "is_active"]
+        fields = [
+            "weekday", "start_time", "end_time",
+            "start_time_2", "end_time_2", "is_active",
+        ]
 
 
 class EmployeeServiceLinkSerializer(serializers.ModelSerializer):

@@ -17,6 +17,8 @@ inteiro couber no espaço livre.
 
 import datetime
 
+from django.utils import timezone
+
 from apps.employees.models import ScheduleException, WorkingHours
 
 from .models import BLOCKING_STATUSES, Appointment
@@ -64,9 +66,13 @@ def get_available_slots(employee, service, start_date, end_date):
     for wh in WorkingHours.objects.for_tenant(employee.tenant).filter(
         employee=employee, is_active=True
     ):
-        working_hours_by_weekday.setdefault(wh.weekday, []).append(
-            (wh.start_time, wh.end_time)
-        )
+        windows = working_hours_by_weekday.setdefault(wh.weekday, [])
+        windows.append((wh.start_time, wh.end_time))
+        # 2º turno (intervalo recorrente, ex. almoço) — mais uma janela no
+        # mesmo dia da semana; o corte "buracos" já é automático porque cada
+        # janela vira slots separados em `_slots_in_window`.
+        if wh.start_time_2 and wh.end_time_2:
+            windows.append((wh.start_time_2, wh.end_time_2))
 
     booked_by_date = {}
     for appt in Appointment.objects.for_tenant(employee.tenant).filter(
@@ -85,6 +91,9 @@ def get_available_slots(employee, service, start_date, end_date):
         exceptions_by_date.setdefault(exc.date, []).append(
             (exc.start_time, exc.end_time)
         )
+
+    today = timezone.localdate()
+    now_time = timezone.localtime().time()
 
     result = {}
     current = start_date
@@ -111,6 +120,10 @@ def get_available_slots(employee, service, start_date, end_date):
                 _overlaps(slot_start, slot_end, block_start, block_end)
                 for block_start, block_end in blockers
             )
+            # Hoje, corta o que já passou — sem antecedência mínima, corta
+            # exatamente quando bate o horário (decisão do usuário em
+            # 2026-08-06). Dias futuros não são afetados.
+            and (current != today or slot_start > now_time)
         ]
 
         if free_slots:

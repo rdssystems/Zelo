@@ -184,6 +184,7 @@ def employee_update(request, pk):
             "employee": employee,
             "active_nav": "employees",
             "weekdays": _hours_context(employee),
+            "any_day_has_break": _any_day_has_break(employee),
             "services_ctx": _services_context(employee),
             "paid_commissions": _commissions_context(employee),
         },
@@ -271,7 +272,10 @@ def employee_delete(request, pk):
 
 
 def _hours_context(employee):
-    """Uma linha por dia da semana com a jornada atual (MVP: 1 faixa por dia)."""
+    """Uma linha por dia da semana com a jornada atual — 2 turnos por dia,
+    o 2º opcional pra intervalo recorrente (decisão do usuário em
+    2026-08-06, ex. pausa de almoço todo dia sem precisar cadastrar
+    ScheduleException manualmente)."""
     current = {wh.weekday: wh for wh in employee.working_hours.all()}
     return [
         {
@@ -281,6 +285,12 @@ def _hours_context(employee):
         }
         for value, label in Weekday.choices
     ]
+
+
+def _any_day_has_break(employee):
+    """Controla se o botão "Marcar intervalo" já nasce ligado — evita
+    esconder um intervalo já cadastrado atrás de um clique extra."""
+    return employee.working_hours.filter(start_time_2__isnull=False).exists()
 
 
 def _services_context(employee):
@@ -320,7 +330,20 @@ def employee_working_hours(request, pk):
         except (KeyError, ValueError):
             error = f"Preencha início e fim válidos para {label}."
             break
-        entries.append({"weekday": value, "start_time": start, "end_time": end})
+        # Intervalo (2º turno) é opcional por dia mesmo com o botão "Marcar
+        # intervalo" ligado — campo em branco vira None, não erro.
+        start_2_raw = request.POST.get(f"day_{value}_start_2", "").strip()
+        end_2_raw = request.POST.get(f"day_{value}_end_2", "").strip()
+        try:
+            start_2 = datetime.time.fromisoformat(start_2_raw) if start_2_raw else None
+            end_2 = datetime.time.fromisoformat(end_2_raw) if end_2_raw else None
+        except ValueError:
+            error = f"Horário de intervalo inválido para {label}."
+            break
+        entries.append({
+            "weekday": value, "start_time": start, "end_time": end,
+            "start_time_2": start_2, "end_time_2": end_2,
+        })
     if error is None:
         try:
             employee_ops.set_working_hours(employee, entries)
@@ -333,6 +356,7 @@ def employee_working_hours(request, pk):
         {
             "employee": employee,
             "weekdays": _hours_context(employee),
+            "any_day_has_break": _any_day_has_break(employee),
             "hours_error": error,
             "hours_saved": error is None,
         },

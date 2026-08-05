@@ -224,6 +224,31 @@ class WorkingHoursTest(TestCase):
                 [{"weekday": 0, "start_time": datetime.time(18), "end_time": datetime.time(9)}],
             )
 
+    def test_recurring_break_saved_on_both_fields(self):
+        # start_time/end_time = 1º turno; start_time_2/end_time_2 = 2º turno
+        # (depois do intervalo) — o "intervalo" em si é o buraco entre os
+        # dois, não um campo à parte.
+        employee_ops.set_working_hours(
+            self.employee,
+            [{
+                "weekday": 0, "start_time": datetime.time(9), "end_time": datetime.time(12),
+                "start_time_2": datetime.time(13), "end_time_2": datetime.time(18),
+            }],
+        )
+        wh = WorkingHours.objects.get(employee=self.employee, weekday=0)
+        self.assertEqual(wh.start_time_2, datetime.time(13))
+        self.assertEqual(wh.end_time_2, datetime.time(18))
+
+    def test_break_only_one_field_rejected(self):
+        with self.assertRaises(ValidationError):
+            employee_ops.set_working_hours(
+                self.employee,
+                [{
+                    "weekday": 0, "start_time": datetime.time(9), "end_time": datetime.time(18),
+                    "start_time_2": datetime.time(12), "end_time_2": None,
+                }],
+            )
+
 
 class EmployeePanelTest(TestCase):
     @classmethod
@@ -368,6 +393,44 @@ class EmployeePanelTest(TestCase):
         self.assertEqual(
             WorkingHours.objects.filter(employee=employee).count(), 2
         )
+
+    def test_working_hours_htmx_post_with_break(self):
+        employee = make_employee(self.tenant)
+        self.client.force_login(self.admin)
+        response = self.client.post(
+            f"/painel/funcionarios/{employee.pk}/jornada/",
+            {
+                "day_0_active": "on",
+                "day_0_start": "09:00",
+                "day_0_end": "12:00",
+                "day_0_start_2": "13:00",
+                "day_0_end_2": "18:00",
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        wh = WorkingHours.objects.get(employee=employee, weekday=0)
+        self.assertEqual(wh.start_time_2, datetime.time(13, 0))
+        self.assertEqual(wh.end_time_2, datetime.time(18, 0))
+        self.assertContains(response, "Remover intervalo")  # botão nasce ligado
+
+    def test_working_hours_htmx_post_break_field_blank_means_no_break(self):
+        """Botão "Marcar intervalo" pode estar ligado globalmente sem cada
+        dia ter, de fato, um intervalo preenchido."""
+        employee = make_employee(self.tenant)
+        self.client.force_login(self.admin)
+        response = self.client.post(
+            f"/painel/funcionarios/{employee.pk}/jornada/",
+            {
+                "day_0_active": "on",
+                "day_0_start": "09:00",
+                "day_0_end": "18:00",
+                "day_0_start_2": "",
+                "day_0_end_2": "",
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        wh = WorkingHours.objects.get(employee=employee, weekday=0)
+        self.assertIsNone(wh.start_time_2)
 
     def test_toggle_confirm_renders_app_modal_not_native(self):
         employee = make_employee(self.tenant)

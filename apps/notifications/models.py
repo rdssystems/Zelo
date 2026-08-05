@@ -50,12 +50,12 @@ class AnnouncementRead(models.Model):
 
 
 class TenantNotificationKind(models.TextChoices):
-    """Só `APPOINTMENT_CANCELED_BY_CLIENT` é gerado hoje. As demais chaves
-    ficam aqui como roadmap já modelado — pedido do usuário em 2026-07-31 de,
-    no futuro, gerar notificação pra toda mudança relevante na agenda (novo
-    agendamento, reagendamento etc.), ver 01-REQUISITOS.md."""
+    """`APPOINTMENT_CANCELED_BY_CLIENT` e `APPOINTMENT_CREATED_BY_CLIENT`
+    (2026-08-06) são geradas hoje. As demais permanecem aqui como roadmap já
+    modelado (reagendamento etc.), ver 01-REQUISITOS.md."""
 
     APPOINTMENT_CANCELED_BY_CLIENT = "appointment_canceled_by_client", "Cliente cancelou agendamento"
+    APPOINTMENT_CREATED_BY_CLIENT = "appointment_created_by_client", "Cliente criou novo agendamento"
     BIRTHDAY_ALERT = "birthday_alert", "Aniversariante(s) do dia"
 
 
