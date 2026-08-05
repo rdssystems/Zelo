@@ -6,9 +6,8 @@
   <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
   <title>Zellup — Agendamento, Comissão e Caixa para Salões e Barbearias</title>
   <meta name="description" content="Plataforma SaaS de agendamento online 24h, cálculo automático de comissão e gestão de caixa para salões de beleza e barbearias. Teste grátis 14 dias."/>
-  
   {% include "_favicon.html" %}
-  
+
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   
@@ -45,7 +44,6 @@
     }
   </script>
   <style>
-    /* Transições suaves */
     .accordion-content {
       max-height: 0;
       overflow: hidden;
@@ -61,7 +59,6 @@
     .hero-mockup-tilt:hover {
       transform: perspective(1000px) rotateX(0deg) rotateY(0deg) scale(1);
     }
-    /* Ocultar barra de rolagem mantendo funcionalidade */
     .no-scrollbar::-webkit-scrollbar {
       display: none;
     }
@@ -77,7 +74,7 @@
   <header id="navbar" class="fixed top-0 left-0 right-0 z-50 transition-all duration-300 bg-background/80 backdrop-blur-md border-b border-transparent">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
       <!-- Logo -->
-      <a href="#" class="flex items-center gap-2 group">
+      <a href="/" class="flex items-center gap-2 group">
         <span class="font-display text-3xl font-bold tracking-tight text-on-surface group-hover:text-primary transition-colors">Zellup</span>
         <span class="inline-block w-2 h-2 rounded-full bg-accent"></span>
       </a>
@@ -93,7 +90,7 @@
 
       <!-- CTA Header -->
       <div class="flex items-center gap-3">
-        <a href="{% url 'signup' %}" class="hidden sm:inline-flex items-center justify-center text-sm font-medium text-on-surface hover:text-primary px-4 py-2.5 transition-colors">
+        <a href="#entrar" class="hidden sm:inline-flex items-center justify-center text-sm font-medium text-on-surface hover:text-primary px-4 py-2.5 transition-colors">
           Já sou cliente
         </a>
         <a href="{% url 'signup' %}" class="inline-flex items-center justify-center px-5 py-2.5 rounded-xl bg-primary text-white text-sm font-semibold shadow-sm hover:bg-primary-hover transition-all transform hover:-translate-y-0.5">
@@ -107,27 +104,22 @@
 
     <!-- 2. HERO SECTION -->
     <section class="relative pt-12 pb-20 md:pt-20 md:pb-28 overflow-hidden">
-      <!-- Elemento de brilho suave no fundo -->
       <div class="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[350px] bg-gradient-to-tr from-accent-highlight/20 to-primary-light/10 blur-[100px] rounded-full pointer-events-none -z-10"></div>
 
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-        <!-- Tag de destaque -->
         <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-surface-subtle border border-outline/60 text-xs font-semibold text-primary mb-6">
           <svg class="w-4 h-4 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
           Plataforma completa para salões & barbearias
         </div>
 
-        <!-- Título H1 Serifado -->
         <h1 class="font-display text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight text-on-surface max-w-4xl mx-auto leading-[1.15]">
           Sua agenda, sua comissão, seu caixa — <span class="text-primary italic">tudo num lugar só</span>
         </h1>
 
-        <!-- Subtítulo -->
         <p class="mt-6 text-lg sm:text-xl text-on-surface-variant max-w-2xl mx-auto font-normal">
           Agendamento 24h sem atrito para o cliente, comissão calculada sozinha e caixa 100% sob controle. Sem mensalidade escondida, teste grátis por 14 dias sem cartão.
         </p>
 
-        <!-- CTAs duplos -->
         <div class="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
           <a href="{% url 'signup' %}" class="w-full sm:w-auto inline-flex items-center justify-center px-8 py-4 rounded-xl bg-primary text-white font-semibold text-base shadow-lg shadow-primary/20 hover:bg-primary-hover transition-all transform hover:-translate-y-0.5">
             Começar grátis — 14 dias
@@ -138,13 +130,11 @@
           </a>
         </div>
 
-        <!-- Prova Social simples -->
         <p class="mt-5 text-xs text-on-surface-variant font-medium flex items-center justify-center gap-1.5">
           <svg class="w-4 h-4 text-accent" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
           Feito pra salões de beleza e barbearias de todos os tamanhos
         </p>
 
-        <!-- Mockup Visual Hero -->
         <div class="mt-12 md:mt-16 max-w-5xl mx-auto relative">
           <div class="hero-mockup-tilt rounded-2xl bg-surface border border-outline p-2 md:p-3 shadow-2xl shadow-primary/10">
             <div class="rounded-xl overflow-hidden bg-surface-subtle">
@@ -163,7 +153,6 @@
         </p>
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
 
-          <!-- Card Dor 1 -->
           <div class="bg-surface p-6 rounded-2xl border border-outline/80 shadow-sm flex items-start gap-4">
             <div class="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
@@ -174,7 +163,6 @@
             </div>
           </div>
 
-          <!-- Card Dor 2 -->
           <div class="bg-surface p-6 rounded-2xl border border-outline/80 shadow-sm flex items-start gap-4">
             <div class="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
@@ -185,7 +173,6 @@
             </div>
           </div>
 
-          <!-- Card Dor 3 -->
           <div class="bg-surface p-6 rounded-2xl border border-outline/80 shadow-sm flex items-start gap-4">
             <div class="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
@@ -196,7 +183,6 @@
             </div>
           </div>
 
-          <!-- Card Dor 4 -->
           <div class="bg-surface p-6 rounded-2xl border border-outline/80 shadow-sm flex items-start gap-4">
             <div class="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
@@ -214,8 +200,6 @@
     <!-- 4. FUNCIONALIDADES — GRID DE CARDS -->
     <section id="funcionalidades" class="py-20 md:py-28">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-
-        <!-- Cabeçalho da Seção -->
         <div class="text-center max-w-3xl mx-auto mb-16">
           <h2 class="font-display text-3xl sm:text-4xl font-bold text-on-surface">
             Tudo que o seu salão precisa, sem precisar de 5 apps diferentes
@@ -225,109 +209,97 @@
           </p>
         </div>
 
-        <!-- Grid 3 Colunas Desktop / 1 Coluna Mobile -->
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-
-          <!-- Card 1: Agenda Online 24h -->
           <div class="bg-surface p-8 rounded-2xl border border-outline/80 shadow-sm hover:shadow-md transition-shadow">
             <div class="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center mb-6">
               <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
             </div>
             <h3 class="font-semibold text-xl text-on-surface mb-2">Agenda online 24h</h3>
             <p class="text-on-surface-variant text-sm leading-relaxed">
-              Seu cliente agenda pelo celular sem precisar ligar, sem baixar app nem criar conta (só nome e telefone). Confirmação automática ou manual, como você preferir.
+              Seu cliente agenda pelo celular sem precisar ligar, sem baixar app nem criar conta (só nome e telefone). Confirmação automática ou manual.
             </p>
           </div>
 
-          <!-- Card 2: Agenda Visual -->
           <div class="bg-surface p-8 rounded-2xl border border-outline/80 shadow-sm hover:shadow-md transition-shadow">
             <div class="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center mb-6">
               <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
             </div>
             <h3 class="font-semibold text-xl text-on-surface mb-2">Agenda visual por dia e semana</h3>
             <p class="text-on-surface-variant text-sm leading-relaxed">
-              Visão intuitiva estilo Google Calendar, com filtro instantâneo por profissional e cores para cada status (pendente, confirmado, em atendimento, concluído).
+              Visão intuitiva estilo Google Calendar, com filtro instantâneo por profissional e cores para cada status (pendente, confirmado, concluído).
             </p>
           </div>
 
-          <!-- Card 3: Comissão Automática -->
           <div class="bg-surface p-8 rounded-2xl border border-outline/80 shadow-sm hover:shadow-md transition-shadow">
             <div class="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center mb-6">
               <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
             </div>
             <h3 class="font-semibold text-xl text-on-surface mb-2">Comissão automática</h3>
             <p class="text-on-surface-variant text-sm leading-relaxed">
-              Cada funcionário tem sua taxa configurada (% ou valor fixo), podendo variar por serviço. Calculada e registrada sozinha a cada atendimento concluído.
+              Cada funcionário tem sua taxa configurada (% ou valor fixo), podendo variar por serviço. Calculada sozinha a cada atendimento concluído.
             </p>
           </div>
 
-          <!-- Card 4: Caixa Integrado -->
           <div class="bg-surface p-8 rounded-2xl border border-outline/80 shadow-sm hover:shadow-md transition-shadow">
             <div class="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center mb-6">
               <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
             </div>
             <h3 class="font-semibold text-xl text-on-surface mb-2">Caixa integrado</h3>
             <p class="text-on-surface-variant text-sm leading-relaxed">
-              Atendimento finalizado gera a entrada no caixa, lança comissão e dá baixa no estoque num só clique. Aceita múltiplos serviços e produtos na mesma comanda.
+              Atendimento finalizado gera entrada no caixa, lança comissão e dá baixa no estoque num clique. Aceita múltiplos serviços e produtos na comanda.
             </p>
           </div>
 
-          <!-- Card 5: Controle de Estoque -->
           <div class="bg-surface p-8 rounded-2xl border border-outline/80 shadow-sm hover:shadow-md transition-shadow">
             <div class="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center mb-6">
               <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
             </div>
             <h3 class="font-semibold text-xl text-on-surface mb-2">Controle de estoque completo</h3>
             <p class="text-on-surface-variant text-sm leading-relaxed">
-              Cadastro de produtos, fornecedores, controle de lote e validade, baixa automática no uso profissional, alerta de estoque baixo e inventário físico.
+              Produtos, fornecedores, controle de lote e validade, baixa automática no uso profissional, alerta de estoque baixo e inventário.
             </p>
           </div>
 
-          <!-- Card 6: Clientes e Histórico -->
           <div class="bg-surface p-8 rounded-2xl border border-outline/80 shadow-sm hover:shadow-md transition-shadow">
             <div class="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center mb-6">
               <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5 5 0 079.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
             </div>
             <h3 class="font-semibold text-xl text-on-surface mb-2">Ficha de clientes & histórico</h3>
             <p class="text-on-surface-variant text-sm leading-relaxed">
-              Preferências, observações e alergias salvas na ficha. Histórico de serviços prestados, controle de cliente mensalista com aviso de vencimento e carteira de crédito.
+              Preferências, observações e alergias salvas na ficha. Histórico completo, cliente mensalista com aviso de vencimento e carteira de crédito.
             </p>
           </div>
 
-          <!-- Card 7: Página Pública Personalizada -->
           <div class="bg-surface p-8 rounded-2xl border border-outline/80 shadow-sm hover:shadow-md transition-shadow">
             <div class="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center mb-6">
               <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/></svg>
             </div>
             <h3 class="font-semibold text-xl text-on-surface mb-2">Sua página pública personalizada</h3>
             <p class="text-on-surface-variant text-sm leading-relaxed">
-              Sua marca em destaque com logo, capa, fotos, horário de funcionamento e endereço exclusivo (<code class="text-xs bg-surface-subtle px-1.5 py-0.5 rounded text-primary">zellup.com.br/seu-salao</code>).
+              Sua marca em destaque com logo, capa, cores, horários e endereço exclusivo (zellup.com.br/seu-salao).
             </p>
           </div>
 
-          <!-- Card 8: Equipe com Login Proprio -->
           <div class="bg-surface p-8 rounded-2xl border border-outline/80 shadow-sm hover:shadow-md transition-shadow">
             <div class="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center mb-6">
               <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
             </div>
             <h3 class="font-semibold text-xl text-on-surface mb-2">Equipe com acesso individual</h3>
             <p class="text-on-surface-variant text-sm leading-relaxed">
-              Cada profissional acessa apenas sua própria agenda e relatório de comissões, garantindo total privacidade e controle administrativo centralizado.
+              Cada profissional acessa apenas sua própria agenda e comissão, garantindo privacidade e controle centralizado.
             </p>
           </div>
 
-          <!-- Card 9: Aviso por WhatsApp -->
           <div class="bg-surface p-8 rounded-2xl border border-outline/80 shadow-sm hover:shadow-md transition-shadow">
             <div class="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center mb-6">
               <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
             </div>
             <h3 class="font-semibold text-xl text-on-surface mb-2">Confirmação via WhatsApp em 1 clique</h3>
             <p class="text-on-surface-variant text-sm leading-relaxed">
-              Mensagens personalizadas e pré-formatadas para confirmar horários ou avisar reagendamentos. Um clique abre o WhatsApp com a mensagem pronta.
+              Mensagens personalizadas e pré-formatadas para confirmar horários ou avisar reagendamentos.
             </p>
           </div>
 
-          <!-- Card 10: Multi-tenant Seguro (Destaque span 2 no desktop ou centralizado) -->
           <div class="bg-surface p-8 rounded-2xl border border-outline/80 shadow-sm hover:shadow-md transition-shadow md:col-span-2 lg:col-span-3 flex flex-col md:flex-row items-center gap-6">
             <div class="w-14 h-14 rounded-2xl bg-accent-highlight/20 text-primary flex items-center justify-center shrink-0">
               <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
@@ -335,19 +307,17 @@
             <div>
               <h3 class="font-semibold text-xl text-on-surface mb-1">Dados 100% seguros e isolados</h3>
               <p class="text-on-surface-variant text-sm leading-relaxed">
-                Arquitetura multi-tenant avançada. As informações do seu salão são estritamente isoladas, protegidas com criptografia de ponta e com backups diários automáticos.
+                Arquitetura multi-tenant avançada. As informações do seu salão são estritamente isoladas, protegidas com criptografia e backups diários.
               </p>
             </div>
           </div>
-
         </div>
       </div>
     </section>
 
-    <!-- 5. COMO FUNCIONA (3 passos em bloco contrastante) -->
+    <!-- 5. COMO FUNCIONA -->
     <section id="como-funciona" class="py-20 md:py-24 bg-dark-bg text-white">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        
         <div class="text-center max-w-3xl mx-auto mb-16">
           <span class="text-accent-highlight font-semibold text-xs uppercase tracking-widest">Simples e rápido</span>
           <h2 class="font-display text-3xl sm:text-4xl font-bold mt-2">
@@ -358,41 +328,36 @@
           </p>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-8 relative">
-
-          <!-- Passo 1 -->
-          <div class="bg-dark-card p-8 rounded-2xl border border-white/10 relative">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div class="bg-dark-card p-8 rounded-2xl border border-white/10">
             <div class="w-12 h-12 rounded-xl bg-accent/20 text-accent-highlight font-display font-bold text-xl flex items-center justify-center mb-6">
               1
             </div>
             <h3 class="text-xl font-semibold mb-3">Cadastre em 2 minutos</h3>
             <p class="text-gray-400 text-sm leading-relaxed">
-              Crie sua conta sem precisar de cartão de crédito. Escolha seu nome de endereço (ex: <span class="text-accent-highlight">zellup.com.br/seu-salao</span>).
+              Crie sua conta sem precisar de cartão de crédito. Escolha seu endereço próprio.
             </p>
           </div>
 
-          <!-- Passo 2 -->
-          <div class="bg-dark-card p-8 rounded-2xl border border-white/10 relative">
+          <div class="bg-dark-card p-8 rounded-2xl border border-white/10">
             <div class="w-12 h-12 rounded-xl bg-accent/20 text-accent-highlight font-display font-bold text-xl flex items-center justify-center mb-6">
               2
             </div>
             <h3 class="text-xl font-semibold mb-3">Configure sua equipe</h3>
             <p class="text-gray-400 text-sm leading-relaxed">
-              Cadastre seus serviços, valores, percentual de comissão dos profissionais e os horários de funcionamento do espaço.
+              Cadastre serviços, valores, percentual de comissão dos profissionais e os horários de funcionamento.
             </p>
           </div>
 
-          <!-- Passo 3 -->
-          <div class="bg-dark-card p-8 rounded-2xl border border-white/10 relative">
+          <div class="bg-dark-card p-8 rounded-2xl border border-white/10">
             <div class="w-12 h-12 rounded-xl bg-accent/20 text-accent-highlight font-display font-bold text-xl flex items-center justify-center mb-6">
               3
             </div>
             <h3 class="text-xl font-semibold mb-3">Compartilhe e receba</h3>
             <p class="text-gray-400 text-sm leading-relaxed">
-              Coloque seu link na bio do Instagram e no WhatsApp. Seus clientes agendam sozinhos 24h por dia e o caixa calcula tudo.
+              Coloque seu link na bio do Instagram e no WhatsApp. Seus clientes agendam sozinhos 24h por dia.
             </p>
           </div>
-
         </div>
 
         <div class="mt-14 text-center">
@@ -400,14 +365,12 @@
             Começar grátis agora
           </a>
         </div>
-
       </div>
     </section>
 
     <!-- 6. FEITO PRA VOCÊ (Seletor Dual Barbearia x Salão) -->
-    <section class="py-20 md:py-28 bg-background">
+    <section id="entrar" class="py-20 md:py-28 bg-background">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        
         <div class="text-center max-w-3xl mx-auto mb-16">
           <h2 class="font-display text-3xl sm:text-4xl font-bold text-on-surface">
             Feito sob medida para o seu estilo de negócio
@@ -418,8 +381,6 @@
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl mx-auto">
-
-          <!-- Card Barbearia -->
           <a href="{{ request.scheme }}://barbearia.{{ request.get_host }}/painel/login/" class="group rounded-2xl border border-outline bg-surface overflow-hidden shadow-sm hover:shadow-xl transition-all transform hover:-translate-y-1">
             <div class="h-56 overflow-hidden relative">
               <img src="{% static 'img/landing-barbearia-card.png' %}" alt="Interior de Barbearia" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"/>
@@ -440,7 +401,6 @@
             </div>
           </a>
 
-          <!-- Card Salão de Beleza -->
           <a href="{{ request.scheme }}://salao.{{ request.get_host }}/painel/login/" class="group rounded-2xl border border-outline bg-surface overflow-hidden shadow-sm hover:shadow-xl transition-all transform hover:-translate-y-1">
             <div class="h-56 overflow-hidden relative">
               <img src="{% static 'img/landing-salao-card.png' %}" alt="Interior de Salão de Beleza" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"/>
@@ -460,9 +420,7 @@
               </span>
             </div>
           </a>
-
         </div>
-
       </div>
     </section>
 
@@ -470,7 +428,6 @@
     <section id="depoimentos" class="py-20 md:py-28 bg-surface-subtle border-y border-outline/60 overflow-hidden">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         
-        <!-- Cabeçalho com Botões de Navegação -->
         <div class="flex flex-col md:flex-row items-center justify-between gap-6 mb-12">
           <div class="text-center md:text-left">
             <span class="inline-block px-3 py-1 rounded-full bg-accent/10 text-primary text-xs font-semibold uppercase tracking-wider mb-2">
@@ -481,7 +438,6 @@
             </h2>
           </div>
 
-          <!-- Botões do Carrossel -->
           <div class="flex items-center gap-3 shrink-0">
             <button id="prev-testimonial" aria-label="Depoimento anterior" class="w-12 h-12 rounded-full bg-surface border border-outline/80 text-on-surface hover:text-primary hover:border-primary flex items-center justify-center shadow-sm transition-all">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
@@ -492,10 +448,8 @@
           </div>
         </div>
 
-        <!-- Trilhado Carrossel (Scroll Horizontal Suave) -->
         <div id="testimonial-track" class="flex gap-6 overflow-x-auto no-scrollbar scroll-smooth snap-x snap-mandatory pb-4">
 
-          <!-- Depoimento 1 (Uberlândia - MG) -->
           <div class="shrink-0 w-full sm:w-[380px] md:w-[420px] snap-start bg-surface p-8 rounded-2xl border border-outline/80 shadow-sm flex flex-col justify-between">
             <div>
               <div class="flex items-center gap-1 text-accent mb-4">
@@ -518,7 +472,6 @@
             </div>
           </div>
 
-          <!-- Depoimento 2 (Ribeirão Preto - SP) -->
           <div class="shrink-0 w-full sm:w-[380px] md:w-[420px] snap-start bg-surface p-8 rounded-2xl border border-outline/80 shadow-sm flex flex-col justify-between">
             <div>
               <div class="flex items-center gap-1 text-accent mb-4">
@@ -541,7 +494,6 @@
             </div>
           </div>
 
-          <!-- Depoimento 3 (Uberlândia - MG) -->
           <div class="shrink-0 w-full sm:w-[380px] md:w-[420px] snap-start bg-surface p-8 rounded-2xl border border-outline/80 shadow-sm flex flex-col justify-between">
             <div>
               <div class="flex items-center gap-1 text-accent mb-4">
@@ -564,7 +516,6 @@
             </div>
           </div>
 
-          <!-- Depoimento 4 (Goiânia - GO) -->
           <div class="shrink-0 w-full sm:w-[380px] md:w-[420px] snap-start bg-surface p-8 rounded-2xl border border-outline/80 shadow-sm flex flex-col justify-between">
             <div>
               <div class="flex items-center gap-1 text-accent mb-4">
@@ -587,7 +538,6 @@
             </div>
           </div>
 
-          <!-- Depoimento 5 (Belo Horizonte - MG) -->
           <div class="shrink-0 w-full sm:w-[380px] md:w-[420px] snap-start bg-surface p-8 rounded-2xl border border-outline/80 shadow-sm flex flex-col justify-between">
             <div>
               <div class="flex items-center gap-1 text-accent mb-4">
@@ -610,7 +560,6 @@
             </div>
           </div>
 
-          <!-- Depoimento 6 (Curitiba - PR) -->
           <div class="shrink-0 w-full sm:w-[380px] md:w-[420px] snap-start bg-surface p-8 rounded-2xl border border-outline/80 shadow-sm flex flex-col justify-between">
             <div>
               <div class="flex items-center gap-1 text-accent mb-4">
@@ -641,8 +590,6 @@
     <!-- 8. PLANOS E PREÇOS -->
     <section id="planos" class="py-20 md:py-28 bg-background">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        
-        <!-- Cabeçalho de Planos -->
         <div class="text-center max-w-3xl mx-auto mb-16">
           <h2 class="font-display text-3xl sm:text-4xl font-bold text-on-surface">
             Planos simples e sem surpresas
@@ -652,10 +599,7 @@
           </p>
         </div>
 
-        <!-- Cards de Planos (3 colunas) -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-8 items-stretch max-w-6xl mx-auto">
-
-          <!-- Plano Individual -->
           <div class="bg-surface rounded-2xl border border-outline/80 p-8 shadow-sm flex flex-col justify-between">
             <div>
               <h3 class="font-display text-2xl font-bold text-on-surface">INDIVIDUAL</h3>
@@ -695,7 +639,6 @@
             </div>
           </div>
 
-          <!-- Plano Profissional (Destaque) -->
           <div class="bg-surface rounded-2xl border-2 border-primary p-8 shadow-xl relative flex flex-col justify-between transform md:-translate-y-2">
             <div class="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-primary text-white text-xs font-bold uppercase tracking-wider shadow-sm">
               Mais popular
@@ -738,7 +681,6 @@
             </div>
           </div>
 
-          <!-- Plano Studio -->
           <div class="bg-surface rounded-2xl border border-outline/80 p-8 shadow-sm flex flex-col justify-between">
             <div>
               <h3 class="font-display text-2xl font-bold text-on-surface">STUDIO</h3>
@@ -780,7 +722,6 @@
 
         </div>
 
-        <!-- Incluído em Todos os Planos -->
         <div class="mt-16 bg-surface-subtle rounded-2xl border border-outline/70 p-8 max-w-5xl mx-auto">
           <h3 class="font-semibold text-center text-lg text-on-surface mb-8">
             Incluído em todos os planos:
@@ -832,10 +773,9 @@
       </div>
     </section>
 
-    <!-- 9. FAQ (Acordeão Interativo) -->
+    <!-- 9. FAQ -->
     <section id="faq" class="py-20 md:py-28 bg-surface-subtle border-t border-outline/60">
       <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        
         <div class="text-center mb-16">
           <h2 class="font-display text-3xl sm:text-4xl font-bold text-on-surface">
             Perguntas Frequentes
@@ -846,8 +786,6 @@
         </div>
 
         <div class="space-y-4" id="faq-accordion">
-
-          <!-- FAQ Item 1 -->
           <div class="bg-surface rounded-2xl border border-outline/80 overflow-hidden">
             <button class="accordion-trigger w-full p-6 text-left font-semibold text-lg text-on-surface flex items-center justify-between gap-4 focus:outline-none">
               <span>Preciso instalar algum aplicativo?</span>
@@ -858,7 +796,6 @@
             </div>
           </div>
 
-          <!-- FAQ Item 2 -->
           <div class="bg-surface rounded-2xl border border-outline/80 overflow-hidden">
             <button class="accordion-trigger w-full p-6 text-left font-semibold text-lg text-on-surface flex items-center justify-between gap-4 focus:outline-none">
               <span>Meu cliente precisa criar conta ou senha?</span>
@@ -869,7 +806,6 @@
             </div>
           </div>
 
-          <!-- FAQ Item 3 -->
           <div class="bg-surface rounded-2xl border border-outline/80 overflow-hidden">
             <button class="accordion-trigger w-full p-6 text-left font-semibold text-lg text-on-surface flex items-center justify-between gap-4 focus:outline-none">
               <span>Posso trocar de plano depois?</span>
@@ -880,18 +816,16 @@
             </div>
           </div>
 
-          <!-- FAQ Item 4 -->
           <div class="bg-surface rounded-2xl border border-outline/80 overflow-hidden">
             <button class="accordion-trigger w-full p-6 text-left font-semibold text-lg text-on-surface flex items-center justify-between gap-4 focus:outline-none">
               <span>Meus dados ficam seguros?</span>
               <svg class="w-5 h-5 text-primary transform transition-transform duration-300 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
             </button>
             <div class="accordion-content px-6 pb-6 text-on-surface-variant text-sm leading-relaxed">
-              Totalmente seguros. Cada salão possui seus dados isolados e protegidos. Nem outros usuários da plataforma nem terceiros conseguem visualizar suas informações financeiras ou de clientes.
+              Totalmente seguros. Cada salão possui seus dados isolados e protegidos. Nem outros usuários da plataforma nem terceiros conseguem visualizar suas informações.
             </div>
           </div>
 
-          <!-- FAQ Item 5 -->
           <div class="bg-surface rounded-2xl border border-outline/80 overflow-hidden">
             <button class="accordion-trigger w-full p-6 text-left font-semibold text-lg text-on-surface flex items-center justify-between gap-4 focus:outline-none">
               <span>Tem fidelidade ou contrato de permanência?</span>
@@ -902,26 +836,21 @@
             </div>
           </div>
 
-          <!-- FAQ Item 6 -->
           <div class="bg-surface rounded-2xl border border-outline/80 overflow-hidden">
             <button class="accordion-trigger w-full p-6 text-left font-semibold text-lg text-on-surface flex items-center justify-between gap-4 focus:outline-none">
               <span>Funciona pra barbearia também?</span>
               <svg class="w-5 h-5 text-primary transform transition-transform duration-300 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
             </button>
             <div class="accordion-content px-6 pb-6 text-on-surface-variant text-sm leading-relaxed">
-              Com certeza! O Zellup foi construído para atender perfeitamente tanto salões de beleza quanto barbearias, oferecendo temas visuais e personalizações adequadas para cada estilo de espaço.
+              Com certeza! O Zellup foi construído para atender perfeitamente tanto salões de beleza quanto barbearias, oferecendo temas visuais e personalizações adequadas.
             </div>
           </div>
-
         </div>
-
       </div>
     </section>
 
     <!-- 10. CTA FINAL -->
     <section class="py-20 md:py-24 bg-gradient-to-br from-primary to-primary-hover text-white relative overflow-hidden">
-      <div class="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-accent/30 via-transparent to-transparent pointer-events-none"></div>
-
       <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
         <h2 class="font-display text-4xl sm:text-5xl font-bold tracking-tight">
           Pronto pra organizar seu salão?
@@ -947,17 +876,14 @@
   <!-- 11. FOOTER -->
   <footer class="bg-dark-bg text-gray-400 py-12 border-t border-white/10">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      
       <div class="flex flex-col md:flex-row items-center justify-between gap-8 pb-8 border-b border-white/10">
-        <!-- Logo Footer -->
         <div class="text-center md:text-left">
-          <a href="#" class="font-display text-2xl font-bold text-white tracking-tight">Zellup</a>
+          <a href="/" class="font-display text-2xl font-bold text-white tracking-tight">Zellup</a>
           <p class="text-xs text-gray-500 mt-1 max-w-sm">
             Agendamento 24h, gestão de comissões e caixa integrado para salões de beleza e barbearias.
           </p>
         </div>
 
-        <!-- Links Footer -->
         <div class="flex flex-wrap items-center justify-center gap-6 text-sm">
           <a href="#funcionalidades" class="hover:text-white transition-colors">Funcionalidades</a>
           <a href="#planos" class="hover:text-white transition-colors">Planos</a>
@@ -966,29 +892,23 @@
         </div>
       </div>
 
-      <!-- Copyright -->
       <div class="mt-8 text-center md:text-left text-xs text-gray-500 flex flex-col sm:flex-row items-center justify-between gap-4">
         <p>&copy; 2026 Zellup. Todos os direitos reservados.</p>
         <p>Desenvolvido com excelência para a beleza e barbearia brasileira.</p>
       </div>
-
     </div>
   </footer>
 
-  <!-- LÓGICA DE INTERATIVIDADE -->
   <script>
-    // 1. Acordeão do FAQ
     document.querySelectorAll('.accordion-trigger').forEach(trigger => {
       trigger.addEventListener('click', () => {
         const content = trigger.nextElementSibling;
         const svg = trigger.querySelector('svg');
         const isActive = content.classList.contains('active');
 
-        // Fecha outros itens
         document.querySelectorAll('.accordion-content').forEach(c => c.classList.remove('active'));
         document.querySelectorAll('.accordion-trigger svg').forEach(s => s.classList.remove('rotate-180'));
 
-        // Toggle atual
         if (!isActive) {
           content.classList.add('active');
           svg.classList.add('rotate-180');
@@ -996,7 +916,6 @@
       });
     });
 
-    // 2. Transição do Header ao rolar
     const navbar = document.getElementById('navbar');
     window.addEventListener('scroll', () => {
       if (window.scrollY > 20) {
@@ -1008,7 +927,6 @@
       }
     });
 
-    // 3. Carrossel de Depoimentos
     const track = document.getElementById('testimonial-track');
     const prevBtn = document.getElementById('prev-testimonial');
     const nextBtn = document.getElementById('next-testimonial');
@@ -1022,6 +940,5 @@
       });
     }
   </script>
-
 </body>
 </html>

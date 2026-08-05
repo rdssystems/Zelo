@@ -9,34 +9,70 @@
 <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
 <link href="https://fonts.googleapis.com" rel="preconnect"/>
 <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Playfair+Display:wght@600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Playfair+Display:ital,wght@0,600;0,700;0,800;1,500;1,600&amp;display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
-<style>.material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24; }</style>
+<style>
+  .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24; }
+</style>
 <script>
-  tailwind.config = { theme: { extend: {
-    colors: {
-      "background": "#fff8f5", "surface-container-lowest": "#ffffff",
-      "on-surface": "#1f1b17", "on-surface-variant": "#50453b",
-      "outline": "#82756a", "outline-variant": "#d4c4b7",
-      "primary": "#7d562d", "on-primary": "#ffffff",
-      "error": "#ba1a1a", "error-container": "#ffdad6", "on-error-container": "#93000a",
-      "success-container": "#dff0d8", "on-success-container": "#2d5a2a"
-    },
-    fontFamily: { "display": ["Playfair Display", "serif"], "sans": ["Inter", "sans-serif"] }
-  } } }
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          "background": "#fff8f5",
+          "surface": "#ffffff",
+          "surface-container-lowest": "#ffffff",
+          "on-surface": "#1f1b17",
+          "on-surface-variant": "#50453b",
+          "outline": "#82756a",
+          "outline-variant": "#d4c4b7",
+          "primary": "#7d562d",
+          "primary-hover": "#654421",
+          "on-primary": "#ffffff",
+          "error": "#ba1a1a",
+          "error-container": "#ffdad6",
+          "on-error-container": "#93000a",
+          "success-container": "#dff0d8",
+          "on-success-container": "#2d5a2a"
+        },
+        fontFamily: {
+          "display": ["Playfair Display", "serif"],
+          "sans": ["Inter", "sans-serif"]
+        }
+      }
+    }
+  }
 </script>
 {% block extra_head %}{% endblock %}
 </head>
-<body class="bg-background font-sans text-on-surface min-h-screen flex items-center justify-center p-6">
-  <div class="w-full max-w-md">
-    <div class="text-center mb-10">
-      <h1 class="font-display text-5xl font-bold text-primary tracking-tight">Zellup</h1>
-      <p class="text-on-surface-variant mt-2">{% block tagline %}Cuidado e agenda pro seu salão{% endblock %}</p>
+<body class="bg-background font-sans text-on-surface min-h-screen flex items-center justify-center overflow-x-hidden antialiased">
+<div class="w-full min-h-screen flex flex-col md:flex-row">
+  
+  <!-- COLUNA ESQUERDA: FOTO EDITORIAL STILL-LIFE SALÃO -->
+  <div class="w-full md:w-1/2 min-h-[35vh] md:min-h-screen relative flex flex-col justify-center items-center p-8 md:p-16 overflow-hidden border-b md:border-b-0 md:border-r border-outline-variant/60">
+    <!-- Imagem de Fundo Editorial -->
+    <img src="{% static 'img/login-salao.jpg' %}" alt="Textura Still-Life Salão de Beleza" class="absolute inset-0 w-full h-full object-cover object-center"/>
+
+    <!-- Overlay Suave -->
+    <div class="absolute inset-0 bg-gradient-to-t from-background/90 via-background/40 to-background/20 backdrop-blur-[1px]"></div>
+
+    <!-- Conteúdo da Esquerda -->
+    <div class="relative z-10 text-center flex flex-col items-center max-w-md mx-auto">
+      <div class="w-16 h-16 md:w-20 md:h-20 mb-6 text-primary bg-surface/90 backdrop-blur-md rounded-full border border-outline-variant flex items-center justify-center shadow-lg shadow-primary/5">
+        <span class="material-symbols-outlined text-3xl md:text-4xl text-primary">spa</span>
+      </div>
+      <h1 class="font-display text-4xl md:text-5xl font-bold tracking-tight text-on-surface mb-3 drop-shadow-sm">Zellup</h1>
+      <p class="font-sans italic text-base md:text-lg text-on-surface-variant max-w-xs text-center font-medium">{% block tagline %}Cuidado e agenda pro seu salão{% endblock %}</p>
     </div>
-    <div class="bg-surface-container-lowest rounded-2xl shadow-[0_4px_40px_-10px_rgba(125,86,45,0.15)] p-8">
+  </div>
+
+  <!-- COLUNA DIREITA: FORMULÁRIO -->
+  <div class="w-full md:w-1/2 bg-surface flex flex-col items-center justify-center px-6 md:px-16 py-12 md:py-0 relative">
+    <div class="max-w-[420px] w-full mx-auto">
       {% block content %}{% endblock %}
     </div>
-    {% block below_card %}{% endblock %}
   </div>
+
+</div>
 </body>
 </html>

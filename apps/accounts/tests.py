@@ -317,7 +317,7 @@ class ZellupLoginViewTest(TestCase):
             "/painel/login/", HTTP_HOST="salao.zellup.com.br"
         )
         self.assertContains(response, 'class="light"')
-        self.assertContains(response, "Acesse sua conta e cuide da agenda do seu salão")
+        self.assertContains(response, "Acesse sua conta para cuidar da agenda do seu salão")
 
     def test_plain_host_defaults_to_light_theme(self):
         response = self.client.get("/painel/login/")
