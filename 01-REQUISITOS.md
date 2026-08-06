@@ -252,7 +252,7 @@ A plataforma cobra **assinatura mensal dos tenants** via Asaas.
 - RF30 ✅ *(implementado em 2026-07-31, ver detalhe em §4.2)*: Tenant com assinatura
   inadimplente perde acesso ao painel admin, respeitando `grace_period_days` de carência —
   página pública continua ativa normalmente, sem limite de dias. **Extensão ✅ (mesmo dia):** o
-  mesmo bloqueio vale pro trial gratuito de 14 dias vencido sem plano escolhido — nesse caso,
+  mesmo bloqueio vale pro trial gratuito de 7 dias vencido sem plano escolhido — nesse caso,
   sem tolerância extra (bloqueia assim que `trial_ends_at` passa).
 
 ### 3.9 Painel do superadmin (plataforma) — `/plataforma/`
@@ -340,9 +340,11 @@ entre si nem com o resto, ficam por último):
 ### 4.2 Planos, trial e checkout self-service (RF41 + parte do RF28/29 — implementado em
 2026-07-30, ver `03-MODELO-DE-DADOS.md`)
 
-**Trial ✅ *(implementado)*:** `register_tenant` agora seta `Subscription.trial_ends_at` = 14
-dias corridos a partir do cadastro (`apps.billing.services.TRIAL_DAYS`), acesso completo até lá,
-sem cartão de crédito. Exibido no painel (`/painel/plano/`) com contagem regressiva.
+**Trial ✅ *(implementado; reduzido de 14 para 7 dias em 2026-08-06, decisão do usuário — só vale
+pra cadastro novo, assinatura já existente continua contando os dias que já tinha)*:**
+`register_tenant` agora seta `Subscription.trial_ends_at` = 7 dias corridos a partir do cadastro
+(`apps.billing.services.TRIAL_DAYS`), acesso completo até lá, sem cartão de crédito. Exibido no
+painel (`/painel/plano/`) com contagem regressiva.
 
 **Plano + dias restantes no menu lateral ✅ *(implementado em 2026-07-31)*:** embaixo do
 e-mail e do nome do salão, em todo o painel (não só em `/painel/plano/`), o tenant_admin vê o
@@ -354,7 +356,8 @@ deixa `status == pending` com `subscription.plan` preenchido, mas o menu continu
 "Gratuito" — decisão do usuário em 2026-07-31 ("não pagou, é gratuito"), corrigindo um bug do
 corte anterior que mostrava o nome do plano pago assim que escolhido, antes da confirmação.
 "Gratuito · N dias restantes" conta `trial_ends_at` por data de calendário (no dia do cadastro
-mostra 14, não 13); com plano ativo mostra o nome do plano e os dias restantes do período atual
+mostra 7, não 6, desde a redução do trial em 2026-08-06); com plano ativo mostra o nome do plano
+e os dias restantes do período atual
 (`current_period_end`). Só aparece pro tenant_admin (mesmo critério do sininho de avisos), não
 pra funcionário. Migration de dados `billing/migrations/0006_reset_free_trial_to_14_days.py`
 reiniciou, uma única vez, o `trial_ends_at` de toda assinatura gratuita existente para 14 dias
@@ -419,7 +422,8 @@ chave de sandbox/produção pra virar cobrança de verdade.
 precisa pra regularizar (`/painel/plano/`, seleção de plano, checkout, envio de CPF/CNPJ,
 polling de status). Página pública de agendamento (`/<slug>/`) nunca é afetada.
 
-**Extensão ✅ *(mesmo dia, mesma função)*: bloqueio do trial de 14 dias vencido.** Até então
+**Extensão ✅ *(mesmo dia, mesma função)*: bloqueio do trial vencido (14 dias na época, 7 dias
+desde 2026-08-06).** Até então
 `trialing` nunca bloqueava — o gap era real: nenhum job muda o `status` quando `trial_ends_at`
 passa (não existe Celery beat configurado no projeto), então o tenant ficava com acesso
 irrestrito pra sempre depois do trial. Agora `subscription_blocks_panel_access` também bloqueia

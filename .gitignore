@@ -27,3 +27,4 @@ Thumbs.db
 
 # Notas de infraestrutura da VPS (IP/porta/topologia — não versionar)
 VPS-*.md
+abrir-monitor-vps.bat

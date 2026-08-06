@@ -308,12 +308,42 @@ class CpfCnpjValidationTest(TestCase):
 
 
 class TrialTest(TestCase):
-    def test_register_tenant_sets_14_day_trial(self):
+    def test_register_tenant_sets_7_day_trial(self):
         tenant, _ = register_tenant(name="Salão Trial", email="dono@trial.com", password="Senha@123")
         subscription = Subscription.objects.get(tenant=tenant)
         self.assertIsNotNone(subscription.trial_ends_at)
         delta = subscription.trial_ends_at - timezone.now()
-        self.assertAlmostEqual(delta.days, 14, delta=1)
+        self.assertAlmostEqual(delta.days, 7, delta=1)
+
+    def test_trial_days_constant_only_affects_new_subscriptions_going_forward(self):
+        """Regra do usuário em 2026-08-06: mudar TRIAL_DAYS de 14 para 7 vale
+        só pra cadastro novo — quem já tinha assinatura continua contando os
+        dias que já tinha (`trial_ends_at` é gravado uma vez no cadastro,
+        nunca recalculado depois a partir da constante)."""
+        from unittest.mock import patch
+
+        with patch("apps.billing.services.TRIAL_DAYS", 14):
+            old_tenant, _ = register_tenant(
+                name="Salão Antigo", email="antigo@trial.com", password="Senha@123"
+            )
+        old_subscription = Subscription.objects.get(tenant=old_tenant)
+        self.assertAlmostEqual(
+            (old_subscription.trial_ends_at - timezone.now()).days, 14, delta=1
+        )
+
+        new_tenant, _ = register_tenant(
+            name="Salão Novo", email="novo@trial.com", password="Senha@123"
+        )
+        new_subscription = Subscription.objects.get(tenant=new_tenant)
+        self.assertAlmostEqual(
+            (new_subscription.trial_ends_at - timezone.now()).days, 7, delta=1
+        )
+
+        # a assinatura antiga não foi retroativamente encurtada
+        old_subscription.refresh_from_db()
+        self.assertAlmostEqual(
+            (old_subscription.trial_ends_at - timezone.now()).days, 14, delta=1
+        )
 
 
 class AsaasClientTest(TestCase):
@@ -789,7 +819,7 @@ class PanelAccessBlockedPanelTest(TestCase):
 
 class TrialExpiredPanelBlockTest(TestCase):
     """RF30 — extensão de 2026-07-31: mesmo bloqueio de `PanelAccessBlockedPanelTest`,
-    mas pro caso "trial de 14 dias acabou" (status continua `trialing`, só
+    mas pro caso "trial gratuito acabou" (status continua `trialing`, só
     `trial_ends_at` que já passou — nenhum job muda o status)."""
 
     @classmethod
