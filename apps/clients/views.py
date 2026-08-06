@@ -45,7 +45,13 @@ class ClientViewSet(viewsets.ModelViewSet):
     http_method_names = ["get", "post", "patch", "head", "options"]
 
     def get_queryset(self):
-        return Client.objects.for_tenant(self.request.user.tenant)
+        # Cliente anonimizado (LGPD, `anonymize_client`) some da lista — o
+        # histórico dele continua intacto no banco (Appointment.client é
+        # PROTECT), só não é mais navegável/identificável. Mesmo filtro do
+        # painel (`client_list`), a API precisa refletir o painel.
+        return Client.objects.for_tenant(self.request.user.tenant).exclude(
+            phone__startswith="removido-"
+        )
 
     def create(self, request, *args, **kwargs):
         data = request.data
@@ -269,7 +275,15 @@ def _history_context(client):
 
 @tenant_admin_required
 def client_list(request):
-    clients = Client.objects.for_tenant(request.tenant).select_related("tenant")
+    # Cliente anonimizado (LGPD, `anonymize_client`) some da lista — o texto
+    # do modal de exclusão já promete isso ("ele some da lista"). O histórico
+    # dele continua intacto no banco (Appointment.client é PROTECT), só não
+    # é mais navegável/identificável por aqui.
+    clients = (
+        Client.objects.for_tenant(request.tenant)
+        .select_related("tenant")
+        .exclude(phone__startswith="removido-")
+    )
     query = request.GET.get("q", "").strip()
     if query:
         clients = clients.filter(name__icontains=query) | clients.filter(

@@ -933,6 +933,20 @@ class ClientPanelTest(TestCase):
         self.assertIn("text-error", body)
         self.assertIn("-R$ 35", body)
 
+    def test_deleted_client_disappears_from_list(self):
+        """Regressão: o modal de exclusão promete "ele some da lista", mas o
+        registro anonimizado (LGPD) continuava aparecendo como "Cliente
+        removido (LGPD)" — a lista precisa filtrar esse caso."""
+        client_ = Client.objects.create(tenant=self.tenant, phone="11988887777", name="Maria")
+        self.client.force_login(self.admin)
+        response = self.client.post(f"/painel/clientes/{client_.pk}/excluir/")
+        self.assertEqual(response.status_code, 200)
+        client_.refresh_from_db()
+        self.assertTrue(client_.phone.startswith("removido-"))
+
+        response = self.client.get("/painel/clientes/")
+        self.assertNotContains(response, "Cliente removido (LGPD)")
+
     def test_admin_sets_birthday_via_panel(self):
         self.client.force_login(self.admin)
         response = self.client.post(
