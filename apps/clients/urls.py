@@ -60,6 +60,18 @@ urlpatterns = [
         name="credit_remove_confirm",
     ),
     path("<int:pk>/credito/remover/", views.client_credit_remove, name="credit_remove"),
+    path(
+        "<int:pk>/debito/pagar/confirmar/",
+        views.client_debt_settle_confirm,
+        name="debt_settle_confirm",
+    ),
+    path("<int:pk>/debito/pagar/", views.client_debt_settle, name="debt_settle"),
+    path(
+        "<int:pk>/debito/ajustar/confirmar/",
+        views.client_debt_write_off_confirm,
+        name="debt_write_off_confirm",
+    ),
+    path("<int:pk>/debito/ajustar/", views.client_debt_write_off, name="debt_write_off"),
     path("<int:pk>/excluir/confirmar/", views.client_delete_confirm, name="delete_confirm"),
     path("<int:pk>/excluir/", views.client_delete, name="delete"),
 ]

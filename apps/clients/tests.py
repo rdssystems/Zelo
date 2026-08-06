@@ -10,7 +10,7 @@ from django.utils import timezone
 from apps.notifications.models import TenantNotification, TenantNotificationKind
 from apps.tenants.models import Tenant
 
-from .models import Client, ClientCreditTransaction, Package
+from .models import Client, ClientCreditTransaction, ClientDebtTransaction, Package
 from .services import (
     _add_months,
     add_client_credit,
@@ -20,19 +20,23 @@ from .services import (
     create_client,
     create_package,
     ensure_birthday_notification,
+    find_client_by_phone,
     format_phone_display,
     get_or_create_client,
     mark_birthday_message_sent,
     normalize_phone,
     pending_birthday_clients_today,
+    record_client_debt,
     redeem_client_credit_for_appointment,
     remove_client_credit,
     renew_subscription,
     set_package_active,
     set_subscriber_status,
+    settle_client_debt,
     update_client,
     update_client_preferences,
     update_package,
+    write_off_client_debt,
 )
 
 User = get_user_model()
@@ -69,6 +73,24 @@ class ClientModelTest(TestCase):
         client_ = Client.objects.create(tenant=self.tenant_a, phone="11988887777", name="Maria")
         self.assertEqual(client_.whatsapp_url, "https://wa.me/5511988887777")
 
+    def test_net_balance_positive_when_credit_exceeds_debt(self):
+        client_ = Client.objects.create(
+            tenant=self.tenant_a, phone="11988887777", name="Maria",
+            credit_balance=Decimal("50"), debt_balance=Decimal("20"),
+        )
+        self.assertEqual(client_.net_balance, Decimal("30"))
+
+    def test_net_balance_negative_when_debt_exceeds_credit(self):
+        client_ = Client.objects.create(
+            tenant=self.tenant_a, phone="11988887777", name="Maria",
+            credit_balance=Decimal("0"), debt_balance=Decimal("35"),
+        )
+        self.assertEqual(client_.net_balance, Decimal("-35"))
+
+    def test_net_balance_zero_when_no_credit_or_debt(self):
+        client_ = Client.objects.create(tenant=self.tenant_a, phone="11988887777", name="Maria")
+        self.assertEqual(client_.net_balance, Decimal("0"))
+
     def test_whatsapp_url_none_for_anonymized_phone(self):
         client_ = Client.objects.create(tenant=self.tenant_a, phone="removido-1", name="Cliente removido (LGPD)")
         self.assertIsNone(client_.whatsapp_url)
@@ -104,6 +126,28 @@ class FormatPhoneDisplayTest(TestCase):
 
     def test_landline_10_digits(self):
         self.assertEqual(format_phone_display("1112345678"), "(11) 1234-5678")
+
+
+class FindClientByPhoneTest(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.tenant = Tenant.objects.create(name="Salão A", slug="salao-a")
+
+    def test_finds_existing_client_by_formatted_phone(self):
+        client = Client.objects.create(tenant=self.tenant, phone="11912345678", name="Maria")
+        found = find_client_by_phone(self.tenant, "(11) 91234-5678")
+        self.assertEqual(found, client)
+
+    def test_returns_none_when_not_found(self):
+        self.assertIsNone(find_client_by_phone(self.tenant, "11912345678"))
+
+    def test_returns_none_for_invalid_phone_instead_of_raising(self):
+        self.assertIsNone(find_client_by_phone(self.tenant, "123"))
+
+    def test_isolated_per_tenant(self):
+        other_tenant = Tenant.objects.create(name="Salão B", slug="salao-b")
+        Client.objects.create(tenant=other_tenant, phone="11912345678", name="Maria")
+        self.assertIsNone(find_client_by_phone(self.tenant, "11912345678"))
 
 
 class GetOrCreateClientTest(TestCase):
@@ -178,6 +222,82 @@ class GetOrCreateClientTest(TestCase):
         self.assertEqual(client.pk, existing.pk)
         self.assertEqual(client.birth_day, 1)
         self.assertEqual(client.birth_month, 1)
+
+
+class RequireBirthdayOnBookingTest(TestCase):
+    """`Tenant.require_birthday_on_booking` — aniversário obrigatório no
+    cadastro de cliente novo (agendamento público e painel), configurável
+    por tenant."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.tenant = Tenant.objects.create(
+            name="Salão A", slug="salao-a", require_birthday_on_booking=True
+        )
+        cls.tenant_off = Tenant.objects.create(
+            name="Salão B", slug="salao-b", require_birthday_on_booking=False
+        )
+
+    def test_get_or_create_client_new_phone_without_birthday_rejected(self):
+        with self.assertRaises(ValidationError):
+            get_or_create_client(
+                tenant=self.tenant, phone="11912345678", name="Maria",
+            )
+        self.assertEqual(Client.objects.count(), 0)
+
+    def test_get_or_create_client_new_phone_with_birthday_succeeds(self):
+        client, created = get_or_create_client(
+            tenant=self.tenant, phone="11912345678", name="Maria",
+            birth_day=15, birth_month=6,
+        )
+        self.assertTrue(created)
+        self.assertEqual(client.birth_day, 15)
+
+    def test_tenant_without_flag_unaffected(self):
+        client, created = get_or_create_client(
+            tenant=self.tenant_off, phone="11912345678", name="Maria",
+        )
+        self.assertTrue(created)
+        self.assertIsNone(client.birth_day)
+
+    def test_existing_client_recovery_not_blocked_even_without_birthday(self):
+        existing = Client.objects.create(
+            tenant=self.tenant, phone="11912345678", name="Maria",
+        )
+        client, created = get_or_create_client(
+            tenant=self.tenant, phone="11912345678",
+        )
+        self.assertFalse(created)
+        self.assertEqual(client.pk, existing.pk)
+
+    def test_create_client_without_birthday_rejected(self):
+        with self.assertRaises(ValidationError):
+            create_client(tenant=self.tenant, name="Maria", phone="11912345678")
+        self.assertEqual(Client.objects.count(), 0)
+
+    def test_create_client_with_birthday_succeeds(self):
+        client = create_client(
+            tenant=self.tenant, name="Maria", phone="11912345678",
+            birth_day=15, birth_month=6,
+        )
+        self.assertEqual(client.birth_day, 15)
+
+    def test_update_client_without_birthday_rejected(self):
+        client = Client.objects.create(
+            tenant=self.tenant, phone="11912345678", name="Maria",
+        )
+        with self.assertRaises(ValidationError):
+            update_client(client, name="Maria Silva", phone="11912345678")
+
+    def test_update_client_with_birthday_succeeds(self):
+        client = Client.objects.create(
+            tenant=self.tenant, phone="11912345678", name="Maria",
+        )
+        updated = update_client(
+            client, name="Maria Silva", phone="11912345678",
+            birth_day=15, birth_month=6,
+        )
+        self.assertEqual(updated.birth_day, 15)
 
 
 class AnonymizeClientTest(TestCase):
@@ -511,6 +631,115 @@ class CreditWalletTest(TestCase):
             )
 
 
+class DebtLedgerTest(TestCase):
+    """Carteira de saldo devedor (fiado) — espelha `CreditWalletTest`, com a
+    polaridade invertida (IN = passou a dever mais, OUT = quitou/ajustou)."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.tenant, cls.admin = make_tenant_with_admin("salao-a")
+
+    def test_record_debt_increases_balance_without_cash_transaction(self):
+        from apps.employees.services import create_employee
+        from apps.finance.models import CashTransaction
+        from apps.scheduling.models import Appointment, AppointmentStatus
+        from apps.services.services import create_service
+
+        client = Client.objects.create(tenant=self.tenant, phone="11900000000", name="Maria")
+        employee = create_employee(
+            tenant=self.tenant, full_name="Ana", email="ana@salao-a.com", password="Senha@123",
+            default_commission_type="percentage", default_commission_value=Decimal("40"),
+        )
+        service = create_service(
+            tenant=self.tenant, name="Corte", duration_minutes=60, price=Decimal("80")
+        )
+        appointment = Appointment.objects.create(
+            tenant=self.tenant, client=client, employee=employee, service=service,
+            date=datetime.date.today(), start_time=datetime.time(9, 0), end_time=datetime.time(10, 0),
+            status=AppointmentStatus.IN_PROGRESS, price_at_booking=Decimal("80"),
+        )
+        record_client_debt(
+            client, amount=Decimal("30"), appointment=appointment, created_by=self.admin
+        )
+        client.refresh_from_db()
+        self.assertEqual(client.debt_balance, Decimal("30"))
+        self.assertEqual(CashTransaction.objects.count(), 0)
+        entry = ClientDebtTransaction.objects.get(client=client)
+        self.assertEqual(entry.type, "in")
+        self.assertEqual(entry.related_appointment, appointment)
+        self.assertIsNone(entry.related_cash_transaction)
+
+    def test_settle_debt_creates_real_cash_transaction(self):
+        from apps.finance.models import CashCategory, CashFlowType, CashTransaction
+
+        client = Client.objects.create(
+            tenant=self.tenant, phone="11900000000", name="Maria", debt_balance=Decimal("50")
+        )
+        settle_client_debt(
+            client, amount=Decimal("50"), payment_method="pix", created_by=self.admin
+        )
+        client.refresh_from_db()
+        self.assertEqual(client.debt_balance, Decimal("0"))
+
+        txn = CashTransaction.objects.get(tenant=self.tenant)
+        self.assertEqual(txn.type, CashFlowType.IN)
+        self.assertEqual(txn.category, CashCategory.CLIENT_DEBT_PAYMENT)
+        self.assertEqual(txn.amount, Decimal("50"))
+
+        entry = ClientDebtTransaction.objects.get(client=client)
+        self.assertEqual(entry.type, "out")
+        self.assertEqual(entry.related_cash_transaction, txn)
+
+    def test_settle_debt_rejects_client_credit_as_payment_method(self):
+        client = Client.objects.create(
+            tenant=self.tenant, phone="11900000000", name="Maria", debt_balance=Decimal("50")
+        )
+        with self.assertRaises(ValidationError):
+            settle_client_debt(
+                client, amount=Decimal("10"), payment_method="client_credit",
+                created_by=self.admin,
+            )
+
+    def test_settle_debt_insufficient_balance_rejected(self):
+        client = Client.objects.create(
+            tenant=self.tenant, phone="11900000000", name="Maria", debt_balance=Decimal("10")
+        )
+        with self.assertRaises(ValidationError):
+            settle_client_debt(
+                client, amount=Decimal("50"), payment_method="pix", created_by=self.admin
+            )
+        client.refresh_from_db()
+        self.assertEqual(client.debt_balance, Decimal("10"))
+
+    def test_write_off_debt_does_not_touch_cash(self):
+        from apps.finance.models import CashTransaction
+
+        client = Client.objects.create(
+            tenant=self.tenant, phone="11900000000", name="Maria", debt_balance=Decimal("50")
+        )
+        write_off_client_debt(client, amount=Decimal("20"), created_by=self.admin)
+        client.refresh_from_db()
+        self.assertEqual(client.debt_balance, Decimal("30"))
+        self.assertEqual(CashTransaction.objects.count(), 0)
+        entry = ClientDebtTransaction.objects.get(client=client)
+        self.assertEqual(entry.type, "out")
+        self.assertIsNone(entry.related_cash_transaction)
+
+    def test_write_off_debt_insufficient_balance_rejected(self):
+        client = Client.objects.create(
+            tenant=self.tenant, phone="11900000000", name="Maria", debt_balance=Decimal("10")
+        )
+        with self.assertRaises(ValidationError):
+            write_off_client_debt(client, amount=Decimal("50"), created_by=self.admin)
+
+    def test_debt_isolated_per_tenant(self):
+        tenant_b, admin_b = make_tenant_with_admin("salao-b")
+        client_a = Client.objects.create(tenant=self.tenant, phone="11900000000", name="Maria")
+        record_client_debt(client_a, amount=Decimal("40"), appointment=None, created_by=self.admin)
+        self.assertEqual(ClientDebtTransaction.objects.for_tenant(tenant_b).count(), 0)
+        self.assertEqual(Client.objects.for_tenant(tenant_b).filter(debt_balance__gt=0).count(), 0)
+
+
 class ClientCrudDomainTest(TestCase):
     @classmethod
     def setUpTestData(cls):
@@ -679,6 +908,30 @@ class ClientPanelTest(TestCase):
         )
         self.assertEqual(response.status_code, 302)
         self.assertTrue(Client.objects.filter(tenant=self.tenant, name="Maria").exists())
+
+    def test_list_shows_saldo_column_green_when_positive(self):
+        Client.objects.create(
+            tenant=self.tenant, phone="11988887777", name="Maria",
+            credit_balance=Decimal("50"), debt_balance=Decimal("20"),
+        )
+        self.client.force_login(self.admin)
+        response = self.client.get("/painel/clientes/")
+        body = response.content.decode()
+        self.assertIn("Saldo", body)
+        self.assertNotIn(">Crédito<", body)
+        self.assertIn("text-[#2e7d32]", body)
+        self.assertIn("R$ 30", body)
+
+    def test_list_shows_saldo_column_red_when_negative(self):
+        Client.objects.create(
+            tenant=self.tenant, phone="11988887777", name="Maria",
+            credit_balance=Decimal("0"), debt_balance=Decimal("35"),
+        )
+        self.client.force_login(self.admin)
+        response = self.client.get("/painel/clientes/")
+        body = response.content.decode()
+        self.assertIn("text-error", body)
+        self.assertIn("-R$ 35", body)
 
     def test_admin_sets_birthday_via_panel(self):
         self.client.force_login(self.admin)

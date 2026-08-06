@@ -12,6 +12,7 @@ urlpatterns = [
     path("<int:pk>/detalhe/", views.appointment_detail, name="detail"),
     path("novo/", views.appointment_new, name="new"),
     path("novo/horarios/", views.new_appointment_slots, name="new_slots"),
+    path("novo/cliente/", views.new_appointment_client_lookup, name="new_client_lookup"),
     path(
         "<int:pk>/confirmar/preparar/",
         views.appointment_confirm_prepare,

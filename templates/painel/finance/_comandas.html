@@ -7,22 +7,43 @@
   <div class="bg-surface-container-lowest rounded-2xl border border-surface-variant shadow-sm p-6"
        x-data="{
          clientCreditBalance: {{ group.client.credit_balance|unlocalize }},
+         clientDebtBalance: {{ group.client.debt_balance|unlocalize }},
          servicesTotal: {{ group.services_total|unlocalize }},
          productsTotal: {{ group.products_total|unlocalize }},
          useCredit: false,
          creditAmount: 0,
+         useDebt: false,
+         debtAmount: 0,
+         useCollectDebt: false,
+         collectDebtAmount: 0,
          get grandTotal() { return this.servicesTotal + this.productsTotal; },
          get maxCredit() { return Math.min(this.clientCreditBalance, this.grandTotal); },
-         get remainder() { return Math.max(0, this.grandTotal - (this.useCredit ? (Number(this.creditAmount) || 0) : 0)); },
+         get afterCredit() { return Math.max(0, this.grandTotal - (this.useCredit ? (Number(this.creditAmount) || 0) : 0)); },
+         get maxDebt() { return this.afterCredit; },
+         get remainder() {
+           return Math.max(0, this.afterCredit - (this.useDebt ? (Number(this.debtAmount) || 0) : 0))
+                  + (this.useCollectDebt ? (Number(this.collectDebtAmount) || 0) : 0);
+         },
          toggleCredit() {
            this.useCredit = !this.useCredit;
            this.creditAmount = this.useCredit ? this.maxCredit : 0;
+         },
+         toggleDebt() {
+           this.useDebt = !this.useDebt;
+           this.debtAmount = this.useDebt ? this.maxDebt : 0;
+         },
+         toggleCollectDebt() {
+           this.useCollectDebt = !this.useCollectDebt;
+           this.collectDebtAmount = this.useCollectDebt ? this.clientDebtBalance : 0;
          }
        }">
     <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
       <div>
         <p class="font-semibold text-lg text-on-surface">{{ group.client.name }}</p>
         <p class="text-xs text-on-surface-variant mt-1">Crédito disponível: R$ {{ group.client.credit_balance }}</p>
+        {% if group.client.debt_balance > 0 %}
+        <p class="text-xs text-error mt-0.5">Débito anterior: R$ {{ group.client.debt_balance }}</p>
+        {% endif %}
       </div>
       <div class="flex gap-2 shrink-0">
         <button type="button"
@@ -106,7 +127,7 @@
 
       <div class="pt-3 border-t border-surface-variant space-y-3">
         <p class="text-sm text-on-surface-variant">
-          Total: <span class="font-semibold text-on-surface" x-text="'R$ ' + grandTotal.toFixed(2).replace('.', ',')"></span>
+          Total da comanda: <span class="font-semibold text-on-surface" x-text="'R$ ' + grandTotal.toFixed(2).replace('.', ',')"></span>
         </p>
 
         {% if group.appointments %}
@@ -124,20 +145,55 @@
             <span class="text-xs text-error" x-show="Number(creditAmount) > maxCredit" x-cloak>
               Máximo disponível: R$ <span x-text="maxCredit.toFixed(2).replace('.', ',')"></span>
             </span>
-            <span class="text-xs text-on-surface-variant" x-show="remainder > 0" x-cloak>
-              Restante a pagar: R$ <span x-text="remainder.toFixed(2).replace('.', ',')"></span>
+          </div>
+        </div>
+
+        <div x-show="clientDebtBalance > 0" x-cloak>
+          <label class="flex items-center gap-2 text-sm text-on-surface-variant cursor-pointer">
+            <input type="checkbox" @change="toggleCollectDebt()" :checked="useCollectDebt"
+                   class="rounded border-outline text-primary focus:ring-primary"/>
+            Cobrar débito anterior junto
+            (<span x-text="'R$ ' + clientDebtBalance.toFixed(2).replace('.', ',')"></span>)
+          </label>
+          <div x-show="useCollectDebt" x-cloak class="flex flex-wrap items-center gap-2 mt-2 pl-6">
+            <label class="text-label-caps uppercase text-outline">Cobrar</label>
+            <input type="number" name="collect_prior_debt_amount" x-model.number="collectDebtAmount" step="0.01" min="0" :max="clientDebtBalance"
+                   class="w-24 px-2 py-1 rounded-lg border border-outline-variant bg-transparent text-center text-sm focus:ring-0 focus:border-primary"/>
+            <span class="text-xs text-error" x-show="Number(collectDebtAmount) > clientDebtBalance" x-cloak>
+              Máximo: R$ <span x-text="clientDebtBalance.toFixed(2).replace('.', ',')"></span>
             </span>
-            <span class="text-xs text-on-surface-variant font-medium" x-show="remainder <= 0" x-cloak>
-              Crédito cobre o valor total da comanda.
+          </div>
+        </div>
+
+        <div x-show="afterCredit > 0" x-cloak>
+          <label class="flex items-center gap-2 text-sm text-on-surface-variant cursor-pointer">
+            <input type="checkbox" @change="toggleDebt()" :checked="useDebt"
+                   class="rounded border-outline text-primary focus:ring-primary"/>
+            Deixar valor como fiado (cliente não pagou tudo agora)
+          </label>
+          <div x-show="useDebt" x-cloak class="flex flex-wrap items-center gap-2 mt-2 pl-6">
+            <label class="text-label-caps uppercase text-outline">Fiado</label>
+            <input type="number" name="debt_amount" x-model.number="debtAmount" step="0.01" min="0" :max="maxDebt"
+                   class="w-24 px-2 py-1 rounded-lg border border-outline-variant bg-transparent text-center text-sm focus:ring-0 focus:border-primary"/>
+            <span class="text-xs text-error" x-show="Number(debtAmount) > maxDebt" x-cloak>
+              Máximo: R$ <span x-text="maxDebt.toFixed(2).replace('.', ',')"></span>
             </span>
           </div>
         </div>
         {% endif %}
 
+        <div class="pt-1">
+          <p class="text-label-caps uppercase text-outline">A pagar agora</p>
+          <p class="font-display text-3xl font-bold text-primary" x-text="'R$ ' + remainder.toFixed(2).replace('.', ',')"></p>
+          <p class="text-xs text-on-surface-variant font-medium" x-show="remainder <= 0 && (useCredit || useDebt)" x-cloak>
+            Crédito/fiado cobrem o valor total da comanda — nada a cobrar agora.
+          </p>
+        </div>
+
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div x-show="!useCredit || remainder > 0">
+          <div x-show="(!useCredit && !useDebt) || remainder > 0">
             <label class="text-label-caps uppercase text-outline mr-2">Pagamento</label>
-            <select name="payment_method" :required="!useCredit || remainder > 0"
+            <select name="payment_method" :required="(!useCredit && !useDebt) || remainder > 0"
                     class="bg-transparent border-0 border-b border-outline-variant text-sm focus:ring-0 focus:border-primary">
               {% for value, label in payment_methods %}
               <option value="{{ value }}">{{ label }}</option>

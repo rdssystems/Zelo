@@ -918,6 +918,67 @@ class ComandaFinalizeTest(TestCase):
         self.client_.refresh_from_db()
         self.assertEqual(self.client_.credit_balance, Decimal("0.00"))
 
+    def test_finalize_with_debt_amount_via_panel(self):
+        """Decisão do usuário em 2026-08-06: deixar parte da comanda em
+        aberto como fiado direto pelo painel."""
+        appointment = self._make_in_progress_appointment()  # serviço R$100
+        self.client.force_login(self.admin)
+        response = self.client.post(
+            "/painel/caixa/comandas/finalizar-grupo/",
+            {
+                "client_id": str(self.client_.pk),
+                "appointment_id": [str(appointment.pk)],
+                "payment_method": "cash",
+                "debt_amount": "30",
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        appointment.refresh_from_db()
+        self.assertEqual(appointment.status, AppointmentStatus.COMPLETED)
+        cash_txn = CashTransaction.objects.get(related_appointment=appointment)
+        self.assertEqual(cash_txn.amount, Decimal("70.00"))
+        self.client_.refresh_from_db()
+        self.assertEqual(self.client_.debt_balance, Decimal("30.00"))
+
+    def test_finalize_with_collect_prior_debt_amount_via_panel(self):
+        from apps.clients.services import record_client_debt
+
+        record_client_debt(
+            self.client_, amount=Decimal("40"), appointment=None, created_by=self.admin
+        )
+        appointment = self._make_in_progress_appointment()  # serviço R$100
+        self.client.force_login(self.admin)
+        response = self.client.post(
+            "/painel/caixa/comandas/finalizar-grupo/",
+            {
+                "client_id": str(self.client_.pk),
+                "appointment_id": [str(appointment.pk)],
+                "payment_method": "pix",
+                "collect_prior_debt_amount": "40",
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        appointment.refresh_from_db()
+        self.assertEqual(appointment.status, AppointmentStatus.COMPLETED)
+        self.client_.refresh_from_db()
+        self.assertEqual(self.client_.debt_balance, Decimal("0.00"))
+        self.assertTrue(
+            CashTransaction.objects.filter(
+                category=CashCategory.CLIENT_DEBT_PAYMENT, amount=Decimal("40.00")
+            ).exists()
+        )
+
+    def test_comanda_card_x_data_balanced_with_debt_controls(self):
+        """Regressão do bug de `x-data` desbalanceado (ver
+        `_assert_all_x_data_balanced`) — agora com os campos novos de débito."""
+        self._make_in_progress_appointment()
+        self.client_.debt_balance = Decimal("15.00")
+        self.client_.save(update_fields=["debt_balance"])
+        self.client.force_login(self.admin)
+        response = self.client.get("/painel/caixa/")
+        found = self._assert_all_x_data_balanced(response.content.decode())
+        self.assertGreaterEqual(found, 1)
+
 
 class ComandaProductItemDomainTest(TestCase):
     """Carrinho de produto persistido no banco (não mais em Alpine.js) — é o

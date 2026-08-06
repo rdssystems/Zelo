@@ -205,6 +205,14 @@
         <span class="text-xs">Mensagem pronta (editável) pra mandar pelo WhatsApp de cada aniversariante do dia.</span>
       </span>
     </label>
+    <label class="flex items-start gap-3 text-sm text-on-surface-variant mt-4">
+      <input class="mt-0.5 rounded border-outline text-primary focus:ring-primary" type="checkbox" name="require_birthday_on_booking"
+             {% if form.require_birthday_on_booking.value %}checked{% endif %}/>
+      <span>
+        Exigir aniversário do cliente<br/>
+        <span class="text-xs">Dia e mês de nascimento passam a ser obrigatórios ao cadastrar cliente novo, tanto no agendamento público quanto no cadastro manual pelo painel. Cliente já cadastrado sem aniversário não é bloqueado.</span>
+      </span>
+    </label>
   </div>
 
   <div class="bg-surface-container-lowest rounded-2xl shadow-[0_4px_40px_-10px_rgba(125,86,45,0.08)] border border-surface-container p-8">

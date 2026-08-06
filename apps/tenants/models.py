@@ -138,6 +138,12 @@ class Tenant(models.Model):
         "dele), o painel avisa o responsável — o aviso só some quando ele clicar pra enviar a "
         "mensagem de aniversário (ver apps.clients.services.ensure_birthday_notification).",
     )
+    require_birthday_on_booking = models.BooleanField(
+        "exigir aniversário do cliente", default=False,
+        help_text="Marcado: dia e mês de nascimento passam a ser obrigatórios ao cadastrar um "
+        "cliente novo — tanto no agendamento público quanto no cadastro manual pelo painel. "
+        "Cliente já cadastrado sem aniversário não é bloqueado por causa disso.",
+    )
     is_active = models.BooleanField("ativo", default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 

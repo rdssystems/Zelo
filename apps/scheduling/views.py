@@ -12,7 +12,7 @@ from rest_framework.response import Response
 
 from apps.accounts.decorators import employee_required, tenant_admin_required
 from apps.accounts.permissions import IsTenantAdminOrReadOnly, IsTenantMember
-from apps.clients.services import get_or_create_client
+from apps.clients.services import find_client_by_phone, get_or_create_client
 from apps.employees.models import Employee
 from apps.services.models import Service
 from apps.tenants.models import TenantBusinessHours
@@ -684,6 +684,16 @@ def new_appointment_slots(request):
 
 
 @tenant_admin_required
+def new_appointment_client_lookup(request):
+    """Parcial HTMX: avisa no modal de encaixe manual quando o telefone
+    digitado já é de um cliente cadastrado — `get_or_create_client` ignora
+    silenciosamente o nome informado nesse caso, então sem esse aviso o
+    atendente não tem como saber que o nome digitado não vai ser usado."""
+    client = find_client_by_phone(request.tenant, request.GET.get("phone", ""))
+    return render(request, "painel/scheduling/_new_client_hint.html", {"client": client})
+
+
+@tenant_admin_required
 def appointment_new(request):
     date_param = request.GET.get("date", "")
     if request.method == "POST":
@@ -692,7 +702,8 @@ def appointment_new(request):
             data = form.cleaned_data
             try:
                 client, _created = get_or_create_client(
-                    tenant=request.tenant, phone=data["phone"], name=data["name"]
+                    tenant=request.tenant, phone=data["phone"], name=data["name"],
+                    birth_day=data["birth_day"], birth_month=data["birth_month"],
                 )
                 create_appointment(
                     tenant=request.tenant,

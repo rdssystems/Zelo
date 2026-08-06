@@ -50,7 +50,7 @@
           <th class="py-4 px-6 text-label-caps uppercase text-on-surface-variant text-center">WhatsApp</th>
           <th class="py-4 px-6 text-label-caps uppercase text-on-surface-variant">Telefone</th>
           <th class="py-4 px-6 text-label-caps uppercase text-on-surface-variant text-center">Mensalista</th>
-          <th class="py-4 px-6 text-label-caps uppercase text-on-surface-variant text-right">Crédito</th>
+          <th class="py-4 px-6 text-label-caps uppercase text-on-surface-variant text-right" title="Crédito disponível menos débito em aberto">Saldo</th>
           <th class="py-4 px-6 text-label-caps uppercase text-on-surface-variant text-right">Ações</th>
         </tr>
       </thead>
@@ -90,7 +90,9 @@
             <span class="text-outline text-sm">—</span>
             {% endif %}
           </td>
-          <td class="py-4 px-6 text-right text-on-surface">R$ {{ client.credit_balance }}</td>
+          <td class="py-4 px-6 text-right font-semibold {% if client.net_balance > 0 %}text-[#2e7d32]{% elif client.net_balance < 0 %}text-error{% else %}text-on-surface-variant{% endif %}">
+            {% if client.net_balance < 0 %}-{% endif %}R$ {{ client.net_balance.copy_abs }}
+          </td>
           <td class="py-4 px-6 text-right">
             <div class="flex justify-end gap-1">
               <a class="p-2 text-outline hover:text-primary transition-colors rounded-full hover:bg-surface-variant inline-flex" title="Ver ficha"

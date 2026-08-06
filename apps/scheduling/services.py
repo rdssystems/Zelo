@@ -242,13 +242,16 @@ def mark_no_show(appointment):
 
 
 @transaction.atomic
-def complete_appointment(*, appointment, payment_method, created_by, product_usage=None, credit_amount=None):
+def complete_appointment(
+    *, appointment, payment_method, created_by, product_usage=None, credit_amount=None,
+    debt_amount=None, collect_prior_debt_amount=None,
+):
     """RF16 / regra 3 do CLAUDE.md — operação central do sistema. Concluir um
     atendimento é atômico (tudo ou nada):
     1. status → completed;
     2. `Commission` (snapshot da regra de prioridade EmployeeService > Employee);
     3. `CashTransaction` de entrada pela venda do serviço (ou pela parte dela
-       não coberta por crédito, ver abaixo);
+       não coberta por crédito/débito, ver abaixo);
     4. se envolveu produto (venda casada): `StockMovement` de saída +
        `CashTransaction` de entrada correspondente à venda do produto (idem).
 
@@ -261,6 +264,20 @@ def complete_appointment(*, appointment, payment_method, created_by, product_usa
     até esgotar `credit_amount` — cada categoria só gera `CashTransaction`
     pela parte que sobrar depois do crédito.
 
+    Saldo devedor (fiado — decisão do usuário em 2026-08-06): `debt_amount`
+    é opcional, quanto do total QUE SOBRA depois do crédito fica em aberto
+    como débito do cliente (`apps.clients.services.record_client_debt`) em
+    vez de ser cobrado agora — mesma lógica de alocação do crédito (serviço
+    primeiro, depois produtos), aplicada sobre o que o crédito não cobriu.
+    Comissão do funcionário NÃO é afetada — continua calculada sobre o valor
+    cheio do serviço (`price_at_booking`), o salão assume o risco do calote,
+    não o funcionário.
+
+    `collect_prior_debt_amount`: valor ADICIONAL (não faz parte do total
+    desta comanda) para cobrar junto um débito de comanda(s) anterior(es) do
+    mesmo cliente (`apps.clients.services.settle_client_debt`) — soma ao que
+    precisa ser pago agora via `payment_method`, é o inverso do crédito.
+
     Atalho retrocompatível: `payment_method=PaymentMethod.CLIENT_CREDIT` (sem
     informar `credit_amount`) continua significando "100% do total vem do
     crédito" — usado pela API/DRF, que ainda não tem a tela de abatimento
@@ -269,6 +286,7 @@ def complete_appointment(*, appointment, payment_method, created_by, product_usa
     `product_usage`: lista opcional de dicts
     `{"product": Product, "quantity": Decimal, "unit_price": Decimal}`.
     """
+    from apps.clients.services import record_client_debt, settle_client_debt
     from apps.finance.models import PaymentMethod
 
     if appointment.status not in BLOCKING_STATUSES:
@@ -278,6 +296,16 @@ def complete_appointment(*, appointment, payment_method, created_by, product_usa
     credit_amount = Decimal("0") if credit_amount is None else Decimal(credit_amount)
     if credit_amount < 0:
         raise ValidationError({"credit_amount": "O valor de crédito não pode ser negativo."})
+    debt_amount = Decimal("0") if debt_amount is None else Decimal(debt_amount)
+    if debt_amount < 0:
+        raise ValidationError({"debt_amount": "O valor de débito não pode ser negativo."})
+    collect_prior_debt_amount = (
+        Decimal("0") if collect_prior_debt_amount is None else Decimal(collect_prior_debt_amount)
+    )
+    if collect_prior_debt_amount < 0:
+        raise ValidationError(
+            {"collect_prior_debt_amount": "O valor a cobrar de débito anterior não pode ser negativo."}
+        )
 
     appointment.status = AppointmentStatus.COMPLETED
     appointment.save(update_fields=["status"])
@@ -323,16 +351,20 @@ def complete_appointment(*, appointment, payment_method, created_by, product_usa
     if used_old_full_credit_shortcut:
         credit_amount = grand_total
 
-    if credit_amount > grand_total:
+    if credit_amount + debt_amount > grand_total:
         raise ValidationError(
-            {"credit_amount": "O valor de crédito não pode ser maior que o total da comanda."}
+            {"debt_amount": "Crédito + débito não pode ser maior que o total da comanda."}
         )
 
     remaining_credit = credit_amount
+    remaining_debt = debt_amount
 
+    service_after_credit = payable_service_total - min(remaining_credit, payable_service_total)
     service_credit = min(remaining_credit, payable_service_total)
-    service_cash = payable_service_total - service_credit
     remaining_credit -= service_credit
+    service_debt = min(remaining_debt, service_after_credit)
+    remaining_debt -= service_debt
+    service_cash = service_after_credit - service_debt
     if service_cash > 0:
         create_cash_transaction(
             tenant=appointment.tenant,
@@ -346,9 +378,12 @@ def complete_appointment(*, appointment, payment_method, created_by, product_usa
         )
 
     for product, movement, item_total in product_lines:
+        item_after_credit = item_total - min(remaining_credit, item_total)
         item_credit = min(remaining_credit, item_total)
-        item_cash = item_total - item_credit
         remaining_credit -= item_credit
+        item_debt = min(remaining_debt, item_after_credit)
+        remaining_debt -= item_debt
+        item_cash = item_after_credit - item_debt
         if item_cash > 0:
             create_cash_transaction(
                 tenant=appointment.tenant,
@@ -372,12 +407,30 @@ def complete_appointment(*, appointment, payment_method, created_by, product_usa
             created_by=created_by,
         )
 
+    if debt_amount > 0:
+        record_client_debt(
+            appointment.client,
+            amount=debt_amount,
+            appointment=appointment,
+            created_by=created_by,
+        )
+
+    if collect_prior_debt_amount > 0:
+        settle_client_debt(
+            appointment.client,
+            amount=collect_prior_debt_amount,
+            payment_method=payment_method,
+            created_by=created_by,
+            related_appointment=appointment,
+        )
+
     return commission
 
 
 @transaction.atomic
 def complete_client_comanda(
-    *, appointments, payment_method, created_by, product_usage_by_appointment=None, credit_amount=None
+    *, appointments, payment_method, created_by, product_usage_by_appointment=None, credit_amount=None,
+    debt_amount=None, collect_prior_debt_amount=None,
 ):
     """Fecha vários atendimentos "em atendimento" do MESMO cliente de uma vez
     só — ex.: cliente fez o corte e resolveu fazer manicure na hora, cada um
@@ -393,6 +446,12 @@ def complete_client_comanda(
     do primeiro atendimento (serviço + seus produtos), depois no próximo, até
     esgotar, exatamente como `complete_appointment` faz dentro de um mesmo
     atendimento entre serviço e produtos.
+
+    `debt_amount`: mesma ideia, mas pro valor que fica em aberto como fiado
+    (alocado depois do crédito, mesma ordem). `collect_prior_debt_amount`:
+    valor ADICIONAL pra cobrar junto um débito de comanda(s) anterior(es) do
+    cliente — não é dividido por atendimento (o saldo devedor é do cliente,
+    não da comanda), atribuído inteiro ao primeiro atendimento da lista.
     """
     if not appointments:
         raise ValidationError("Nenhum atendimento para finalizar.")
@@ -401,10 +460,11 @@ def complete_client_comanda(
 
     product_usage_by_appointment = product_usage_by_appointment or {}
 
-    if credit_amount is None:
-        # Sem valor de crédito explícito pro grupo — comportamento antigo:
-        # cada atendimento decide sozinho (o atalho payment_method=client_credit
-        # de `complete_appointment` continua valendo atendimento por atendimento).
+    if credit_amount is None and debt_amount is None and collect_prior_debt_amount is None:
+        # Nenhum valor de crédito/débito explícito pro grupo — comportamento
+        # antigo: cada atendimento decide sozinho (o atalho
+        # payment_method=client_credit de `complete_appointment` continua
+        # valendo atendimento por atendimento).
         return [
             complete_appointment(
                 appointment=appointment,
@@ -415,9 +475,12 @@ def complete_client_comanda(
             for appointment in appointments
         ]
 
-    remaining_credit = Decimal(credit_amount)
+    remaining_credit = Decimal("0") if credit_amount is None else Decimal(credit_amount)
     if remaining_credit < 0:
         raise ValidationError({"credit_amount": "O valor de crédito não pode ser negativo."})
+    remaining_debt = Decimal("0") if debt_amount is None else Decimal(debt_amount)
+    if remaining_debt < 0:
+        raise ValidationError({"debt_amount": "O valor de débito não pode ser negativo."})
 
     commissions = []
     for appointment in appointments:
@@ -434,6 +497,8 @@ def complete_client_comanda(
         appointment_total = payable_service_total + products_total
         credit_for_this = min(remaining_credit, appointment_total)
         remaining_credit -= credit_for_this
+        debt_for_this = min(remaining_debt, appointment_total - credit_for_this)
+        remaining_debt -= debt_for_this
         commissions.append(
             complete_appointment(
                 appointment=appointment,
@@ -441,12 +506,20 @@ def complete_client_comanda(
                 created_by=created_by,
                 product_usage=product_usage,
                 credit_amount=credit_for_this,
+                debt_amount=debt_for_this,
+                collect_prior_debt_amount=(
+                    collect_prior_debt_amount if appointment is appointments[0] else None
+                ),
             )
         )
 
     if remaining_credit > 0:
         raise ValidationError(
             {"credit_amount": "O valor de crédito informado é maior que o total da comanda."}
+        )
+    if remaining_debt > 0:
+        raise ValidationError(
+            {"debt_amount": "O valor de débito informado é maior que o total da comanda."}
         )
     return commissions
 

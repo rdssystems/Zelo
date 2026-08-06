@@ -2,6 +2,7 @@ import datetime
 
 from django import forms
 
+from apps.clients.forms import BIRTH_DAY_CHOICES, BIRTH_MONTH_CHOICES
 from apps.employees.models import Employee
 from apps.services.models import Service
 
@@ -16,6 +17,19 @@ class NewAppointmentForm(forms.Form):
     phone = forms.CharField(max_length=20, label="Telefone do cliente")
     name = forms.CharField(
         max_length=120, required=False, label="Nome do cliente (se for novo)"
+    )
+    # `required=False` aqui: a exigência de verdade (quando
+    # Tenant.require_birthday_on_booking está ligado) é validada no backend
+    # por `get_or_create_client`, e só se aplica quando o telefone é de um
+    # cliente NOVO — cliente já cadastrado não deve ser bloqueado por um
+    # campo HTML `required` que nem chega a ser usado nesse caso.
+    birth_day = forms.TypedChoiceField(
+        choices=BIRTH_DAY_CHOICES, coerce=int, required=False, empty_value=None,
+        label="Dia de nascimento (se for novo)",
+    )
+    birth_month = forms.TypedChoiceField(
+        choices=BIRTH_MONTH_CHOICES, coerce=int, required=False, empty_value=None,
+        label="Mês de nascimento (se for novo)",
     )
     notes = forms.CharField(required=False, widget=forms.Textarea, label="Observações")
 

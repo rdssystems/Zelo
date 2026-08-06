@@ -59,14 +59,33 @@
         <div class="grid sm:grid-cols-2 gap-6">
           <div>
             <label class="block text-label-caps uppercase text-outline mb-1" for="id_phone">Telefone do cliente</label>
-            <input class="block w-full px-0 py-2 bg-transparent border-0 border-b {% if form.phone.errors %}border-error{% else %}border-outline-variant{% endif %} focus:ring-0 focus:border-primary" id="id_phone" name="phone" type="tel" value="{{ form.phone.value|default:'' }}" required/>
+            <input class="block w-full px-0 py-2 bg-transparent border-0 border-b {% if form.phone.errors %}border-error{% else %}border-outline-variant{% endif %} focus:ring-0 focus:border-primary" id="id_phone" name="phone" type="tel" placeholder="(11) 90000-0000" pattern="[\d\s\(\)\-\+]{10,16}" value="{{ form.phone.value|default:'' }}" required
+                   hx-get="{% url 'scheduling:new_client_lookup' %}" hx-trigger="keyup changed delay:400ms, change" hx-target="#new-client-hint" hx-swap="outerHTML"/>
             {% if form.phone.errors %}<p class="text-error text-sm mt-1">{{ form.phone.errors|join:" " }}</p>{% endif %}
           </div>
           <div>
             <label class="block text-label-caps uppercase text-outline mb-1" for="id_name">Nome (se novo)</label>
             <input class="block w-full px-0 py-2 bg-transparent border-0 border-b {% if form.name.errors %}border-error{% else %}border-outline-variant{% endif %} focus:ring-0 focus:border-primary" id="id_name" name="name" type="text" value="{{ form.name.value|default:'' }}"/>
             {% if form.name.errors %}<p class="text-error text-sm mt-1">{{ form.name.errors|join:" " }}</p>{% endif %}
+            <p id="new-client-hint" class="mt-1"></p>
           </div>
+        </div>
+        <div>
+          <label class="block text-label-caps uppercase text-outline mb-1">Aniversário (se novo){% if not request.tenant.require_birthday_on_booking %} — opcional{% endif %}</label>
+          <div class="flex items-center gap-4">
+            <select class="flex-1 px-0 py-2 bg-transparent border-0 border-b {% if form.birth_day.errors %}border-error{% else %}border-outline-variant{% endif %} focus:ring-0 focus:border-primary" id="id_birth_day" name="birth_day">
+              {% for value, label in form.fields.birth_day.choices %}
+              <option value="{{ value }}" {% if form.birth_day.value|stringformat:"s" == value|stringformat:"s" %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+            <select class="flex-1 px-0 py-2 bg-transparent border-0 border-b {% if form.birth_month.errors %}border-error{% else %}border-outline-variant{% endif %} focus:ring-0 focus:border-primary" id="id_birth_month" name="birth_month">
+              {% for value, label in form.fields.birth_month.choices %}
+              <option value="{{ value }}" {% if form.birth_month.value|stringformat:"s" == value|stringformat:"s" %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          {% if form.birth_day.errors %}<p class="text-error text-sm mt-1">{{ form.birth_day.errors|join:" " }}</p>{% endif %}
+          {% if form.birth_month.errors %}<p class="text-error text-sm mt-1">{{ form.birth_month.errors|join:" " }}</p>{% endif %}
         </div>
         <div>
           <label class="block text-label-caps uppercase text-outline mb-1" for="id_notes">Observações</label>

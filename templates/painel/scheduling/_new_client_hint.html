@@ -1,0 +1,8 @@
+{% if client %}
+<p id="new-client-hint" class="mt-1 text-xs text-primary flex items-center gap-1">
+  <span class="material-symbols-outlined text-[14px]">check_circle</span>
+  Cliente já cadastrado: <strong>{{ client.name }}</strong> — o nome digitado acima não será usado.
+</p>
+{% else %}
+<p id="new-client-hint" class="mt-1"></p>
+{% endif %}

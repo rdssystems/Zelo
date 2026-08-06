@@ -57,6 +57,12 @@ class Client(TenantModel):
     credit_balance = models.DecimalField(
         "saldo de crédito", max_digits=10, decimal_places=2, default=Decimal("0")
     )
+    # Derivado — NUNCA editar direto (mesma regra do credit_balance acima).
+    # Só muda via apps/clients/services.py (record/settle/write_off_client_debt),
+    # sempre com um ClientDebtTransaction registrando o motivo.
+    debt_balance = models.DecimalField(
+        "saldo devedor", max_digits=10, decimal_places=2, default=Decimal("0")
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -122,6 +128,16 @@ class Client(TenantModel):
         reference_date = self.last_appointment_date or self.created_at.date()
         days_since = (datetime.date.today() - reference_date).days
         return days_since >= self.tenant.client_inactive_days
+
+    @property
+    def net_balance(self):
+        """Saldo líquido crédito − débito, só para exibição (ex.: coluna
+        "Saldo" na lista de Clientes) — positivo = cliente tem crédito a
+        favor, negativo = cliente deve. Não é armazenado nem usado em
+        cálculo financeiro nenhum; `credit_balance`/`debt_balance` continuam
+        sendo os saldos de verdade, cada um só alterado pelas próprias
+        funções de `apps/clients/services.py`."""
+        return self.credit_balance - self.debt_balance
 
 
 class Package(TenantModel):
@@ -212,6 +228,68 @@ class ClientCreditTransaction(TenantModel):
     class Meta:
         verbose_name = "movimentação de crédito"
         verbose_name_plural = "movimentações de crédito"
+        ordering = ["-created_at"]
+        indexes = [models.Index(fields=["tenant", "client", "created_at"])]
+
+    def __str__(self):
+        return f"{self.type} — {self.client} — R$ {self.amount}"
+
+
+class ClientDebtTransaction(TenantModel):
+    """Movimentação da carteira de DÉBITO do cliente (fiado) — cada uma
+    recalcula `Client.debt_balance`. Espelha `ClientCreditTransaction`, mas
+    com a polaridade invertida:
+
+    IN = débito lançado (cliente passou a dever mais) — acontece quando uma
+    comanda fecha sem cobrir o total (`apps.scheduling.services.
+    complete_appointment`, parâmetro `debt_amount`). NÃO gera
+    `CashTransaction`: o dinheiro correspondente não entrou no caixa.
+
+    OUT = débito quitado ou perdoado/corrigido (cliente passou a dever
+    menos). Quitação de verdade (`settle_client_debt`) SEMPRE gera uma
+    `CashTransaction` real (é o momento em que a receita é finalmente
+    reconhecida — regime de caixa); ajuste manual sem dinheiro envolvido
+    (`write_off_client_debt`) não gera.
+    """
+
+    client = models.ForeignKey(
+        Client,
+        # PROTECT: histórico da carteira é auditoria financeira — nunca some
+        # junto com o cliente (a anonimização LGPD preserva o ledger).
+        on_delete=models.PROTECT,
+        related_name="debt_transactions",
+    )
+    # Reaproveita o enum de apps.finance (IN=débito lançado, OUT=quitado).
+    type = models.CharField("tipo", max_length=10, choices=CashFlowType.choices)
+    amount = models.DecimalField(
+        "valor",
+        max_digits=10,
+        decimal_places=2,
+        validators=[MinValueValidator(Decimal("0.01"))],
+    )
+    reason = models.CharField("motivo", max_length=255)
+    related_appointment = models.ForeignKey(
+        "scheduling.Appointment",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="debt_transactions",
+    )
+    related_cash_transaction = models.ForeignKey(
+        "finance.CashTransaction",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="debt_transactions",
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "movimentação de débito"
+        verbose_name_plural = "movimentações de débito"
         ordering = ["-created_at"]
         indexes = [models.Index(fields=["tenant", "client", "created_at"])]
 

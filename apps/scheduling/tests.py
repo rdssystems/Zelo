@@ -1170,6 +1170,94 @@ class CompleteAppointmentTest(TestCase):
         self.assertEqual(Commission.objects.count(), commissions_before)
         self.assertEqual(CashTransaction.objects.count(), cash_before)
 
+    def test_debt_amount_creates_reduced_cash_and_debt_transaction(self):
+        """Decisão do usuário em 2026-08-06: comanda com pagamento parcial —
+        a diferença vira débito do cliente, cobrado numa comanda futura."""
+        from apps.clients.models import ClientDebtTransaction
+
+        appointment = self._make_appointment()  # serviço R$100
+        complete_appointment(
+            appointment=appointment, payment_method="cash", created_by=self.admin,
+            debt_amount=Decimal("30"),
+        )
+        cash_txn = CashTransaction.objects.get(related_appointment=appointment)
+        self.assertEqual(cash_txn.amount, Decimal("70.00"))  # 100 - 30 fiado
+
+        self.client_.refresh_from_db()
+        self.assertEqual(self.client_.debt_balance, Decimal("30.00"))
+        debt_entry = ClientDebtTransaction.objects.get(related_appointment=appointment)
+        self.assertEqual(debt_entry.type, "in")
+        self.assertEqual(debt_entry.amount, Decimal("30.00"))
+
+    def test_debt_amount_does_not_affect_commission(self):
+        """A decisão de negócio mais importante desta etapa: o funcionário
+        recebe a comissão cheia mesmo se parte da comanda ficou como fiado —
+        o salão assume o risco do calote, não o funcionário."""
+        appointment = self._make_appointment()  # serviço R$100, comissão 40%
+        commission = complete_appointment(
+            appointment=appointment, payment_method="cash", created_by=self.admin,
+            debt_amount=Decimal("100"),  # comanda inteira ficou como fiado
+        )
+        self.assertEqual(commission.base_amount, Decimal("100.00"))
+        self.assertEqual(commission.calculated_amount, Decimal("40.00"))
+
+    def test_credit_plus_debt_greater_than_total_rejected(self):
+        from apps.clients.services import add_client_credit
+
+        add_client_credit(
+            self.client_, amount=Decimal("50"), payment_method="pix", created_by=self.admin
+        )
+        appointment = self._make_appointment()  # total = R$100
+        with self.assertRaises(ValidationError):
+            complete_appointment(
+                appointment=appointment, payment_method="cash", created_by=self.admin,
+                credit_amount=Decimal("50"), debt_amount=Decimal("60"),
+            )
+        appointment.refresh_from_db()
+        self.assertEqual(appointment.status, AppointmentStatus.CONFIRMED)
+
+    def test_collect_prior_debt_amount_reduces_balance_and_creates_cash_transaction(self):
+        from apps.clients.models import ClientDebtTransaction
+        from apps.clients.services import record_client_debt
+
+        record_client_debt(
+            self.client_, amount=Decimal("40"), appointment=None, created_by=self.admin
+        )
+        appointment = self._make_appointment()  # serviço R$100
+        complete_appointment(
+            appointment=appointment, payment_method="pix", created_by=self.admin,
+            collect_prior_debt_amount=Decimal("40"),
+        )
+        # cobrança do serviço (100) + cobrança do débito anterior (40) = duas CashTransaction
+        service_txn = CashTransaction.objects.get(
+            related_appointment=appointment, category=CashCategory.SERVICE_SALE
+        )
+        self.assertEqual(service_txn.amount, Decimal("100.00"))
+        debt_payment_txn = CashTransaction.objects.get(category=CashCategory.CLIENT_DEBT_PAYMENT)
+        self.assertEqual(debt_payment_txn.amount, Decimal("40.00"))
+
+        self.client_.refresh_from_db()
+        self.assertEqual(self.client_.debt_balance, Decimal("0.00"))
+        settle_entry = ClientDebtTransaction.objects.get(
+            related_cash_transaction=debt_payment_txn
+        )
+        self.assertEqual(settle_entry.type, "out")
+
+    def test_collect_prior_debt_amount_greater_than_balance_rejected(self):
+        from apps.clients.services import record_client_debt
+
+        record_client_debt(
+            self.client_, amount=Decimal("10"), appointment=None, created_by=self.admin
+        )
+        appointment = self._make_appointment()
+        with self.assertRaises(ValidationError):
+            complete_appointment(
+                appointment=appointment, payment_method="pix", created_by=self.admin,
+                collect_prior_debt_amount=Decimal("50"),
+            )
+        appointment.refresh_from_db()
+        self.assertEqual(appointment.status, AppointmentStatus.CONFIRMED)
+
 
 class StartWalkInServiceTest(TestCase):
     """Serviço extra vendido na hora, cliente já no salão — sem passar pela
@@ -1475,6 +1563,71 @@ class CompleteClientComandaTest(TestCase):
         self.assertEqual(corte_appt.status, AppointmentStatus.IN_PROGRESS)
         self.assertEqual(manicure_appt.status, AppointmentStatus.IN_PROGRESS)
 
+    def test_explicit_group_debt_amount_allocated_in_order(self):
+        """Mesma alocação em ordem do crédito de grupo, mas pro valor que
+        fica em aberto como fiado."""
+        corte_appt = self._in_progress(self.ana, self.corte)  # 100
+        manicure_appt = self._in_progress(self.julia, self.manicure, datetime.time(10, 0))  # 45
+        complete_client_comanda(
+            appointments=[corte_appt, manicure_appt], payment_method="cash", created_by=self.admin,
+            credit_amount=Decimal("0"), debt_amount=Decimal("120"),
+        )
+        # corte (100) totalmente coberto por fiado — sem CashTransaction
+        self.assertFalse(CashTransaction.objects.filter(related_appointment=corte_appt).exists())
+        # manicure (45): sobrou 20 de fiado (120-100), resto (25) em dinheiro
+        manicure_txn = CashTransaction.objects.get(related_appointment=manicure_appt)
+        self.assertEqual(manicure_txn.amount, Decimal("25.00"))
+        self.client_.refresh_from_db()
+        self.assertEqual(self.client_.debt_balance, Decimal("120.00"))
+
+    def test_explicit_group_debt_amount_over_total_rejected(self):
+        corte_appt = self._in_progress(self.ana, self.corte)  # 100
+        manicure_appt = self._in_progress(self.julia, self.manicure, datetime.time(10, 0))  # 45 -> total 145
+        with self.assertRaises(ValidationError):
+            complete_client_comanda(
+                appointments=[corte_appt, manicure_appt], payment_method="cash", created_by=self.admin,
+                credit_amount=Decimal("0"), debt_amount=Decimal("200"),
+            )
+        corte_appt.refresh_from_db()
+        manicure_appt.refresh_from_db()
+        self.assertEqual(corte_appt.status, AppointmentStatus.IN_PROGRESS)
+        self.assertEqual(manicure_appt.status, AppointmentStatus.IN_PROGRESS)
+
+    def test_collect_prior_debt_amount_attributed_to_first_appointment_only(self):
+        from apps.clients.services import record_client_debt
+
+        record_client_debt(
+            self.client_, amount=Decimal("40"), appointment=None, created_by=self.admin
+        )
+        corte_appt = self._in_progress(self.ana, self.corte)  # 100
+        manicure_appt = self._in_progress(self.julia, self.manicure, datetime.time(10, 0))  # 45
+        complete_client_comanda(
+            appointments=[corte_appt, manicure_appt], payment_method="cash", created_by=self.admin,
+            credit_amount=Decimal("0"), collect_prior_debt_amount=Decimal("40"),
+        )
+        debt_payment_txn = CashTransaction.objects.get(category=CashCategory.CLIENT_DEBT_PAYMENT)
+        self.assertEqual(debt_payment_txn.related_appointment, corte_appt)
+        self.assertEqual(debt_payment_txn.amount, Decimal("40.00"))
+        self.client_.refresh_from_db()
+        self.assertEqual(self.client_.debt_balance, Decimal("0.00"))
+
+    def test_group_rolls_back_atomically_on_debt_over_total(self):
+        """Se o grupo falhar por causa do débito, nada foi persistido —
+        mesma garantia atômica que o crédito de grupo já tem."""
+        corte_appt = self._in_progress(self.ana, self.corte)
+        manicure_appt = self._in_progress(self.julia, self.manicure, datetime.time(10, 0))
+        commissions_before = Commission.objects.count()
+        with self.assertRaises(ValidationError):
+            complete_client_comanda(
+                appointments=[corte_appt, manicure_appt], payment_method="cash", created_by=self.admin,
+                credit_amount=Decimal("0"), debt_amount=Decimal("9999"),
+            )
+        self.assertEqual(Commission.objects.count(), commissions_before)
+        corte_appt.refresh_from_db()
+        manicure_appt.refresh_from_db()
+        self.assertEqual(corte_appt.status, AppointmentStatus.IN_PROGRESS)
+        self.assertEqual(manicure_appt.status, AppointmentStatus.IN_PROGRESS)
+
 
 class BuildProductUsageTest(TestCase):
     """RF16: fechamento de comanda permite múltiplos produtos, com o preço
@@ -1614,6 +1767,141 @@ class ConfirmAndNoShowTest(TestCase):
         )
         with self.assertRaises(ValidationError):
             mark_no_show(appointment)
+
+
+class AppointmentNewViewTest(TestCase):
+    """Encaixe manual pelo painel (`scheduling:new`) — regressão do bug
+    relatado pelo usuário: com `require_birthday_on_booking` ligado, o modal
+    mostrava o erro "Aniversário é obrigatório" sem ter os campos pra
+    preencher (o form não tinha birth_day/birth_month). Agora tem."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.tenant, cls.admin = make_tenant_with_admin("salao-novo-agendamento")
+        cls.employee = make_employee(cls.tenant)
+        cls.service = create_service(
+            tenant=cls.tenant, name="Corte", duration_minutes=60, price=Decimal("100")
+        )
+        # precisa ser uma data futura de verdade (o form rejeita data passada)
+        # e cair num dia com jornada configurada (`is_slot_available`).
+        cls.monday = next_weekday(datetime.date.today() + datetime.timedelta(days=1), 0)
+        set_working_hours(
+            cls.employee,
+            [{"weekday": 0, "start_time": datetime.time(9, 0), "end_time": datetime.time(18, 0)}],
+        )
+
+    def _post_data(self, **overrides):
+        data = {
+            "service": self.service.pk,
+            "employee": self.employee.pk,
+            "date": self.monday.isoformat(),
+            "time": "09:00",
+            "phone": "11912345678",
+            "name": "Cliente Novo",
+            "birth_day": "",
+            "birth_month": "",
+            "notes": "",
+        }
+        data.update(overrides)
+        return data
+
+    def test_new_client_without_birthday_succeeds_when_not_required(self):
+        self.client.force_login(self.admin)
+        response = self.client.post("/painel/agenda/novo/", self._post_data())
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(Client.objects.filter(tenant=self.tenant, phone="11912345678").exists())
+
+    def test_new_client_without_birthday_rejected_with_field_error_when_required(self):
+        """O bug relatado: antes disso, esse erro aparecia sem nenhum campo
+        pra corrigir. Agora `birth_day` é um campo de verdade do form."""
+        self.tenant.require_birthday_on_booking = True
+        self.tenant.save(update_fields=["require_birthday_on_booking"])
+        self.client.force_login(self.admin)
+        response = self.client.post("/painel/agenda/novo/", self._post_data())
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(Client.objects.filter(tenant=self.tenant, phone="11912345678").exists())
+        body = response.content.decode()
+        self.assertIn("Aniversário é obrigatório", body)
+        self.assertIn('name="birth_day"', body)
+        self.assertIn('name="birth_month"', body)
+
+    def test_new_client_with_birthday_succeeds_when_required(self):
+        self.tenant.require_birthday_on_booking = True
+        self.tenant.save(update_fields=["require_birthday_on_booking"])
+        self.client.force_login(self.admin)
+        response = self.client.post(
+            "/painel/agenda/novo/", self._post_data(birth_day="15", birth_month="6")
+        )
+        self.assertEqual(response.status_code, 200)
+        client_ = Client.objects.get(tenant=self.tenant, phone="11912345678")
+        self.assertEqual(client_.birth_day, 15)
+        self.assertEqual(client_.birth_month, 6)
+
+    def test_existing_client_phone_not_blocked_even_when_required(self):
+        """Cliente já cadastrado não é bloqueado retroativamente — o nome/
+        aniversário digitados agora são ignorados, igual já acontecia com o
+        nome antes dessa correção."""
+        Client.objects.create(tenant=self.tenant, phone="11912345678", name="Maria Original")
+        self.tenant.require_birthday_on_booking = True
+        self.tenant.save(update_fields=["require_birthday_on_booking"])
+        self.client.force_login(self.admin)
+        response = self.client.post(
+            "/painel/agenda/novo/", self._post_data(name="Outro Nome", birth_day="", birth_month="")
+        )
+        self.assertEqual(response.status_code, 200)
+        appointment = Appointment.objects.get(
+            client__phone="11912345678", date=self.monday, start_time=datetime.time(9, 0)
+        )
+        self.assertEqual(appointment.client.name, "Maria Original")
+
+
+class NewAppointmentClientLookupTest(TestCase):
+    """Aviso HTMX no modal de encaixe manual quando o telefone digitado já é
+    de um cliente cadastrado — `get_or_create_client` ignora o nome digitado
+    nesse caso, então o atendente precisa saber disso antes de agendar."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.tenant, cls.admin = make_tenant_with_admin("salao-lookup")
+
+    def test_shows_existing_client_name(self):
+        Client.objects.create(tenant=self.tenant, phone="11912345678", name="Giovanna Ferreira")
+        self.client.force_login(self.admin)
+        response = self.client.get(
+            "/painel/agenda/novo/cliente/", {"phone": "(11) 91234-5678"}
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Giovanna Ferreira")
+        self.assertContains(response, "já cadastrado")
+
+    def test_no_hint_for_unknown_phone(self):
+        self.client.force_login(self.admin)
+        response = self.client.get(
+            "/painel/agenda/novo/cliente/", {"phone": "11999998888"}
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, "já cadastrado")
+
+    def test_no_hint_for_incomplete_phone(self):
+        self.client.force_login(self.admin)
+        response = self.client.get("/painel/agenda/novo/cliente/", {"phone": "119"})
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, "já cadastrado")
+
+    def test_does_not_leak_client_from_other_tenant(self):
+        other_tenant, _ = make_tenant_with_admin("salao-lookup-outro")
+        Client.objects.create(tenant=other_tenant, phone="11912345678", name="Giovanna Ferreira")
+        self.client.force_login(self.admin)
+        response = self.client.get(
+            "/painel/agenda/novo/cliente/", {"phone": "11912345678"}
+        )
+        self.assertNotContains(response, "Giovanna Ferreira")
+
+    def test_login_required(self):
+        response = self.client.get(
+            "/painel/agenda/novo/cliente/", {"phone": "11912345678"}
+        )
+        self.assertEqual(response.status_code, 302)
 
 
 class AppointmentConfirmModalTest(TestCase):

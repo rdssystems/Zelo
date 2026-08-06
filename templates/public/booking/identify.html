@@ -60,16 +60,16 @@
     </div>
 
     <div class="flex flex-col gap-2">
-      <label class="text-xs uppercase tracking-wide text-on-surface-variant">Aniversário (opcional)</label>
+      <label class="text-xs uppercase tracking-wide text-on-surface-variant">Aniversário{% if not tenant.require_birthday_on_booking %} (opcional){% endif %}</label>
       <div class="flex items-center gap-3">
         <span class="material-symbols-outlined text-outline px-1">cake</span>
-        <select class="flex-1 bg-transparent border-0 border-b border-outline-variant focus:border-primary focus:ring-0 py-3 text-on-surface transition-colors" name="birth_day">
+        <select class="flex-1 bg-transparent border-0 border-b border-outline-variant focus:border-primary focus:ring-0 py-3 text-on-surface transition-colors" name="birth_day" {% if tenant.require_birthday_on_booking %}required{% endif %}>
           <option value="">Dia</option>
           {% for day_num in day_range %}
           <option value="{{ day_num }}" {% if birth_day_value == day_num|stringformat:"s" %}selected{% endif %}>{{ day_num }}</option>
           {% endfor %}
         </select>
-        <select class="flex-1 bg-transparent border-0 border-b border-outline-variant focus:border-primary focus:ring-0 py-3 text-on-surface transition-colors" name="birth_month">
+        <select class="flex-1 bg-transparent border-0 border-b border-outline-variant focus:border-primary focus:ring-0 py-3 text-on-surface transition-colors" name="birth_month" {% if tenant.require_birthday_on_booking %}required{% endif %}>
           <option value="">Mês</option>
           {% for value, label in month_choices %}
           <option value="{{ value }}" {% if birth_month_value == value|stringformat:"s" %}selected{% endif %}>{{ label }}</option>

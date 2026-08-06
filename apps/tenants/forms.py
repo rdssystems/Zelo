@@ -71,6 +71,7 @@ class TenantSettingsForm(forms.ModelForm):
             "whatsapp_cancel_redirect_enabled",
             "auto_confirm_appointments",
             "birthday_alert_enabled",
+            "require_birthday_on_booking",
             "owner_name",
             "owner_photo",
             "owner_attends",

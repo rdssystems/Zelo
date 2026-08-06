@@ -37,17 +37,24 @@
   <p class="font-semibold text-on-surface flex-1 text-center md:text-left">
     {{ week_start|date:"d/m" }} – {{ week_end|date:"d/m/Y" }}
   </p>
-  <form method="get" class="flex items-center gap-2">
-    <input type="hidden" name="week" value="{{ week_start|date:'Y-m-d' }}"/>
-    <label class="text-sm text-on-surface-variant" for="id_employee">Profissional</label>
-    <select class="px-3 py-2 rounded-lg border border-outline-variant bg-surface-container-lowest text-on-surface text-sm focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
-            id="id_employee" name="employee" onchange="this.form.submit()">
-      <option value="">Todos</option>
-      {% for employee in employees %}
-      <option value="{{ employee.pk }}" {% if selected_employee_id == employee.pk|stringformat:"s" %}selected{% endif %}>{{ employee.full_name }}</option>
-      {% endfor %}
-    </select>
-  </form>
+  <div class="flex items-center gap-2 overflow-x-auto">
+    <button type="button"
+            class="shrink-0 px-4 py-2 rounded-pill text-sm font-semibold transition-colors {% if not selected_employee_id %}bg-primary text-on-primary{% else %}bg-surface-container text-on-surface-variant hover:bg-surface-container-high{% endif %}"
+            hx-get="{% url 'scheduling:agenda_week_poll' %}?week={{ week_start|date:'Y-m-d' }}"
+            hx-target="#agenda-week-grid" hx-swap="outerHTML"
+            hx-push-url="{% url 'scheduling:agenda_week' %}?week={{ week_start|date:'Y-m-d' }}">
+      Todos
+    </button>
+    {% for employee in employees %}
+    <button type="button"
+            class="shrink-0 px-4 py-2 rounded-pill text-sm font-semibold transition-colors {% if selected_employee_id == employee.pk|stringformat:"s" %}bg-primary text-on-primary{% else %}bg-surface-container text-on-surface-variant hover:bg-surface-container-high{% endif %}"
+            hx-get="{% url 'scheduling:agenda_week_poll' %}?week={{ week_start|date:'Y-m-d' }}&employee={{ employee.pk }}"
+            hx-target="#agenda-week-grid" hx-swap="outerHTML"
+            hx-push-url="{% url 'scheduling:agenda_week' %}?week={{ week_start|date:'Y-m-d' }}&employee={{ employee.pk }}">
+      {{ employee.full_name }}
+    </button>
+    {% endfor %}
+  </div>
 </div>
 
 {% include "painel/scheduling/_week_grid.html" %}

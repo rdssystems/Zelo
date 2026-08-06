@@ -549,6 +549,10 @@ def comanda_finalize_group(request):
                 created_by=request.user,
                 product_usage_by_appointment={appointments[0].pk: product_usage},
                 credit_amount=_parse_decimal(request.POST.get("credit_amount"), field="credit_amount"),
+                debt_amount=_parse_decimal(request.POST.get("debt_amount"), field="debt_amount"),
+                collect_prior_debt_amount=_parse_decimal(
+                    request.POST.get("collect_prior_debt_amount"), field="collect_prior_debt_amount"
+                ),
             )
         else:
             finance_ops.sell_products(

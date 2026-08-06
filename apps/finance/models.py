@@ -21,6 +21,11 @@ class CashCategory(models.TextChoices):
     # momento da recarga. O uso posterior do crédito NÃO gera nova entrada
     # (ver apps/clients/services.py — evita contar a receita duas vezes).
     CLIENT_CREDIT_TOPUP = "client_credit_topup", "Recarga de crédito"
+    # Cobrança de débito (fiado) de uma comanda anterior: entrada REAL só na
+    # QUITAÇÃO, não na criação do débito — a receita é reconhecida no
+    # momento em que o dinheiro efetivamente entra (ver
+    # apps/clients/services.py — inverso do CLIENT_CREDIT_TOPUP acima).
+    CLIENT_DEBT_PAYMENT = "client_debt_payment", "Cobrança de débito anterior"
     # Cobrança da mensalidade de um pacote (decisão do usuário em 2026-08-04)
     # — entrada REAL no momento em que o pacote é atribuído ao cliente. Os
     # atendimentos cobertos por ele depois NÃO geram nova CashTransaction

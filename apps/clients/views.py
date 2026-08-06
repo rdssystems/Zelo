@@ -21,7 +21,9 @@ from .forms import (
     PackageForm,
     RemoveCreditForm,
     RenewPackageForm,
+    SettleDebtForm,
     SubscriptionForm,
+    WriteOffDebtForm,
 )
 from .models import Client, Package
 from .serializers import (
@@ -634,6 +636,90 @@ def client_credit_remove(request, pk):
     response = render(
         request,
         "painel/clients/_credit_remove_form.html",
+        {"client": client, "form": form},
+    )
+    response.headers["HX-Retarget"] = "#modal-slot"
+    response.headers["HX-Reswap"] = "innerHTML"
+    return response
+
+
+def _debt_response(request, client):
+    """Recarrega o painel de débito (saldo + histórico) e fecha o modal —
+    mesmo padrão de `_credit_response`."""
+    client.refresh_from_db()
+    panel = render_to_string(
+        "painel/clients/_debt.html", {"client": client}, request=request
+    )
+    modal_reset = '<div id="modal-slot" hx-swap-oob="true"></div>'
+    return HttpResponse(panel + modal_reset)
+
+
+@tenant_admin_required
+def client_debt_settle_confirm(request, pk):
+    client = _get_client(request, pk)
+    return render(
+        request,
+        "painel/clients/_debt_settle_form.html",
+        {"client": client, "form": SettleDebtForm()},
+    )
+
+
+@tenant_admin_required
+def client_debt_settle(request, pk):
+    if request.method != "POST":
+        return HttpResponse(status=405)
+    client = _get_client(request, pk)
+    form = SettleDebtForm(request.POST)
+    if form.is_valid():
+        try:
+            client_ops.settle_client_debt(
+                client, created_by=request.user, **form.cleaned_data
+            )
+        except ValidationError as exc:
+            form.add_error("amount", " ".join(exc.messages))
+        else:
+            return _debt_response(request, client)
+    response = render(
+        request,
+        "painel/clients/_debt_settle_form.html",
+        {"client": client, "form": form},
+    )
+    response.headers["HX-Retarget"] = "#modal-slot"
+    response.headers["HX-Reswap"] = "innerHTML"
+    return response
+
+
+@tenant_admin_required
+def client_debt_write_off_confirm(request, pk):
+    client = _get_client(request, pk)
+    return render(
+        request,
+        "painel/clients/_debt_write_off_form.html",
+        {"client": client, "form": WriteOffDebtForm()},
+    )
+
+
+@tenant_admin_required
+def client_debt_write_off(request, pk):
+    if request.method != "POST":
+        return HttpResponse(status=405)
+    client = _get_client(request, pk)
+    form = WriteOffDebtForm(request.POST)
+    if form.is_valid():
+        try:
+            client_ops.write_off_client_debt(
+                client,
+                created_by=request.user,
+                amount=form.cleaned_data["amount"],
+                reason=form.cleaned_data["reason"] or "Ajuste manual",
+            )
+        except ValidationError as exc:
+            form.add_error("amount", " ".join(exc.messages))
+        else:
+            return _debt_response(request, client)
+    response = render(
+        request,
+        "painel/clients/_debt_write_off_form.html",
         {"client": client, "form": form},
     )
     response.headers["HX-Retarget"] = "#modal-slot"

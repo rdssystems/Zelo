@@ -276,6 +276,7 @@ sem tabela de join por usuário — só o(s) `tenant_admin`(s) daquele salão ve
 | is_subscriber | bool | mensalista |
 | subscription_due_date | date, null | vencimento MENSAL (não data de início) — propriedades `subscription_is_overdue`/`subscription_is_due_soon` |
 | credit_balance | decimal | **derivado**, nunca editado direto — só via `ClientCreditTransaction`/serviços de `apps/clients/services.py` |
+| debt_balance | decimal | **derivado**, nunca editado direto — só via `ClientDebtTransaction`/serviços de `apps/clients/services.py` (saldo devedor/fiado, decisão do usuário em 2026-08-06) |
 | created_at | datetime | |
 | — unique_together | (tenant, phone) | mesmo telefone pode existir em tenants diferentes |
 
@@ -312,6 +313,27 @@ contar receita duas vezes — decisão do usuário).
 | reason | string | "Recarga", "Uso em atendimento", "Ajuste manual", "Estorno" |
 | related_appointment | FK Appointment, PROTECT, null | setado quando o crédito foi usado pra pagar uma comanda |
 | related_cash_transaction | FK CashTransaction, PROTECT, null | setado quando a recarga gerou entrada real de caixa |
+| created_by | FK User, null | |
+| created_at | datetime | |
+
+### `ClientDebtTransaction` 🔒 (ledger do saldo devedor/fiado do cliente — 2026-08-06)
+Espelha `ClientCreditTransaction`, com a polaridade invertida: `in` = débito lançado (cliente
+passou a dever mais — comanda fechou sem cobrir o total, `apps.scheduling.services.
+complete_appointment`, parâmetro `debt_amount`), NÃO gera `CashTransaction` (o dinheiro não
+entrou). `out` = débito quitado/ajustado. Quitação de verdade (`settle_client_debt`) SEMPRE gera
+uma `CashTransaction` real (categoria `client_debt_payment`) — é o momento em que a receita,
+adiada na hora que o débito foi lançado, é finalmente reconhecida (regime de caixa). Ajuste
+manual (`write_off_client_debt`, correção de erro ou perdão de dívida) não gera.
+
+| Campo | Tipo | Obs |
+|---|---|---|
+| tenant | FK Tenant | |
+| client | FK Client, PROTECT | |
+| type | enum: in, out | reaproveita `CashFlowType`, polaridade invertida em relação ao crédito |
+| amount | decimal | |
+| reason | string | "Comanda com valor não cobrado", "Cobrança de débito anterior", "Ajuste manual" |
+| related_appointment | FK Appointment, PROTECT, null | setado tanto quando o débito é lançado (comanda que não cobriu o total) quanto quando é cobrado junto com uma comanda futura |
+| related_cash_transaction | FK CashTransaction, PROTECT, null | setado só na quitação real (nunca no lançamento do débito) |
 | created_by | FK User, null | |
 | created_at | datetime | |
 
@@ -503,6 +525,15 @@ depois) e, fora deste plano, a ficha técnica por serviço (RF48).
 - Pagamento de comanda com crédito do cliente pode ser PARCIAL: `credit_amount` abate primeiro do
   serviço, depois de cada produto na ordem informada, até esgotar — o restante de cada categoria
   vira `CashTransaction` normal. Ver RF16b em `01-REQUISITOS.md`.
+- Saldo devedor (fiado, decisão do usuário em 2026-08-06): `debt_amount` é alocado do mesmo jeito
+  que `credit_amount` (serviço primeiro, depois produtos), mas sobre o que SOBRA depois do
+  crédito — a parte não coberta fica em aberto como débito do cliente em vez de virar
+  `CashTransaction` agora. Comissão do funcionário NÃO é afetada: continua calculada sobre o valor
+  cheio do serviço (`price_at_booking`), o salão assume o risco do calote. Cobrar débito de uma
+  comanda anterior junto com uma nova (`collect_prior_debt_amount`) é ADITIVO — soma ao total a
+  cobrar da comanda atual (não é dividido por atendimento, já que o saldo devedor é do cliente,
+  não da comanda) e gera `CashTransaction` real na hora da cobrança (é aí que a receita, adiada
+  quando o débito foi lançado, é reconhecida).
 - *(planejado, RF45)* Custo médio ponderado: `novo_custo = (estoque_atual × custo_atual +
   qtd_comprada × custo_da_compra) ÷ (estoque_atual + qtd_comprada)`, recalculado a cada
   `StockMovement` de entrada.

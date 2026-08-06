@@ -70,6 +70,23 @@ class RemoveCreditForm(forms.Form):
     )
 
 
+class SettleDebtForm(forms.Form):
+    amount = BRDecimalField(
+        max_digits=10, decimal_places=2, min_value=Decimal("0.01"), label="Valor"
+    )
+    payment_method = forms.ChoiceField(choices=REAL_MONEY_METHODS, label="Forma de pagamento")
+
+
+class WriteOffDebtForm(forms.Form):
+    amount = BRDecimalField(
+        max_digits=10, decimal_places=2, min_value=Decimal("0.01"), label="Valor"
+    )
+    reason = forms.CharField(
+        max_length=255, required=False, label="Motivo",
+        widget=forms.TextInput(attrs={"placeholder": "Ex.: erro de lançamento, perdão de dívida"}),
+    )
+
+
 class PackageForm(forms.Form):
     """Cadastro/edição de pacote de mensalidade — a regra de negócio vive em
     apps/clients/services.py (create_package/update_package)."""

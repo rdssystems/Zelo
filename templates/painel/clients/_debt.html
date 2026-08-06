@@ -1,0 +1,38 @@
+<div id="debt-section" class="bg-surface-container-lowest rounded-2xl shadow-[0_4px_40px_-10px_rgba(125,86,45,0.08)] border border-surface-container p-8">
+  <h3 class="text-label-caps uppercase text-outline mb-2">Saldo devedor</h3>
+  <p class="text-sm text-on-surface-variant mb-6">Valor que o cliente ficou devendo em comandas anteriores (fiado).</p>
+
+  <div class="flex items-center justify-between mb-6">
+    <span class="font-display text-3xl {% if client.debt_balance > 0 %}text-error{% else %}text-primary{% endif %}">R$ {{ client.debt_balance }}</span>
+    <div class="flex gap-2">
+      <button class="px-4 py-2 rounded-pill bg-primary text-on-primary text-sm font-semibold hover:opacity-90 transition-opacity"
+              hx-get="{% url 'clients:debt_settle_confirm' client.pk %}" hx-target="#modal-slot" hx-swap="innerHTML">
+        Registrar pagamento
+      </button>
+      <button class="px-4 py-2 rounded-pill border border-outline text-on-surface-variant text-sm font-semibold hover:bg-surface-container transition-colors"
+              hx-get="{% url 'clients:debt_write_off_confirm' client.pk %}" hx-target="#modal-slot" hx-swap="innerHTML">
+        Ajuste
+      </button>
+    </div>
+  </div>
+
+  {% with entries=client.debt_transactions.all %}
+  {% if entries %}
+  <div class="divide-y divide-surface-variant border-t border-surface-variant">
+    {% for entry in entries %}
+    <div class="py-3 flex items-center justify-between gap-4">
+      <div>
+        <p class="text-sm text-on-surface">{{ entry.reason }}</p>
+        <p class="text-xs text-on-surface-variant">{{ entry.created_at|date:"d/m/Y H:i" }}</p>
+      </div>
+      <span class="font-semibold {% if entry.type == 'in' %}text-error{% else %}text-[#2e7d32]{% endif %}">
+        {% if entry.type == 'in' %}+{% else %}-{% endif %} R$ {{ entry.amount }}
+      </span>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="text-sm text-on-surface-variant italic">Nenhuma movimentação ainda.</p>
+  {% endif %}
+  {% endwith %}
+</div>

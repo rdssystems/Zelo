@@ -17,7 +17,7 @@ from decimal import Decimal
 from django.core.exceptions import ValidationError
 from django.db import transaction
 
-from .models import Client, ClientCreditTransaction
+from .models import Client, ClientCreditTransaction, ClientDebtTransaction
 
 
 def normalize_phone(raw_phone):
@@ -44,13 +44,21 @@ def format_phone_display(phone):
     return phone
 
 
-def _validate_birthday(birth_day, birth_month):
+def _validate_birthday(birth_day, birth_month, required=False):
     """Dia/mês de nascimento (sem ano — RF: só pra gerar alerta de
     aniversário, não guarda idade). Os dois juntos ou nenhum; dia validado
-    contra o mês (usa 2024, ano bissexto, pra aceitar 29/02)."""
+    contra o mês (usa 2024, ano bissexto, pra aceitar 29/02).
+
+    `required`: `Tenant.require_birthday_on_booking` — quando ligado, o
+    cliente NOVO precisa informar os dois. Não se aplica a cliente já
+    cadastrado (cada call site decide quando passar `required=True`)."""
     has_day = birth_day not in (None, "")
     has_month = birth_month not in (None, "")
     if not has_day and not has_month:
+        if required:
+            raise ValidationError(
+                {"birth_day": "Aniversário é obrigatório neste salão. Informe dia e mês de nascimento."}
+            )
         return None, None
     if has_day != has_month:
         raise ValidationError(
@@ -63,6 +71,19 @@ def _validate_birthday(birth_day, birth_month):
     if not (1 <= birth_day <= max_day):
         raise ValidationError({"birth_day": "Dia de nascimento inválido para o mês informado."})
     return birth_day, birth_month
+
+
+def find_client_by_phone(tenant, raw_phone):
+    """Busca cliente já cadastrado pelo telefone (mesma normalização de
+    `get_or_create_client`), sem criar nada — usado pra avisar no encaixe
+    manual (`apps.scheduling.views.new_appointment_client_lookup`) que aquele
+    telefone já é de outro cliente, já que `get_or_create_client` ignora
+    silenciosamente o nome digitado nesse caso."""
+    try:
+        phone = normalize_phone(raw_phone)
+    except ValidationError:
+        return None
+    return Client.objects.filter(tenant=tenant, phone=phone).first()
 
 
 def get_or_create_client(*, tenant, phone, name="", birth_day=None, birth_month=None):
@@ -81,7 +102,9 @@ def get_or_create_client(*, tenant, phone, name="", birth_day=None, birth_month=
             raise ValidationError(
                 {"name": "Informe seu nome para o primeiro agendamento."}
             )
-        birth_day, birth_month = _validate_birthday(birth_day, birth_month)
+        birth_day, birth_month = _validate_birthday(
+            birth_day, birth_month, required=tenant.require_birthday_on_booking
+        )
         return (
             Client.objects.create(
                 tenant=tenant, phone=phone, name=name,
@@ -140,7 +163,9 @@ def update_client(client, *, name, phone, preferences="", birth_day=None, birth_
         raise ValidationError(
             {"phone": "Já existe outro cliente com este telefone."}
         )
-    birth_day, birth_month = _validate_birthday(birth_day, birth_month)
+    birth_day, birth_month = _validate_birthday(
+        birth_day, birth_month, required=client.tenant.require_birthday_on_booking
+    )
     client.name = name
     client.phone = phone
     client.preferences = (preferences or "").strip()
@@ -167,7 +192,9 @@ def create_client(*, tenant, name, phone, preferences="", birth_day=None, birth_
     phone = normalize_phone(phone)
     if Client.objects.filter(tenant=tenant, phone=phone).exists():
         raise ValidationError({"phone": "Já existe um cliente com este telefone."})
-    birth_day, birth_month = _validate_birthday(birth_day, birth_month)
+    birth_day, birth_month = _validate_birthday(
+        birth_day, birth_month, required=tenant.require_birthday_on_booking
+    )
     return Client.objects.create(
         tenant=tenant, name=name, phone=phone, preferences=(preferences or "").strip(),
         birth_day=birth_day, birth_month=birth_month,
@@ -428,6 +455,110 @@ def redeem_client_credit_for_appointment(client, *, amount, appointment, created
     )
     client.credit_balance = client.credit_balance - amount
     client.save(update_fields=["credit_balance"])
+    return entry
+
+
+def _validate_debt_amount(amount):
+    amount = Decimal(amount)
+    if amount <= 0:
+        raise ValidationError({"amount": "O valor deve ser maior que zero."})
+    return amount
+
+
+@transaction.atomic
+def record_client_debt(client, *, amount, appointment, created_by, reason="Comanda com valor não cobrado"):
+    """Fiado: comanda fechou sem cobrir o total (`debt_amount` em
+    `apps/scheduling/services.py::complete_appointment`). Soma o saldo
+    devedor e registra no ledger vinculado ao atendimento. NÃO cria
+    `CashTransaction`: esse dinheiro não entrou no caixa — só entra de
+    verdade quando o débito for quitado (ver `settle_client_debt`)."""
+    from apps.finance.models import CashFlowType
+
+    amount = _validate_debt_amount(amount)
+    entry = ClientDebtTransaction.objects.create(
+        tenant=client.tenant,
+        client=client,
+        type=CashFlowType.IN,
+        amount=amount,
+        reason=reason,
+        related_appointment=appointment,
+        created_by=created_by,
+    )
+    client.debt_balance = client.debt_balance + amount
+    client.save(update_fields=["debt_balance"])
+    return entry
+
+
+@transaction.atomic
+def settle_client_debt(
+    client, *, amount, payment_method, created_by, related_appointment=None,
+    reason="Cobrança de débito anterior",
+):
+    """Cliente paga (parcial ou total) um débito de comanda anterior — o
+    dinheiro entra DE VERDADE no caixa agora (é aqui que a receita, adiada
+    na hora que o débito foi lançado, é finalmente reconhecida). Cria a
+    `CashTransaction` (IN, CLIENT_DEBT_PAYMENT), o lançamento no ledger e
+    abate o saldo devedor."""
+    from apps.finance.models import CashCategory, CashFlowType, PaymentMethod
+    from apps.finance.services import create_cash_transaction
+
+    amount = _validate_debt_amount(amount)
+    if payment_method == PaymentMethod.CLIENT_CREDIT:
+        raise ValidationError(
+            {"payment_method": "Quitação de débito não pode ser paga com crédito do cliente."}
+        )
+    if amount > client.debt_balance:
+        raise ValidationError(
+            {"amount": f"Saldo devedor insuficiente: cliente deve R$ {client.debt_balance}."}
+        )
+    cash_txn = create_cash_transaction(
+        tenant=client.tenant,
+        type=CashFlowType.IN,
+        category=CashCategory.CLIENT_DEBT_PAYMENT,
+        amount=amount,
+        payment_method=payment_method,
+        description=f"Cobrança de débito anterior — {client.name}",
+        created_by=created_by,
+        related_appointment=related_appointment,
+    )
+    entry = ClientDebtTransaction.objects.create(
+        tenant=client.tenant,
+        client=client,
+        type=CashFlowType.OUT,
+        amount=amount,
+        reason=reason,
+        related_appointment=related_appointment,
+        related_cash_transaction=cash_txn,
+        created_by=created_by,
+    )
+    client.debt_balance = client.debt_balance - amount
+    client.save(update_fields=["debt_balance"])
+    return entry
+
+
+@transaction.atomic
+def write_off_client_debt(client, *, amount, created_by, reason="Ajuste manual"):
+    """Correção manual (erro de lançamento, perdão de dívida): abate o saldo
+    devedor com registro no ledger, SEM mexer no caixa — nenhum dinheiro
+    entrou. Não é uma forma de LANÇAR débito novo, só de corrigir/perdoar
+    débito já existente."""
+    from apps.finance.models import CashFlowType
+
+    amount = _validate_debt_amount(amount)
+    if amount > client.debt_balance:
+        raise ValidationError(
+            {"amount": f"Saldo devedor insuficiente: cliente deve R$ {client.debt_balance}."}
+        )
+    entry = ClientDebtTransaction.objects.create(
+        tenant=client.tenant,
+        client=client,
+        type=CashFlowType.OUT,
+        amount=amount,
+        reason=reason,
+        created_by=created_by,
+    )
+    client.debt_balance = client.debt_balance - amount
+    client.save(update_fields=["debt_balance"])
     return entry
 
 
