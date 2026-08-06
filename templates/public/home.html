@@ -5,7 +5,19 @@
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <title>{{ tenant.name }}</title>
+<meta name="description" content="{% if tenant.description %}{{ tenant.description }}{% else %}Agende seu horário com {{ tenant.name }}{% endif %}"/>
 {% include "_favicon.html" %}
+<meta property="og:type" content="website"/>
+<meta property="og:site_name" content="{{ tenant.name }}"/>
+<meta property="og:title" content="{{ tenant.name }}"/>
+<meta property="og:description" content="{% if tenant.description %}{{ tenant.description }}{% else %}Agende seu horário com {{ tenant.name }}{% endif %}"/>
+<meta property="og:url" content="{{ request.build_absolute_uri }}"/>
+{% if tenant.logo %}
+<meta property="og:image" content="{{ request.scheme }}://{{ request.get_host }}{{ tenant.logo.url }}"/>
+{% elif tenant.cover_image %}
+<meta property="og:image" content="{{ request.scheme }}://{{ request.get_host }}{{ tenant.cover_image.url }}"/>
+{% endif %}
+<meta name="twitter:card" content="summary"/>
 <script src="https://cdn.tailwindcss.com"></script>
 <link href="https://fonts.googleapis.com" rel="preconnect"/>
 <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
