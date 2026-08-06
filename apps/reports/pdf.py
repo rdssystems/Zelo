@@ -14,7 +14,7 @@ from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import cm
-from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+from reportlab.platypus import KeepTogether, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 from apps.finance.services import period_summary
 
@@ -169,8 +169,6 @@ def generate_report_pdf(*, tenant, sections, today, month_start, start, end):
 
 
 def _visao_geral_section(tenant, today, month_start, styles):
-    story = [Paragraph("Visão Geral", styles["SectionTitle"])]
-
     kpis = report_ops.revenue_kpis(tenant, today, month_start)
     stock = report_ops.stock_kpis(tenant)
     clients = report_ops.client_kpis(tenant, today, month_start)
@@ -184,10 +182,6 @@ def _visao_geral_section(tenant, today, month_start, styles):
         ["Clientes (total / novos no mês)", f"{clients['total_clients']} / {clients['new_this_month']}"],
         ["Produtos ativos (estoque baixo)", f"{stock['total_products']} ({stock['low_stock_count']})"],
     ]
-    story.append(_table(kpi_rows, col_widths=[9 * cm, 6 * cm], header=False))
-    story.append(Spacer(1, 0.4 * cm))
-
-    story.append(Paragraph("Atendimentos hoje", styles["Heading4"]))
     appt_rows = [
         ["Status", "Quantidade"],
         ["Pendentes", appts.get("pending", 0)],
@@ -195,26 +189,48 @@ def _visao_geral_section(tenant, today, month_start, styles):
         ["Em atendimento", appts.get("in_progress", 0)],
         ["Concluídos", appts.get("completed", 0)],
     ]
-    story.append(_table(appt_rows, col_widths=[9 * cm, 6 * cm]))
+
+    # KeepTogether em cada título+tabela — sem isso o ReportLab pode quebrar
+    # a página bem entre o título e a tabela (título sozinho no fim de uma
+    # página, tabela começando na próxima) — decisão do usuário em 2026-08-06.
+    story = [
+        KeepTogether([
+            Paragraph("Visão Geral", styles["SectionTitle"]),
+            _table(kpi_rows, col_widths=[9 * cm, 6 * cm], header=False),
+        ]),
+        Spacer(1, 0.4 * cm),
+        KeepTogether([
+            Paragraph("Atendimentos hoje", styles["Heading4"]),
+            _table(appt_rows, col_widths=[9 * cm, 6 * cm]),
+        ]),
+    ]
 
     labels, values = report_ops.commission_by_employee_this_month(tenant, today, month_start, limit=10)
     if labels:
-        story.append(Spacer(1, 0.4 * cm))
-        story.append(Paragraph("Comissão por funcionário (mês)", styles["Heading4"]))
         rows = [["Funcionário", "Comissão"]] + [
             [label, _money(value)] for label, value in zip(labels, values)
         ]
-        story.append(_table(rows, col_widths=[9 * cm, 6 * cm]))
+        story.append(Spacer(1, 0.4 * cm))
+        story.append(KeepTogether([
+            Paragraph("Comissão por funcionário (mês)", styles["Heading4"]),
+            _table(rows, col_widths=[9 * cm, 6 * cm]),
+        ]))
 
     return story
 
 
 def _faturamento_section(tenant, start, end, styles):
-    story = [Paragraph("Faturamento", styles["SectionTitle"])]
-
     _, revenue_values = report_ops.revenue_trend(tenant, start, end)
-    story.append(Paragraph(f"Faturamento total no período: {_money(sum(revenue_values))}", styles["Normal"]))
-    story.append(Spacer(1, 0.3 * cm))
+
+    story = [
+        KeepTogether([
+            Paragraph("Faturamento", styles["SectionTitle"]),
+            Paragraph(
+                f"Faturamento total no período: {_money(sum(revenue_values))}", styles["Normal"]
+            ),
+        ]),
+        Spacer(1, 0.3 * cm),
+    ]
 
     rankings = (
         ("Serviços — por faturamento", report_ops.top_services(tenant, start, end)),
@@ -222,35 +238,42 @@ def _faturamento_section(tenant, start, end, styles):
         ("Faturamento por funcionário", report_ops.revenue_by_employee(tenant, start, end)),
     )
     for title, (item_labels, item_values) in rankings:
-        story.append(Paragraph(title, styles["Heading4"]))
         if item_labels:
             rows = [["Nome", "Total"]] + [
                 [label, _money(value)] for label, value in zip(item_labels, item_values)
             ]
-            story.append(_table(rows, col_widths=[9 * cm, 6 * cm]))
+            content = _table(rows, col_widths=[9 * cm, 6 * cm])
         else:
-            story.append(Paragraph("Sem dados no período.", styles["Normal"]))
+            content = Paragraph("Sem dados no período.", styles["Normal"])
+        story.append(KeepTogether([Paragraph(title, styles["Heading4"]), content]))
         story.append(Spacer(1, 0.4 * cm))
 
     return story
 
 
 def _dre_section(tenant, start, end, styles):
-    story = [Paragraph("DRE simplificado", styles["SectionTitle"])]
-
     summary = period_summary(tenant, start, end)
     totals = [
         ["Entradas", _money(summary["total_in"])],
         ["Saídas", _money(summary["total_out"])],
         ["Saldo do período", _money(summary["balance"])],
     ]
-    story.append(_table(totals, col_widths=[9 * cm, 6 * cm], header=False))
-    story.append(Spacer(1, 0.4 * cm))
+
+    story = [
+        KeepTogether([
+            Paragraph("DRE simplificado", styles["SectionTitle"]),
+            _table(totals, col_widths=[9 * cm, 6 * cm], header=False),
+        ]),
+    ]
 
     if summary["by_category"]:
+        story.append(Spacer(1, 0.4 * cm))
         rows = [["Categoria", "Total"]] + [
             [row["category"], _money(row["total"])] for row in summary["by_category"]
         ]
-        story.append(_table(rows, col_widths=[9 * cm, 6 * cm]))
+        story.append(KeepTogether([
+            Paragraph("Por categoria", styles["Heading4"]),
+            _table(rows, col_widths=[9 * cm, 6 * cm]),
+        ]))
 
     return story
