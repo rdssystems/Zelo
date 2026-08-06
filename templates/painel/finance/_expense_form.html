@@ -40,6 +40,18 @@
             </select>
           </div>
         </div>
+        <div>
+          <label class="block text-label-caps uppercase text-outline mb-1" for="id_expense_category">Categoria (opcional)</label>
+          <select class="block w-full px-0 py-2 bg-transparent border-0 border-b border-outline-variant focus:ring-0 focus:border-primary" id="id_expense_category" name="expense_category">
+            <option value="">Sem categoria</option>
+            {% for category in form.fields.expense_category.queryset %}
+            <option value="{{ category.pk }}">{{ category.name }} ({% if category.is_fixed %}fixa{% else %}variável{% endif %})</option>
+            {% endfor %}
+          </select>
+          <p class="text-xs text-on-surface-variant mt-1">Sem categoria, a despesa não entra na quebra fixo/variável do DRE.
+            <a href="{% url 'finance:expense_category_list' %}" class="text-primary hover:underline">Gerenciar categorias</a>
+          </p>
+        </div>
         <div class="pt-4 flex justify-end gap-4">
           <button class="px-6 py-3 rounded-pill border border-outline text-on-surface-variant hover:bg-surface-container transition-colors" type="button"
                   onclick="document.getElementById('modal-slot').innerHTML = ''">Cancelar</button>

@@ -47,6 +47,39 @@ class CommissionStatus(models.TextChoices):
     PAID = "paid", "Paga"
 
 
+class ExpenseCategory(TenantModel):
+    """Categoria de despesa (aluguel, energia, material de consumo...) —
+    decisão do usuário em 2026-08-06: separar comissão (custo direto do
+    serviço) de despesa administrativa, e dentro desta última, saber o que é
+    fixo (mesmo valor todo mês, ex. aluguel) e o que é variável (varia com o
+    movimento, ex. taxa de cartão). `is_fixed` fica na categoria, não em cada
+    lançamento — classifica uma vez, todo lançamento futuro nessa categoria
+    já nasce classificado, sem fricção na hora de registrar."""
+
+    name = models.CharField("nome", max_length=80)
+    is_fixed = models.BooleanField(
+        "despesa fixa", default=True,
+        help_text="Marcado: custo que não varia com o movimento do salão (aluguel, "
+        "assinatura de software, contador). Desmarcado: varia com o volume de "
+        "atendimento (taxa de cartão, material consumido por atendimento).",
+    )
+    is_active = models.BooleanField("ativa", default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "categoria de despesa"
+        verbose_name_plural = "categorias de despesa"
+        ordering = ["name"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["tenant", "name"], name="unique_expense_category_name_per_tenant"
+            ),
+        ]
+
+    def __str__(self):
+        return self.name
+
+
 class CashTransaction(TenantModel):
     """Lançamento de caixa (RF21) — sempre amarrado a uma origem rastreável
     (agendamento, movimentação de estoque, comissão ou despesa avulsa)."""
@@ -60,6 +93,17 @@ class CashTransaction(TenantModel):
         "forma de pagamento", max_length=20, choices=PaymentMethod.choices
     )
     description = models.CharField("descrição", max_length=255, blank=True)
+    # Só preenchido quando category=EXPENSE (opcional — despesa sem categoria
+    # continua valendo, só não entra na quebra fixo/variável do DRE).
+    # PROTECT: mesma regra de auditoria das FKs de origem abaixo — apagar a
+    # categoria não pode apagar o rastro de despesas já lançadas nela.
+    expense_category = models.ForeignKey(
+        "ExpenseCategory",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="cash_transactions",
+    )
     # PROTECT: um lançamento de caixa nunca pode perder o rastro da origem
     # (RNF05 — auditoria mínima de dado financeiro).
     related_appointment = models.ForeignKey(

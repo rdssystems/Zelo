@@ -29,8 +29,8 @@ from apps.services.models import Service
 from apps.services.services import bookable_services
 
 from . import services as finance_ops
-from .forms import REAL_MONEY_METHODS, ExpenseForm, PayCommissionForm
-from .models import CashTransaction, ComandaProductItem, Commission, CommissionStatus
+from .forms import REAL_MONEY_METHODS, ExpenseCategoryForm, ExpenseForm, PayCommissionForm
+from .models import CashTransaction, ComandaProductItem, Commission, CommissionStatus, ExpenseCategory
 from .serializers import (
     CashTransactionSerializer,
     CommissionSerializer,
@@ -275,14 +275,14 @@ def cash_list(request):
 def expense_create(request):
     query = request.GET.urlencode()
     if request.method == "POST":
-        form = ExpenseForm(request.POST)
+        form = ExpenseForm(request.POST, tenant=request.tenant)
         if form.is_valid():
             finance_ops.create_expense(
                 tenant=request.tenant, created_by=request.user, **form.cleaned_data
             )
             return _cash_response(request)
     else:
-        form = ExpenseForm()
+        form = ExpenseForm(tenant=request.tenant)
     response = render(
         request, "painel/finance/_expense_form.html", {"form": form, "query": query}
     )
@@ -290,6 +290,114 @@ def expense_create(request):
         response.headers["HX-Retarget"] = "#modal-slot"
         response.headers["HX-Reswap"] = "innerHTML"
     return response
+
+
+# ---------------------------------------------------------------------------
+# Painel (HTMX) — /painel/caixa/categorias-despesa/
+# ---------------------------------------------------------------------------
+
+
+def _get_expense_category(request, pk):
+    return get_object_or_404(ExpenseCategory.objects.for_tenant(request.tenant), pk=pk)
+
+
+def _expense_category_items_response(request):
+    items = render_to_string(
+        "painel/finance/expense_categories/_items.html",
+        {"categories": ExpenseCategory.objects.for_tenant(request.tenant)},
+        request=request,
+    )
+    modal_reset = '<div id="modal-slot" hx-swap-oob="true"></div>'
+    return HttpResponse(items + modal_reset)
+
+
+@tenant_admin_required
+def expense_category_list(request):
+    return render(
+        request,
+        "painel/finance/expense_categories/list.html",
+        {
+            "categories": ExpenseCategory.objects.for_tenant(request.tenant),
+            "active_nav": "finance",
+        },
+    )
+
+
+@tenant_admin_required
+def expense_category_create(request):
+    if request.method == "POST":
+        form = ExpenseCategoryForm(request.POST)
+        if form.is_valid():
+            finance_ops.create_expense_category(tenant=request.tenant, **form.cleaned_data)
+            return _expense_category_items_response(request)
+    else:
+        form = ExpenseCategoryForm()
+    response = render(
+        request,
+        "painel/finance/expense_categories/_form.html",
+        {"form": form, "title": "Nova Categoria de Despesa"},
+    )
+    if request.method == "POST":
+        response.headers["HX-Retarget"] = "#modal-slot"
+        response.headers["HX-Reswap"] = "innerHTML"
+    return response
+
+
+@tenant_admin_required
+def expense_category_update(request, pk):
+    category = _get_expense_category(request, pk)
+    if request.method == "POST":
+        form = ExpenseCategoryForm(request.POST, instance=category)
+        if form.is_valid():
+            finance_ops.update_expense_category(category, **form.cleaned_data)
+            return _expense_category_items_response(request)
+    else:
+        form = ExpenseCategoryForm(instance=category)
+    response = render(
+        request,
+        "painel/finance/expense_categories/_form.html",
+        {"form": form, "title": "Editar Categoria de Despesa", "category": category},
+    )
+    if request.method == "POST":
+        response.headers["HX-Retarget"] = "#modal-slot"
+        response.headers["HX-Reswap"] = "innerHTML"
+    return response
+
+
+@tenant_admin_required
+def expense_category_toggle_confirm(request, pk):
+    category = _get_expense_category(request, pk)
+    if category.is_active:
+        context = {
+            "title": "Desativar categoria",
+            "message": (
+                f"Desativar '{category.name}'? Ela deixa de aparecer pra escolher em "
+                f"novas despesas — lançamentos já feitos com ela não são afetados."
+            ),
+            "icon": "toggle_off",
+            "confirm_label": "Desativar",
+        }
+    else:
+        context = {
+            "title": "Reativar categoria",
+            "message": f"Reativar '{category.name}'? Ela volta a aparecer pra escolher em novas despesas.",
+            "icon": "toggle_on",
+            "confirm_label": "Reativar",
+        }
+    context.update({
+        "action_url": reverse("finance:expense_category_toggle", args=[category.pk]),
+        "target": "#expense-category-items",
+    })
+    return render(request, "painel/_confirm_action.html", context)
+
+
+@tenant_admin_required
+def expense_category_toggle(request, pk):
+    if request.method != "POST":
+        return HttpResponse(status=405)
+    category = _get_expense_category(request, pk)
+    finance_ops.set_expense_category_active(category, not category.is_active)
+    return _expense_category_items_response(request)
 
 
 @tenant_admin_required

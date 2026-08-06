@@ -21,6 +21,7 @@ from .models import (
     ComandaProductItem,
     Commission,
     CommissionStatus,
+    ExpenseCategory,
 )
 
 User = get_user_model()
@@ -180,6 +181,281 @@ class PeriodSummaryTest(TestCase):
         today = datetime.date.today()
         summary = finance_ops.period_summary(self.tenant, today, today)
         self.assertEqual(summary["total_out"], Decimal("0"))
+
+
+class ExpenseCategoryDomainTest(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.tenant, cls.admin = make_tenant_with_admin("salao-a")
+
+    def test_create_defaults_to_fixed(self):
+        category = finance_ops.create_expense_category(tenant=self.tenant, name="Aluguel")
+        self.assertTrue(category.is_fixed)
+        self.assertTrue(category.is_active)
+
+    def test_create_variable(self):
+        category = finance_ops.create_expense_category(
+            tenant=self.tenant, name="Taxa de cartão", is_fixed=False
+        )
+        self.assertFalse(category.is_fixed)
+
+    def test_blank_name_rejected(self):
+        with self.assertRaises(ValidationError):
+            finance_ops.create_expense_category(tenant=self.tenant, name="   ")
+
+    def test_duplicate_name_per_tenant_rejected_by_db_constraint(self):
+        finance_ops.create_expense_category(tenant=self.tenant, name="Aluguel")
+        with self.assertRaises(Exception):
+            ExpenseCategory.objects.create(tenant=self.tenant, name="Aluguel")
+
+    def test_same_name_allowed_in_different_tenant(self):
+        other_tenant, _ = make_tenant_with_admin("salao-b")
+        finance_ops.create_expense_category(tenant=self.tenant, name="Aluguel")
+        # não deve levantar
+        finance_ops.create_expense_category(tenant=other_tenant, name="Aluguel")
+
+    def test_update_changes_name_and_type(self):
+        category = finance_ops.create_expense_category(tenant=self.tenant, name="Aluguel")
+        finance_ops.update_expense_category(category, name="Aluguel do salão", is_fixed=False)
+        category.refresh_from_db()
+        self.assertEqual(category.name, "Aluguel do salão")
+        self.assertFalse(category.is_fixed)
+
+    def test_toggle_active(self):
+        category = finance_ops.create_expense_category(tenant=self.tenant, name="Aluguel")
+        finance_ops.set_expense_category_active(category, False)
+        category.refresh_from_db()
+        self.assertFalse(category.is_active)
+
+
+class CreateExpenseWithCategoryTest(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.tenant, cls.admin = make_tenant_with_admin("salao-a")
+        cls.category = finance_ops.create_expense_category(tenant=cls.tenant, name="Aluguel")
+
+    def test_expense_saved_with_category(self):
+        txn = finance_ops.create_expense(
+            tenant=self.tenant, amount=Decimal("2000"), payment_method="pix",
+            description="Aluguel de agosto", created_by=self.admin, expense_category=self.category,
+        )
+        self.assertEqual(txn.expense_category_id, self.category.pk)
+
+    def test_expense_without_category_still_works(self):
+        txn = finance_ops.create_expense(
+            tenant=self.tenant, amount=Decimal("50"), payment_method="cash",
+            description="Sem categoria", created_by=self.admin,
+        )
+        self.assertIsNone(txn.expense_category_id)
+
+    def test_category_from_other_tenant_rejected(self):
+        other_tenant, _ = make_tenant_with_admin("salao-b")
+        other_category = finance_ops.create_expense_category(tenant=other_tenant, name="Aluguel")
+        with self.assertRaises(ValidationError):
+            finance_ops.create_expense(
+                tenant=self.tenant, amount=Decimal("50"), payment_method="cash",
+                description="X", created_by=self.admin, expense_category=other_category,
+            )
+
+
+class DreBreakdownTest(TestCase):
+    """DRE em cascata (decisão do usuário em 2026-08-06): comissão como
+    custo direto, despesa quebrada em fixa/variável pela `ExpenseCategory`."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.tenant, cls.admin = make_tenant_with_admin("salao-a")
+        cls.fixed_category = finance_ops.create_expense_category(
+            tenant=cls.tenant, name="Aluguel", is_fixed=True
+        )
+        cls.variable_category = finance_ops.create_expense_category(
+            tenant=cls.tenant, name="Taxa de cartão", is_fixed=False
+        )
+
+    def _today_range(self):
+        today = datetime.date.today()
+        return today, today
+
+    def test_revenue_from_service_sale(self):
+        finance_ops.create_cash_transaction(
+            tenant=self.tenant, type=CashFlowType.IN, category=CashCategory.SERVICE_SALE,
+            amount=Decimal("100"), payment_method="cash", created_by=self.admin,
+        )
+        start, end = self._today_range()
+        dre = finance_ops.dre_breakdown(self.tenant, start, end)
+        self.assertEqual(dre["revenue"], Decimal("100"))
+
+    def test_commission_is_direct_cost_not_expense(self):
+        finance_ops.create_cash_transaction(
+            tenant=self.tenant, type=CashFlowType.IN, category=CashCategory.SERVICE_SALE,
+            amount=Decimal("100"), payment_method="cash", created_by=self.admin,
+        )
+        finance_ops.create_cash_transaction(
+            tenant=self.tenant, type=CashFlowType.OUT, category=CashCategory.COMMISSION_PAYMENT,
+            amount=Decimal("40"), payment_method="cash", created_by=self.admin,
+        )
+        start, end = self._today_range()
+        dre = finance_ops.dre_breakdown(self.tenant, start, end)
+        self.assertEqual(dre["direct_cost"], Decimal("40"))
+        self.assertEqual(dre["contribution_margin"], Decimal("60"))
+        # comissão não pode contar como despesa fixa/variável nem "sem categoria"
+        self.assertEqual(dre["fixed_total"], Decimal("0"))
+        self.assertEqual(dre["variable_total"], Decimal("0"))
+        self.assertEqual(dre["uncategorized_total"], Decimal("0"))
+
+    def test_fixed_and_variable_expenses_split_correctly(self):
+        finance_ops.create_expense(
+            tenant=self.tenant, amount=Decimal("2000"), payment_method="pix",
+            description="Aluguel", created_by=self.admin, expense_category=self.fixed_category,
+        )
+        finance_ops.create_expense(
+            tenant=self.tenant, amount=Decimal("50"), payment_method="credit_card",
+            description="Taxa", created_by=self.admin, expense_category=self.variable_category,
+        )
+        start, end = self._today_range()
+        dre = finance_ops.dre_breakdown(self.tenant, start, end)
+        self.assertEqual(dre["fixed_total"], Decimal("2000"))
+        self.assertEqual(dre["variable_total"], Decimal("50"))
+        self.assertEqual(dre["fixed_by_category"], [{"name": "Aluguel", "total": Decimal("2000")}])
+        self.assertEqual(
+            dre["variable_by_category"], [{"name": "Taxa de cartão", "total": Decimal("50")}]
+        )
+
+    def test_expense_without_category_is_uncategorized_not_lost(self):
+        finance_ops.create_expense(
+            tenant=self.tenant, amount=Decimal("30"), payment_method="cash",
+            description="Sem categoria", created_by=self.admin,
+        )
+        start, end = self._today_range()
+        dre = finance_ops.dre_breakdown(self.tenant, start, end)
+        self.assertEqual(dre["uncategorized_total"], Decimal("30"))
+        self.assertEqual(dre["fixed_total"], Decimal("0"))
+        self.assertEqual(dre["variable_total"], Decimal("0"))
+
+    def test_result_matches_revenue_minus_all_costs(self):
+        finance_ops.create_cash_transaction(
+            tenant=self.tenant, type=CashFlowType.IN, category=CashCategory.SERVICE_SALE,
+            amount=Decimal("1000"), payment_method="cash", created_by=self.admin,
+        )
+        finance_ops.create_cash_transaction(
+            tenant=self.tenant, type=CashFlowType.OUT, category=CashCategory.COMMISSION_PAYMENT,
+            amount=Decimal("400"), payment_method="cash", created_by=self.admin,
+        )
+        finance_ops.create_expense(
+            tenant=self.tenant, amount=Decimal("200"), payment_method="pix",
+            description="Aluguel", created_by=self.admin, expense_category=self.fixed_category,
+        )
+        finance_ops.create_expense(
+            tenant=self.tenant, amount=Decimal("30"), payment_method="cash",
+            description="Sem categoria", created_by=self.admin,
+        )
+        start, end = self._today_range()
+        dre = finance_ops.dre_breakdown(self.tenant, start, end)
+        # 1000 - 400 (comissão) - 200 (fixa) - 30 (sem categoria) = 370
+        self.assertEqual(dre["result"], Decimal("370"))
+
+    def test_isolated_per_tenant(self):
+        other_tenant, other_admin = make_tenant_with_admin("salao-b")
+        other_category = finance_ops.create_expense_category(
+            tenant=other_tenant, name="Aluguel", is_fixed=True
+        )
+        finance_ops.create_expense(
+            tenant=other_tenant, amount=Decimal("999"), payment_method="cash",
+            description="Não deve aparecer", created_by=other_admin, expense_category=other_category,
+        )
+        start, end = self._today_range()
+        dre = finance_ops.dre_breakdown(self.tenant, start, end)
+        self.assertEqual(dre["fixed_total"], Decimal("0"))
+
+
+class ExpenseCategoryPanelTest(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.tenant, cls.admin = make_tenant_with_admin("salao-a")
+        cls.employee_user = User.objects.create_user(
+            email="func@salao-a.com", password="x", role=User.Role.EMPLOYEE, tenant=cls.tenant
+        )
+
+    def test_login_required(self):
+        response = self.client.get("/painel/caixa/categorias-despesa/")
+        self.assertEqual(response.status_code, 302)
+
+    def test_employee_forbidden(self):
+        self.client.force_login(self.employee_user)
+        response = self.client.get("/painel/caixa/categorias-despesa/")
+        self.assertEqual(response.status_code, 403)
+
+    def test_admin_creates_category(self):
+        self.client.force_login(self.admin)
+        response = self.client.post(
+            "/painel/caixa/categorias-despesa/nova/", {"name": "Aluguel", "is_fixed": "True"}
+        )
+        self.assertEqual(response.status_code, 200)
+        category = ExpenseCategory.objects.get(tenant=self.tenant, name="Aluguel")
+        self.assertTrue(category.is_fixed)
+
+    def test_admin_creates_variable_category(self):
+        self.client.force_login(self.admin)
+        self.client.post(
+            "/painel/caixa/categorias-despesa/nova/", {"name": "Taxa de cartão", "is_fixed": "False"}
+        )
+        category = ExpenseCategory.objects.get(tenant=self.tenant, name="Taxa de cartão")
+        self.assertFalse(category.is_fixed)
+
+    def test_admin_toggles_category(self):
+        category = finance_ops.create_expense_category(tenant=self.tenant, name="Aluguel")
+        self.client.force_login(self.admin)
+        response = self.client.post(
+            f"/painel/caixa/categorias-despesa/{category.pk}/ativar-desativar/"
+        )
+        self.assertEqual(response.status_code, 200)
+        category.refresh_from_db()
+        self.assertFalse(category.is_active)
+
+    def test_isolation_admin_cannot_edit_other_tenant_category(self):
+        other_tenant, _ = make_tenant_with_admin("salao-b")
+        other_category = finance_ops.create_expense_category(tenant=other_tenant, name="Aluguel")
+        self.client.force_login(self.admin)
+        response = self.client.get(
+            f"/painel/caixa/categorias-despesa/{other_category.pk}/editar/"
+        )
+        self.assertEqual(response.status_code, 404)
+
+
+class ExpenseFormWithCategoryPanelTest(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.tenant, cls.admin = make_tenant_with_admin("salao-a")
+        cls.category = finance_ops.create_expense_category(tenant=cls.tenant, name="Energia Elétrica")
+
+    def test_expense_create_with_category(self):
+        self.client.force_login(self.admin)
+        response = self.client.post(
+            "/painel/caixa/despesa/nova/",
+            {
+                "amount": "2000,00", "payment_method": "pix", "description": "Aluguel",
+                "expense_category": self.category.pk,
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        txn = CashTransaction.objects.get(tenant=self.tenant, description="Aluguel")
+        self.assertEqual(txn.expense_category_id, self.category.pk)
+
+    def test_expense_create_without_category_still_works(self):
+        self.client.force_login(self.admin)
+        response = self.client.post(
+            "/painel/caixa/despesa/nova/",
+            {"amount": "50,00", "payment_method": "cash", "description": "Avulsa"},
+        )
+        self.assertEqual(response.status_code, 200)
+        txn = CashTransaction.objects.get(tenant=self.tenant, description="Avulsa")
+        self.assertIsNone(txn.expense_category_id)
+
+    def test_inactive_category_not_offered(self):
+        finance_ops.set_expense_category_active(self.category, False)
+        self.client.force_login(self.admin)
+        response = self.client.get("/painel/caixa/despesa/nova/")
+        self.assertNotContains(response, "Energia Elétrica")
 
 
 class FinanceAPIPermissionTest(TestCase):

@@ -24,6 +24,7 @@ from .models import (
     ComandaProductItem,
     Commission,
     CommissionStatus,
+    ExpenseCategory,
     PaymentMethod,
 )
 
@@ -58,8 +59,11 @@ def create_cash_transaction(
     related_appointment=None,
     related_stock_movement=None,
     related_commission=None,
+    expense_category=None,
 ):
     _validate_cash_transaction(type, category, amount, payment_method)
+    if expense_category is not None and expense_category.tenant_id != tenant.id:
+        raise ValidationError("Categoria de despesa não pertence a este tenant.")
     return CashTransaction.objects.create(
         tenant=tenant,
         type=type,
@@ -70,12 +74,17 @@ def create_cash_transaction(
         related_appointment=related_appointment,
         related_stock_movement=related_stock_movement,
         related_commission=related_commission,
+        expense_category=expense_category,
         created_by=created_by,
     )
 
 
-def create_expense(*, tenant, amount, payment_method, description, created_by):
-    """RF23: despesa avulsa (aluguel, contas, etc.) lançada manualmente."""
+def create_expense(*, tenant, amount, payment_method, description, created_by, expense_category=None):
+    """RF23: despesa avulsa (aluguel, contas, etc.) lançada manualmente.
+
+    `expense_category` é opcional (decisão do usuário em 2026-08-06) — sem
+    ela, a despesa continua valendo pro saldo do Caixa, só não entra na
+    quebra fixo/variável do DRE (fica agrupada como "sem categoria")."""
     return create_cash_transaction(
         tenant=tenant,
         type=CashFlowType.OUT,
@@ -84,7 +93,38 @@ def create_expense(*, tenant, amount, payment_method, description, created_by):
         payment_method=payment_method,
         description=description,
         created_by=created_by,
+        expense_category=expense_category,
     )
+
+
+# ---------------------------------------------------------------------------
+# Categoria de despesa (RF novo, 2026-08-06) — separa comissão (custo direto
+# do serviço) de despesa administrativa, e classifica esta em fixa/variável.
+# ---------------------------------------------------------------------------
+
+
+def _validate_expense_category(name):
+    if not str(name).strip():
+        raise ValidationError({"name": "O nome da categoria é obrigatório."})
+
+
+def create_expense_category(*, tenant, name, is_fixed=True):
+    _validate_expense_category(name)
+    return ExpenseCategory.objects.create(tenant=tenant, name=str(name).strip(), is_fixed=is_fixed)
+
+
+def update_expense_category(category, *, name, is_fixed):
+    _validate_expense_category(name)
+    category.name = str(name).strip()
+    category.is_fixed = is_fixed
+    category.save(update_fields=["name", "is_fixed"])
+    return category
+
+
+def set_expense_category_active(category, is_active):
+    category.is_active = bool(is_active)
+    category.save(update_fields=["is_active"])
+    return category
 
 
 def create_commission_for_appointment(appointment):
@@ -175,6 +215,72 @@ def period_summary(tenant, start_date, end_date):
         "transactions": qs.select_related(
             "related_appointment__client", "related_appointment__service"
         ),
+    }
+
+
+def _expense_rows_by_fixed(expense_qs, *, is_fixed):
+    rows = (
+        expense_qs.filter(expense_category__is_fixed=is_fixed)
+        .values("expense_category__name")
+        .annotate(total=Sum("amount"))
+        .order_by("-total")
+    )
+    return [{"name": row["expense_category__name"], "total": row["total"]} for row in rows]
+
+
+def dre_breakdown(tenant, start_date, end_date):
+    """DRE simplificado em cascata (decisão do usuário em 2026-08-06):
+    Receita → Custo Direto (comissão) → Margem de Contribuição → Despesas
+    Fixas/Variáveis → Resultado.
+
+    Função separada de `period_summary` de propósito — aquela alimenta o
+    Caixa (RF22) e não pode mudar de formato; esta é só pro DRE (aba
+    Relatórios + PDF). Comissão paga é tratada como custo DIRETO do serviço
+    (não despesa administrativa — é o que o usuário pediu pra separar).
+    Despesa (`CashCategory.EXPENSE`) é quebrada em fixa/variável pela
+    `ExpenseCategory` do lançamento; sem categoria, cai em "sem categoria" —
+    continua contando pro resultado, só não teve o custo classificado.
+    """
+    qs = CashTransaction.objects.for_tenant(tenant).filter(
+        created_at__date__range=(start_date, end_date)
+    )
+
+    def _sum(filtered_qs):
+        return filtered_qs.aggregate(total=Sum("amount"))["total"] or Decimal("0")
+
+    revenue = _sum(qs.filter(type=CashFlowType.IN))
+    direct_cost = _sum(qs.filter(type=CashFlowType.OUT, category=CashCategory.COMMISSION_PAYMENT))
+    contribution_margin = revenue - direct_cost
+
+    expense_qs = qs.filter(type=CashFlowType.OUT, category=CashCategory.EXPENSE)
+    fixed_total = _sum(expense_qs.filter(expense_category__is_fixed=True))
+    variable_total = _sum(expense_qs.filter(expense_category__is_fixed=False))
+    uncategorized_total = _sum(expense_qs.filter(expense_category__isnull=True))
+
+    # Saída que não é comissão nem despesa avulsa (hoje só CashCategory.OTHER,
+    # categoria reservada) — soma à parte pra "Resultado" nunca destoar do
+    # saldo real de caixa do período.
+    other_out = _sum(
+        qs.filter(type=CashFlowType.OUT).exclude(
+            category__in=[CashCategory.COMMISSION_PAYMENT, CashCategory.EXPENSE]
+        )
+    )
+
+    total_expenses = fixed_total + variable_total + uncategorized_total + other_out
+    result = contribution_margin - total_expenses
+
+    return {
+        "revenue": revenue,
+        "direct_cost": direct_cost,
+        "contribution_margin": contribution_margin,
+        "fixed_total": fixed_total,
+        "fixed_by_category": _expense_rows_by_fixed(expense_qs, is_fixed=True),
+        "variable_total": variable_total,
+        "variable_by_category": _expense_rows_by_fixed(expense_qs, is_fixed=False),
+        "uncategorized_total": uncategorized_total,
+        "other_out": other_out,
+        "total_expenses": total_expenses,
+        "result": result,
     }
 
 

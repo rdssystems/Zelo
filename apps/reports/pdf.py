@@ -3,7 +3,7 @@ dependência de sistema no Docker, ao contrário de renderizadores HTML→PDF
 tipo WeasyPrint — decisão tomada com o usuário em 2026-08-05).
 
 Reaproveita as mesmas agregações de `apps.reports.services` e
-`apps.finance.services.period_summary` que alimentam a página — o PDF nunca
+`apps.finance.services.dre_breakdown` que alimentam a página — o PDF nunca
 recalcula nada diferente do que está na tela, só formata pra documento.
 """
 
@@ -16,7 +16,7 @@ from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import cm
 from reportlab.platypus import KeepTogether, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
-from apps.finance.services import period_summary
+from apps.finance.services import dre_breakdown
 
 from . import services as report_ops
 
@@ -252,27 +252,40 @@ def _faturamento_section(tenant, start, end, styles):
 
 
 def _dre_section(tenant, start, end, styles):
-    summary = period_summary(tenant, start, end)
-    totals = [
-        ["Entradas", _money(summary["total_in"])],
-        ["Saídas", _money(summary["total_out"])],
-        ["Saldo do período", _money(summary["balance"])],
+    dre = dre_breakdown(tenant, start, end)
+
+    cascade_rows = [
+        ["Receita", _money(dre["revenue"])],
+        ["(-) Custo direto (comissão)", _money(dre["direct_cost"])],
+        ["= Margem de contribuição", _money(dre["contribution_margin"])],
+        ["(-) Despesas fixas", _money(dre["fixed_total"])],
+        ["(-) Despesas variáveis", _money(dre["variable_total"])],
     ]
+    if dre["uncategorized_total"]:
+        cascade_rows.append(["(-) Despesas sem categoria", _money(dre["uncategorized_total"])])
+    if dre["other_out"]:
+        cascade_rows.append(["(-) Outras saídas", _money(dre["other_out"])])
+    cascade_rows.append(["= Resultado do período", _money(dre["result"])])
 
     story = [
         KeepTogether([
             Paragraph("DRE simplificado", styles["SectionTitle"]),
-            _table(totals, col_widths=[9 * cm, 6 * cm], header=False),
+            _table(cascade_rows, col_widths=[9 * cm, 6 * cm], header=False),
         ]),
     ]
 
-    if summary["by_category"]:
-        story.append(Spacer(1, 0.4 * cm))
+    for title, by_category in (
+        ("Despesas fixas por categoria", dre["fixed_by_category"]),
+        ("Despesas variáveis por categoria", dre["variable_by_category"]),
+    ):
+        if not by_category:
+            continue
         rows = [["Categoria", "Total"]] + [
-            [row["category"], _money(row["total"])] for row in summary["by_category"]
+            [row["name"], _money(row["total"])] for row in by_category
         ]
+        story.append(Spacer(1, 0.4 * cm))
         story.append(KeepTogether([
-            Paragraph("Por categoria", styles["Heading4"]),
+            Paragraph(title, styles["Heading4"]),
             _table(rows, col_widths=[9 * cm, 6 * cm]),
         ]))
 

@@ -5,7 +5,7 @@ from django.http import HttpResponse
 from django.shortcuts import render
 
 from apps.accounts.decorators import tenant_admin_required
-from apps.finance.services import period_summary
+from apps.finance.services import dre_breakdown
 
 from . import services as report_ops
 from .pdf import generate_report_pdf
@@ -52,7 +52,7 @@ def reports_view(request):
             "pending_commissions_total": report_ops.pending_commissions_total(request.tenant),
             **report_ops.stock_kpis(request.tenant),
             **report_ops.client_kpis(request.tenant, today, month_start),
-            "dre": period_summary(request.tenant, start, end),
+            "dre": dre_breakdown(request.tenant, start, end),
             "status_chart_json": json.dumps({"labels": status_labels, "values": status_values}),
             "commission_chart_json": json.dumps(
                 {"labels": commission_labels, "values": commission_values}

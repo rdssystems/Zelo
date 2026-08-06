@@ -7,6 +7,23 @@ app_name = "finance"
 urlpatterns = [
     path("", views.cash_list, name="list"),
     path("despesa/nova/", views.expense_create, name="expense_create"),
+    path("categorias-despesa/", views.expense_category_list, name="expense_category_list"),
+    path("categorias-despesa/nova/", views.expense_category_create, name="expense_category_create"),
+    path(
+        "categorias-despesa/<int:pk>/editar/",
+        views.expense_category_update,
+        name="expense_category_update",
+    ),
+    path(
+        "categorias-despesa/<int:pk>/ativar-desativar/confirmar/",
+        views.expense_category_toggle_confirm,
+        name="expense_category_toggle_confirm",
+    ),
+    path(
+        "categorias-despesa/<int:pk>/ativar-desativar/",
+        views.expense_category_toggle,
+        name="expense_category_toggle",
+    ),
     path(
         "comissoes/<int:pk>/pagar/confirmar/",
         views.commission_pay_confirm,

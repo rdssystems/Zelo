@@ -1,0 +1,54 @@
+<div class="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6" id="expense-category-modal">
+  <div class="absolute inset-0 bg-inverse-surface/40 backdrop-blur-sm"
+       onclick="document.getElementById('modal-slot').innerHTML = ''"></div>
+  <div class="relative w-full max-w-md bg-surface-container-lowest rounded-2xl shadow-2xl overflow-hidden">
+    <div class="h-3 w-full bg-primary-container"></div>
+    <div class="p-8">
+      <div class="flex justify-between items-start mb-8">
+        <div>
+          <h3 class="font-display text-display-mobile text-on-surface">{{ title }}</h3>
+          <p class="text-on-surface-variant mt-1">Fixa: mesmo valor todo mês. Variável: muda com o movimento.</p>
+        </div>
+        <button class="text-outline hover:text-on-surface transition-colors p-2 rounded-full hover:bg-surface-container"
+                onclick="document.getElementById('modal-slot').innerHTML = ''">
+          <span class="material-symbols-outlined">close</span>
+        </button>
+      </div>
+
+      {% if form.non_field_errors %}
+      <div class="mb-6 rounded-lg bg-error-container text-on-error-container px-4 py-3 text-sm">
+        {{ form.non_field_errors|join:" " }}
+      </div>
+      {% endif %}
+
+      <form {% if category %}hx-post="{% url 'finance:expense_category_update' category.pk %}"{% else %}hx-post="{% url 'finance:expense_category_create' %}"{% endif %}
+            hx-target="#expense-category-items" hx-swap="outerHTML" class="space-y-6">
+        {% csrf_token %}
+        <div>
+          <label class="block text-label-caps uppercase text-outline mb-1" for="id_name">Nome</label>
+          <input class="block w-full px-0 py-2 bg-transparent border-0 border-b {% if form.name.errors %}border-error{% else %}border-outline-variant{% endif %} text-on-surface text-lg focus:ring-0 focus:border-primary transition-colors"
+                 id="id_name" name="name" type="text" placeholder="Ex: Aluguel, Energia, Material de consumo" value="{{ form.name.value|default:'' }}" required maxlength="80"/>
+          {% if form.name.errors %}<p class="text-error text-sm mt-1">{{ form.name.errors|join:" " }}</p>{% endif %}
+        </div>
+        <div>
+          <label class="block text-label-caps uppercase text-outline mb-2">Tipo de despesa</label>
+          <div class="flex gap-3">
+            <label class="flex-1 flex items-center gap-2 border rounded-xl px-4 py-3 cursor-pointer transition-colors has-[:checked]:border-primary has-[:checked]:bg-primary-container/20 border-outline-variant">
+              <input type="radio" name="is_fixed" value="True" class="text-primary focus:ring-primary" {% if form.is_fixed.value != False and form.is_fixed.value != "False" %}checked{% endif %}/>
+              <span class="text-sm text-on-surface">Fixa</span>
+            </label>
+            <label class="flex-1 flex items-center gap-2 border rounded-xl px-4 py-3 cursor-pointer transition-colors has-[:checked]:border-primary has-[:checked]:bg-primary-container/20 border-outline-variant">
+              <input type="radio" name="is_fixed" value="False" class="text-primary focus:ring-primary" {% if form.is_fixed.value == False or form.is_fixed.value == "False" %}checked{% endif %}/>
+              <span class="text-sm text-on-surface">Variável</span>
+            </label>
+          </div>
+        </div>
+        <div class="pt-6 flex justify-end gap-4">
+          <button class="px-6 py-3 rounded-pill border border-outline text-on-surface-variant hover:bg-surface-container transition-colors" type="button"
+                  onclick="document.getElementById('modal-slot').innerHTML = ''">Cancelar</button>
+          <button class="px-8 py-3 rounded-pill bg-primary text-on-primary font-semibold hover:opacity-90 transition-opacity active:scale-95" type="submit">Salvar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

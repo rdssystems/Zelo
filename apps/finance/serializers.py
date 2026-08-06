@@ -2,13 +2,16 @@ from decimal import Decimal
 
 from rest_framework import serializers
 
-from .models import CashTransaction, Commission, PaymentMethod
+from .models import CashTransaction, Commission, ExpenseCategory, PaymentMethod
 
 
 class CashTransactionSerializer(serializers.ModelSerializer):
     class Meta:
         model = CashTransaction
-        fields = ["id", "type", "category", "amount", "payment_method", "description", "created_at"]
+        fields = [
+            "id", "type", "category", "amount", "payment_method", "description",
+            "expense_category", "created_at",
+        ]
         read_only_fields = ["id", "type", "category", "created_at"]
 
 
@@ -22,6 +25,18 @@ class ExpenseCreateSerializer(serializers.Serializer):
     )
     payment_method = serializers.ChoiceField(choices=PaymentMethod.choices)
     description = serializers.CharField(max_length=255)
+    # Opcional — a checagem de tenant acontece em
+    # apps.finance.services.create_cash_transaction, não aqui (mesmo padrão
+    # de outras FKs recebidas por PK direto na API).
+    expense_category = serializers.PrimaryKeyRelatedField(
+        queryset=ExpenseCategory.objects.all(), required=False, allow_null=True
+    )
+
+
+class ExpenseCategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ExpenseCategory
+        fields = ["id", "name", "is_fixed", "is_active"]
 
 
 class CommissionSerializer(serializers.ModelSerializer):

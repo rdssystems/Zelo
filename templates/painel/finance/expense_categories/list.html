@@ -1,0 +1,22 @@
+{% extends "painel/base.html" %}
+
+{% block title %}Zellup — Categorias de Despesa{% endblock %}
+
+{% block content %}
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
+  <div>
+    <a href="{% url 'finance:list' %}" class="text-sm text-on-surface-variant hover:text-primary transition-colors inline-flex items-center gap-1 mb-2">
+      <span class="material-symbols-outlined text-[18px]">arrow_back</span> Caixa
+    </a>
+    <h2 class="font-display text-headline-md text-on-surface mb-2">Categorias de Despesa</h2>
+    <p class="text-on-surface-variant max-w-2xl">Organize suas despesas em fixas (aluguel, assinaturas — o mesmo valor todo mês) e variáveis (taxa de cartão, material — varia com o movimento). Isso alimenta a quebra do DRE em Relatórios.</p>
+  </div>
+  <button class="shrink-0 flex items-center gap-2 bg-primary text-on-primary font-semibold text-lg px-8 py-3 rounded-pill hover:opacity-90 transition-opacity shadow-sm active:scale-95"
+          hx-get="{% url 'finance:expense_category_create' %}" hx-target="#modal-slot" hx-swap="innerHTML">
+    <span class="material-symbols-outlined">add</span>
+    Nova Categoria
+  </button>
+</div>
+
+{% include "painel/finance/expense_categories/_items.html" %}
+{% endblock %}

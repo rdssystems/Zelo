@@ -203,42 +203,86 @@
   </div>
 
   <div x-show="tab === 'dre'" x-cloak>
-    <section class="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
-      <div class="bg-primary-container/20 p-6 rounded-xl border border-primary/20 shadow-sm">
-        <span class="text-label-caps uppercase text-primary block mb-2">Entradas</span>
-        <div class="font-display text-2xl text-primary">R$ {{ dre.total_in }}</div>
-      </div>
-      <div class="bg-surface-container-lowest p-6 rounded-xl border border-surface-variant shadow-sm">
-        <span class="text-label-caps uppercase text-on-surface-variant block mb-2">Saídas</span>
-        <div class="font-display text-2xl text-on-surface">R$ {{ dre.total_out }}</div>
-      </div>
-      <div class="bg-surface-container-lowest p-6 rounded-xl border border-surface-variant shadow-sm">
-        <span class="text-label-caps uppercase text-on-surface-variant block mb-2">Saldo do período</span>
-        <div class="font-display text-2xl {% if dre.balance < 0 %}text-error{% else %}text-on-surface{% endif %}">R$ {{ dre.balance }}</div>
-      </div>
-    </section>
-
-    <section class="bg-surface-container-lowest rounded-2xl border border-surface-variant shadow-sm overflow-hidden">
+    <section class="bg-surface-container-lowest rounded-2xl border border-surface-variant shadow-sm overflow-hidden mb-8">
       <table class="w-full text-sm">
-        <thead>
-          <tr class="border-b border-surface-variant text-left">
-            <th class="px-6 py-3 text-label-caps uppercase text-outline">Categoria</th>
-            <th class="px-6 py-3 text-label-caps uppercase text-outline text-right">Total</th>
-          </tr>
-        </thead>
         <tbody>
-          {% for row in dre.by_category %}
-          <tr class="border-b border-surface-variant last:border-0">
-            <td class="px-6 py-3 text-on-surface">{{ row.category }}</td>
-            <td class="px-6 py-3 text-on-surface text-right font-medium">R$ {{ row.total }}</td>
+          <tr class="border-b border-surface-variant">
+            <td class="px-6 py-3 text-on-surface">Receita</td>
+            <td class="px-6 py-3 text-on-surface text-right font-medium">R$ {{ dre.revenue }}</td>
           </tr>
-          {% empty %}
-          <tr>
-            <td colspan="2" class="px-6 py-6 text-center text-on-surface-variant">Nenhuma movimentação neste período.</td>
+          <tr class="border-b border-surface-variant">
+            <td class="px-6 py-3 text-on-surface-variant">(-) Custo direto (comissão)</td>
+            <td class="px-6 py-3 text-on-surface-variant text-right">R$ {{ dre.direct_cost }}</td>
           </tr>
-          {% endfor %}
+          <tr class="border-b border-surface-variant bg-surface-container-low/50">
+            <td class="px-6 py-3 text-on-surface font-semibold">= Margem de contribuição</td>
+            <td class="px-6 py-3 text-on-surface text-right font-semibold">R$ {{ dre.contribution_margin }}</td>
+          </tr>
+          <tr class="border-b border-surface-variant">
+            <td class="px-6 py-3 text-on-surface-variant">(-) Despesas fixas</td>
+            <td class="px-6 py-3 text-on-surface-variant text-right">R$ {{ dre.fixed_total }}</td>
+          </tr>
+          <tr class="border-b border-surface-variant">
+            <td class="px-6 py-3 text-on-surface-variant">(-) Despesas variáveis</td>
+            <td class="px-6 py-3 text-on-surface-variant text-right">R$ {{ dre.variable_total }}</td>
+          </tr>
+          {% if dre.uncategorized_total %}
+          <tr class="border-b border-surface-variant">
+            <td class="px-6 py-3 text-on-surface-variant">(-) Despesas sem categoria</td>
+            <td class="px-6 py-3 text-on-surface-variant text-right">R$ {{ dre.uncategorized_total }}</td>
+          </tr>
+          {% endif %}
+          {% if dre.other_out %}
+          <tr class="border-b border-surface-variant">
+            <td class="px-6 py-3 text-on-surface-variant">(-) Outras saídas</td>
+            <td class="px-6 py-3 text-on-surface-variant text-right">R$ {{ dre.other_out }}</td>
+          </tr>
+          {% endif %}
+          <tr class="bg-primary-container/20">
+            <td class="px-6 py-4 text-primary font-bold">= Resultado do período</td>
+            <td class="px-6 py-4 text-right font-bold {% if dre.result < 0 %}text-error{% else %}text-primary{% endif %}">R$ {{ dre.result }}</td>
+          </tr>
         </tbody>
       </table>
+    </section>
+
+    {% if not dre.fixed_by_category and not dre.variable_by_category %}
+    <p class="text-sm text-on-surface-variant">Nenhuma despesa categorizada neste período —
+      <a href="{% url 'finance:expense_category_list' %}" class="text-primary hover:underline">cadastre categorias de despesa</a>
+      pra ver a quebra fixo/variável aqui.</p>
+    {% endif %}
+
+    <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {% if dre.fixed_by_category %}
+      <div class="bg-surface-container-lowest rounded-2xl border border-surface-variant shadow-sm overflow-hidden">
+        <h3 class="text-label-caps uppercase text-outline px-6 pt-6 pb-2">Despesas fixas por categoria</h3>
+        <table class="w-full text-sm">
+          <tbody>
+            {% for row in dre.fixed_by_category %}
+            <tr class="border-b border-surface-variant last:border-0">
+              <td class="px-6 py-3 text-on-surface">{{ row.name }}</td>
+              <td class="px-6 py-3 text-on-surface text-right font-medium">R$ {{ row.total }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% endif %}
+      {% if dre.variable_by_category %}
+      <div class="bg-surface-container-lowest rounded-2xl border border-surface-variant shadow-sm overflow-hidden">
+        <h3 class="text-label-caps uppercase text-outline px-6 pt-6 pb-2">Despesas variáveis por categoria</h3>
+        <table class="w-full text-sm">
+          <tbody>
+            {% for row in dre.variable_by_category %}
+            <tr class="border-b border-surface-variant last:border-0">
+              <td class="px-6 py-3 text-on-surface">{{ row.name }}</td>
+              <td class="px-6 py-3 text-on-surface text-right font-medium">R$ {{ row.total }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% endif %}
     </section>
   </div>
 

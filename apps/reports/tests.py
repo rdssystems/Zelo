@@ -7,7 +7,7 @@ from django.test import TestCase
 from apps.clients.models import Client
 from apps.clients.services import add_client_credit
 from apps.employees.services import create_employee
-from apps.finance.services import create_expense, sell_products
+from apps.finance.services import create_expense, create_expense_category, sell_products
 from apps.inventory.services import create_product
 from apps.scheduling.models import Appointment, AppointmentStatus
 from apps.scheduling.services import complete_appointment
@@ -135,6 +135,70 @@ class ReportsDataTest(TestCase):
         month_start = self.today.replace(day=1)
         self.assertContains(response, f'value="{month_start.isoformat()}"')
         self.assertContains(response, f'value="{self.today.isoformat()}"')
+
+
+class DreCascadeReportsTest(TestCase):
+    """Aba DRE reagrupada (decisão do usuário em 2026-08-06): comissão como
+    custo direto, despesa quebrada em fixa/variável por `ExpenseCategory`."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.tenant, cls.admin = make_tenant_with_admin("salao-a")
+        cls.employee = create_employee(
+            tenant=cls.tenant, full_name="Ana Silva", email="ana@salao-a.com", password="Senha@123",
+            default_commission_type="percentage", default_commission_value=Decimal("40.00"),
+        )
+        cls.service = create_service(
+            tenant=cls.tenant, name="Corte", duration_minutes=60, price=Decimal("100.00")
+        )
+        cls.client_ = Client.objects.create(tenant=cls.tenant, phone="11999990000", name="Cliente Teste")
+        cls.today = datetime.date.today()
+
+    def _period_url(self):
+        start = self.today.replace(day=1).isoformat()
+        end = self.today.isoformat()
+        return f"/painel/relatorios/?tab=dre&start={start}&end={end}"
+
+    def test_completed_appointment_shows_commission_as_direct_cost(self):
+        appointment = Appointment.objects.create(
+            tenant=self.tenant, client=self.client_, employee=self.employee, service=self.service,
+            date=self.today, start_time=datetime.time(9, 0), end_time=datetime.time(10, 0),
+            status=AppointmentStatus.IN_PROGRESS, price_at_booking=Decimal("100.00"),
+        )
+        complete_appointment(appointment=appointment, payment_method="cash", created_by=self.admin)
+
+        self.client.force_login(self.admin)
+        response = self.client.get(self._period_url())
+        self.assertContains(response, "Custo direto")
+        self.assertContains(response, "Margem de contribui")  # sem acento final, json_script-safe
+        self.assertContains(response, "R$ 40,00")  # comissão: 40% de 100
+
+    def test_categorized_expense_shows_in_fixed_breakdown(self):
+        category = create_expense_category(tenant=self.tenant, name="Aluguel", is_fixed=True)
+        create_expense(
+            tenant=self.tenant, amount=Decimal("2000"), payment_method="pix",
+            description="Aluguel", created_by=self.admin, expense_category=category,
+        )
+        self.client.force_login(self.admin)
+        response = self.client.get(self._period_url())
+        self.assertContains(response, "Despesas fixas por categoria")
+        self.assertContains(response, "Aluguel")
+        self.assertContains(response, "R$ 2000,00")  # sem separador de milhar (USE_THOUSAND_SEPARATOR não ligado)
+
+    def test_uncategorized_expense_not_lost_from_result(self):
+        create_expense(
+            tenant=self.tenant, amount=Decimal("30"), payment_method="cash",
+            description="Avulsa", created_by=self.admin,
+        )
+        self.client.force_login(self.admin)
+        response = self.client.get(self._period_url())
+        self.assertContains(response, "Despesas sem categoria")
+        self.assertContains(response, "R$ 30,00")
+
+    def test_empty_period_prompts_to_create_categories(self):
+        self.client.force_login(self.admin)
+        response = self.client.get(self._period_url())
+        self.assertContains(response, "cadastre categorias de despesa")
 
 
 class ReportsIsolationTest(TestCase):
@@ -405,7 +469,20 @@ class ReportsPdfTest(TestCase):
         self.client.force_login(self.admin)
         response = self._post(["dre"])
         self.assertNotIn(b"Atendimentos hoje", response.content)  # só existe na Visão Geral
-        self.assertIn(b"Entradas", response.content)  # rótulo do DRE
+        self.assertIn(b"Receita", response.content)  # rótulo do DRE em cascata
+
+    def test_dre_shows_commission_as_direct_cost_and_fixed_category(self):
+        self._completed_appointment()
+        category = create_expense_category(tenant=self.tenant, name="Aluguel", is_fixed=True)
+        create_expense(
+            tenant=self.tenant, amount=Decimal("500"), payment_method="pix",
+            description="Aluguel", created_by=self.admin, expense_category=category,
+        )
+        self.client.force_login(self.admin)
+        response = self._post(["dre"])
+        self.assertIn(b"Custo direto", response.content)
+        self.assertIn(b"Despesas fixas por categoria", response.content)
+        self.assertIn(b"Aluguel", response.content)
 
     def test_isolation_other_tenant_service_not_in_pdf(self):
         other_tenant, other_admin = make_tenant_with_admin("salao-b")
