@@ -91,6 +91,11 @@ class Appointment(TenantModel):
         ordering = ["date", "start_time"]
         indexes = [
             models.Index(fields=["tenant", "employee", "date"]),
+            # Agenda "Todos" (sem filtrar funcionário, o caso mais comum) filtra
+            # só tenant+date — o índice acima não serve pra essa consulta porque
+            # "employee" fica no meio da composição (decisão do usuário em
+            # 2026-08-06, avaliação de capacidade pra crescimento de tenants).
+            models.Index(fields=["tenant", "date"]),
         ]
         constraints = [
             models.CheckConstraint(

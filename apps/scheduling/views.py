@@ -159,7 +159,7 @@ def _agenda_response(request, date):
     appointments = (
         Appointment.objects.for_tenant(request.tenant)
         .filter(date=date)
-        .select_related("client", "employee", "service")
+        .select_related("client", "employee", "service", "package")
         .order_by("start_time")
     )
     if employee_id:
@@ -184,7 +184,7 @@ def agenda_items_poll(request):
     appointments = (
         Appointment.objects.for_tenant(request.tenant)
         .filter(date=date)
-        .select_related("client", "employee", "service")
+        .select_related("client", "employee", "service", "package")
         .order_by("start_time")
     )
     if employee_id:
@@ -203,7 +203,7 @@ def agenda_list(request):
     appointments = (
         Appointment.objects.for_tenant(request.tenant)
         .filter(date=date)
-        .select_related("client", "employee", "service")
+        .select_related("client", "employee", "service", "package")
         .order_by("start_time")
     )
     if employee_id:
@@ -332,7 +332,7 @@ def _week_grid_context(request, week_start, employee_id):
     appointments = list(
         Appointment.objects.for_tenant(request.tenant)
         .filter(date__range=(week_start, week_end))
-        .select_related("client", "employee", "service")
+        .select_related("client", "employee", "service", "package")
         .order_by("date", "start_time")
     )
     if employee_id:

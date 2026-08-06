@@ -177,7 +177,7 @@ def _comanda_groups(tenant):
     appointments = (
         Appointment.objects.for_tenant(tenant)
         .filter(status=AppointmentStatus.IN_PROGRESS)
-        .select_related("client", "employee", "service")
+        .select_related("client", "employee", "service", "package")
         .order_by("client_id", "date", "start_time")
     )
     clients_by_id = {}
