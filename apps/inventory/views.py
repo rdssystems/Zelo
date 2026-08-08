@@ -166,6 +166,16 @@ def _filtered_products(request):
     category_id = request.GET.get("category")
     if category_id:
         products = products.filter(category_id=category_id)
+    situacao = request.GET.get("situacao")
+    if situacao == "low_stock":
+        products = products.filter(current_stock__lte=F("min_stock_alert"))
+    elif situacao == "expiring_batches":
+        # Mesmo critério do card "Lotes Vencendo" (inventory_ops.batches_expiring_soon)
+        # — reaproveita em vez de duplicar a janela de 30 dias aqui.
+        expiring_product_ids = inventory_ops.batches_expiring_soon(request.tenant).values_list(
+            "product_id", flat=True
+        )
+        products = products.filter(id__in=expiring_product_ids)
     return products
 
 
@@ -177,6 +187,7 @@ def _items_response(request):
             "products": products,
             "categories": Category.objects.for_tenant(request.tenant),
             "selected_category": request.GET.get("category", ""),
+            "selected_situacao": request.GET.get("situacao", ""),
             **_stock_stats(request.tenant, products),
         },
         request=request,
@@ -195,6 +206,7 @@ def product_list(request):
             "products": products,
             "categories": Category.objects.for_tenant(request.tenant),
             "selected_category": request.GET.get("category", ""),
+            "selected_situacao": request.GET.get("situacao", ""),
             "active_nav": "inventory",
             **_stock_stats(request.tenant, products),
         },
@@ -332,7 +344,6 @@ def product_delete(request, pk):
 @tenant_admin_required
 def product_movement(request, pk):
     product = _get_product(request, pk)
-    error = None
     if request.method == "POST":
         form = StockMovementForm(request.POST, tenant=request.tenant)
         if form.is_valid():
@@ -350,7 +361,14 @@ def product_movement(request, pk):
                     created_by=request.user,
                 )
             except ValidationError as exc:
-                error = " ".join(exc.messages)
+                # Mesmo padrão de apps.employees.views.employee_create — erro
+                # com campo (ex.: "expiry_date" faltando) vira erro INLINE
+                # nesse campo do form; erro sem campo (ex.: "estoque
+                # insuficiente") cai em non_field_errors, já tratado no
+                # template.
+                for field, errors in getattr(exc, "message_dict", {"__all__": exc.messages}).items():
+                    for message in errors:
+                        form.add_error(field if field in form.fields else None, message)
             else:
                 return _items_response(request)
     else:
@@ -364,7 +382,7 @@ def product_movement(request, pk):
     response = render(
         request,
         "painel/inventory/_movement_form.html",
-        {"form": form, "product": product, "error": error},
+        {"form": form, "product": product},
     )
     if request.method == "POST":
         response.headers["HX-Retarget"] = "#modal-slot"

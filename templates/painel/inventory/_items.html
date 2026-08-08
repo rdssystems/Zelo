@@ -7,20 +7,20 @@
       </div>
       <div class="font-display text-3xl text-on-surface">{{ total_items }}</div>
     </div>
-    <div class="bg-error-container/20 p-6 rounded-xl border border-error/20 shadow-sm">
+    <a href="{% url 'inventory:list' %}?situacao=low_stock" class="block bg-error-container/20 p-6 rounded-xl border border-error/20 shadow-sm hover:bg-error-container/30 transition-colors">
       <div class="flex items-center justify-between mb-4">
         <span class="text-label-caps uppercase text-error">Estoque Baixo</span>
         <span class="material-symbols-outlined text-error bg-error-container p-2 rounded-full">warning</span>
       </div>
       <div class="font-display text-3xl text-error">{{ low_stock_count }}</div>
-    </div>
-    <div class="bg-error-container/20 p-6 rounded-xl border border-error/20 shadow-sm">
+    </a>
+    <a href="{% url 'inventory:list' %}?situacao=expiring_batches" class="block bg-error-container/20 p-6 rounded-xl border border-error/20 shadow-sm hover:bg-error-container/30 transition-colors">
       <div class="flex items-center justify-between mb-4">
         <span class="text-label-caps uppercase text-error">Lotes Vencendo</span>
         <span class="material-symbols-outlined text-error bg-error-container p-2 rounded-full">event_busy</span>
       </div>
       <div class="font-display text-3xl text-error">{{ expiring_batches_count }}</div>
-    </div>
+    </a>
     <div class="bg-surface-container-lowest p-6 rounded-xl border border-surface-variant shadow-sm relative overflow-hidden">
       <div class="relative z-10">
         <span class="text-label-caps uppercase text-on-surface-variant block mb-2">Valor em Estoque</span>

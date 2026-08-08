@@ -552,6 +552,56 @@ class ProductPanelTest(TestCase):
         self.assertContains(response, "Xampu")
         self.assertNotContains(response, "Esmalte")
 
+    def test_situacao_low_stock_filter_scopes_product_list(self):
+        low = make_product(self.tenant, name="Xampu Baixo", min_stock_alert=Decimal("10"))
+        inventory_ops.register_stock_movement(
+            tenant=self.tenant, product=low, movement_type=MovementType.IN,
+            quantity=Decimal("2"), unit_price=Decimal("5.00"), reason=MovementReason.PURCHASE,
+            created_by=self.admin,
+        )  # current_stock=2 <= min_stock_alert=10
+        ok = make_product(self.tenant, name="Xampu Normal", min_stock_alert=Decimal("2"))
+        inventory_ops.register_stock_movement(
+            tenant=self.tenant, product=ok, movement_type=MovementType.IN,
+            quantity=Decimal("50"), unit_price=Decimal("5.00"), reason=MovementReason.PURCHASE,
+            created_by=self.admin,
+        )  # current_stock=50 > min_stock_alert=2
+        self.client.force_login(self.admin)
+        response = self.client.get("/painel/estoque/?situacao=low_stock")
+        self.assertContains(response, "Xampu Baixo")
+        self.assertNotContains(response, "Xampu Normal")
+
+    def test_situacao_expiring_batches_filter_scopes_product_list(self):
+        expiring = make_batch_product(self.tenant, name="Esmalte Vencendo")
+        inventory_ops.register_stock_movement(
+            tenant=self.tenant, product=expiring, movement_type=MovementType.IN,
+            quantity=Decimal("5"), unit_price=Decimal("5.00"), reason=MovementReason.PURCHASE,
+            created_by=self.admin, batch_number="L1",
+            expiry_date=datetime.date.today() + datetime.timedelta(days=5),
+        )
+        fine = make_batch_product(self.tenant, name="Esmalte Longe do Vencimento")
+        inventory_ops.register_stock_movement(
+            tenant=self.tenant, product=fine, movement_type=MovementType.IN,
+            quantity=Decimal("5"), unit_price=Decimal("5.00"), reason=MovementReason.PURCHASE,
+            created_by=self.admin, batch_number="L2",
+            expiry_date=datetime.date.today() + datetime.timedelta(days=200),
+        )
+        self.client.force_login(self.admin)
+        response = self.client.get("/painel/estoque/?situacao=expiring_batches")
+        self.assertContains(response, "Esmalte Vencendo")
+        self.assertNotContains(response, "Esmalte Longe do Vencimento")
+
+    def test_situacao_filter_options_rendered(self):
+        self.client.force_login(self.admin)
+        response = self.client.get("/painel/estoque/")
+        self.assertContains(response, "Estoque baixo")
+        self.assertContains(response, "Lote vencendo")
+
+    def test_low_stock_card_links_to_filter(self):
+        self.client.force_login(self.admin)
+        response = self.client.get("/painel/estoque/")
+        self.assertContains(response, "/painel/estoque/?situacao=low_stock")
+        self.assertContains(response, "/painel/estoque/?situacao=expiring_batches")
+
 
 class CategoryDomainTest(TestCase):
     @classmethod
@@ -1089,6 +1139,23 @@ class BatchPanelTest(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(ProductBatch.objects.filter(tenant=self.tenant).count(), 0)
+
+    def test_missing_expiry_date_shows_inline_error_on_field(self):
+        """A falta de validade tem que aparecer embaixo do campo "Validade"
+        (form.expiry_date.errors), não só como aviso genérico no topo do
+        modal — sem isso não dá pra saber qual campo faltou preencher."""
+        product = make_batch_product(self.tenant)
+        self.client.force_login(self.admin)
+        response = self.client.post(
+            f"/painel/estoque/{product.pk}/movimentar/",
+            {"type": "in", "reason": "purchase", "quantity": "5", "unit_price": "5,00"},
+        )
+        self.assertIn("expiry_date", response.context["form"].errors)
+        self.assertIn(
+            "controla lote", " ".join(response.context["form"].errors["expiry_date"])
+        )
+        self.assertContains(response, 'id="id_expiry_date"')
+        self.assertContains(response, "border-error")
 
     def test_movement_form_opens_batch_via_panel(self):
         product = make_batch_product(self.tenant)

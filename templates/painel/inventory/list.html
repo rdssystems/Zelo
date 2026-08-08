@@ -40,6 +40,15 @@
     <option value="{{ cat.pk }}" {% if selected_category|stringformat:"s" == cat.pk|stringformat:"s" %}selected{% endif %}>{{ cat.name }}</option>
     {% endfor %}
   </select>
+  <label class="text-sm text-on-surface-variant">Situação</label>
+  <select class="bg-transparent border-0 border-b border-outline-variant text-on-surface focus:ring-0 focus:border-primary" name="situacao" onchange="this.form.submit()">
+    <option value="">Todas</option>
+    <option value="low_stock" {% if selected_situacao == "low_stock" %}selected{% endif %}>Estoque baixo</option>
+    <option value="expiring_batches" {% if selected_situacao == "expiring_batches" %}selected{% endif %}>Lote vencendo</option>
+  </select>
+  {% if selected_category or selected_situacao %}
+  <a class="text-sm text-primary hover:underline" href="{% url 'inventory:list' %}">Limpar filtros</a>
+  {% endif %}
 </form>
 
 {% include "painel/inventory/_items.html" %}
