@@ -210,6 +210,105 @@ class BookingFlowEndToEndTest(TestCase):
         self.assertContains(response, "acabou de ser reservado")
 
 
+@override_settings(CACHES=LOCMEM_CACHE)
+class BookingByProfessionalFlowTest(TestCase):
+    """Entrada alternativa "por profissional" (decisão do usuário em
+    2026-08-08): a vitrine continua por serviço por padrão, mas uma chave
+    deixa escolher primeiro quem atende — funcionário → serviços dele →
+    mesma agenda de sempre. Cobre também o botão "Voltar" retornando pro
+    fluxo certo (parâmetro `via`)."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.tenant = make_tenant("salao-prof")
+        cls.employee, cls.service = make_bookable_setup(cls.tenant, "ana@salao-prof.com")
+        cls.tomorrow = datetime.date.today() + datetime.timedelta(days=1)
+
+    def test_service_page_defaults_to_servico_mode_with_toggle_visible(self):
+        response = self.client.get(f"/{self.tenant.slug}/agendar/")
+        self.assertContains(response, "Por serviço")
+        self.assertContains(response, "Por profissional")
+
+    def test_professional_step_lists_bookable_employee(self):
+        response = self.client.get(f"/{self.tenant.slug}/agendar/profissionais/")
+        self.assertContains(response, "Ana Silva")
+
+    def test_professional_step_hides_employee_without_active_service(self):
+        from apps.employees.services import create_employee as _create_employee
+
+        create_employee(
+            tenant=self.tenant, full_name="Sem Serviço", email="sem-servico@salao-prof.com",
+            password="Senha@123", default_commission_type="percentage",
+            default_commission_value=Decimal("40.00"),
+        )
+        response = self.client.get(f"/{self.tenant.slug}/agendar/profissionais/")
+        self.assertContains(response, "Ana Silva")
+        self.assertNotContains(response, "Sem Serviço")
+
+    def test_professional_services_step_lists_only_that_employees_services(self):
+        other_employee = create_employee(
+            tenant=self.tenant, full_name="Bia Souza", email="bia@salao-prof.com",
+            password="Senha@123", default_commission_type="percentage",
+            default_commission_value=Decimal("40.00"),
+        )
+        other_service = create_service(
+            tenant=self.tenant, name="Barba", duration_minutes=30, price=Decimal("50.00")
+        )
+        link_service(other_employee, other_service)
+        response = self.client.get(
+            f"/{self.tenant.slug}/agendar/profissionais/servicos/?employee={self.employee.pk}"
+        )
+        self.assertContains(response, "Corte")
+        self.assertNotContains(response, "Barba")
+
+    def test_schedule_reachable_via_professional_first_flow(self):
+        # Data explícita (amanhã) — não depende da hora do dia em que o
+        # teste roda (mesmo cuidado de `BookingFlowEndToEndTest`, que usa
+        # `self.tomorrow` pelo mesmo motivo: passar de manhã fecha o slot
+        # das 09:00 se rodar à tarde).
+        response = self.client.get(
+            f"/{self.tenant.slug}/agendar/horario/"
+            f"?service={self.service.pk}&employee={self.employee.pk}"
+            f"&date={self.tomorrow.isoformat()}&via=profissional"
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "09:00")
+
+    def test_schedule_back_link_targets_professional_flow_when_via_profissional(self):
+        response = self.client.get(
+            f"/{self.tenant.slug}/agendar/horario/"
+            f"?service={self.service.pk}&employee={self.employee.pk}&via=profissional"
+        )
+        self.assertContains(
+            response,
+            f"/{self.tenant.slug}/agendar/profissionais/servicos/?employee={self.employee.pk}",
+        )
+
+    def test_schedule_back_link_targets_service_flow_by_default(self):
+        response = self.client.get(
+            f"/{self.tenant.slug}/agendar/horario/?service={self.service.pk}&employee={self.employee.pk}"
+        )
+        self.assertContains(
+            response, f"/{self.tenant.slug}/agendar/profissional/?service={self.service.pk}"
+        )
+
+    def test_via_survives_through_identify_and_confirm_back_links(self):
+        identify_url = (
+            f"/{self.tenant.slug}/agendar/identificar/?service={self.service.pk}"
+            f"&employee={self.employee.pk}&date={self.tomorrow.isoformat()}&time=09:00&via=profissional"
+        )
+        response = self.client.get(identify_url)
+        self.assertContains(response, "via=profissional")
+
+        post_response = self.client.post(
+            identify_url, {"phone": "11987654321", "name": "Maria Cliente"}
+        )
+        self.assertIn("via=profissional", post_response.url)
+
+        confirm_response = self.client.get(post_response.url)
+        self.assertContains(confirm_response, "via=profissional")
+
+
 class BookingValidationTest(TestCase):
     @classmethod
     def setUpTestData(cls):

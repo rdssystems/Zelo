@@ -8,6 +8,16 @@ urlpatterns = [
     path("", views.salon_home, name="home"),
     path("agendar/", views.booking_service, name="booking_service"),
     path("agendar/profissional/", views.booking_employee, name="booking_employee"),
+    path(
+        "agendar/profissionais/",
+        views.booking_professional,
+        name="booking_professional",
+    ),
+    path(
+        "agendar/profissionais/servicos/",
+        views.booking_professional_services,
+        name="booking_professional_services",
+    ),
     path("agendar/horario/", views.booking_schedule, name="booking_schedule"),
     path(
         "agendar/horario/slots/",

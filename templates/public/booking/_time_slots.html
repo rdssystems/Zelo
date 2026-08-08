@@ -20,7 +20,7 @@
     <div class="grid grid-cols-3 gap-3">
       {% for t in morning_times %}
       <a class="text-center bg-surface-container-low border border-outline-variant/30 text-on-surface py-3 rounded-xl hover:bg-surface-container-high transition-colors"
-         href="{% url 'public:booking_identify' tenant.slug %}?service={{ service.pk }}&employee={{ employee.pk }}&date={{ selected_date|date:'Y-m-d' }}&time={{ t|time:'H:i' }}">
+         href="{% url 'public:booking_identify' tenant.slug %}?service={{ service.pk }}&employee={{ employee.pk }}&date={{ selected_date|date:'Y-m-d' }}&time={{ t|time:'H:i' }}{% if via %}&via={{ via }}{% endif %}">
         {{ t|time:"H:i" }}
       </a>
       {% endfor %}
@@ -36,7 +36,7 @@
     <div class="grid grid-cols-3 gap-3">
       {% for t in afternoon_times %}
       <a class="text-center bg-surface-container-low border border-outline-variant/30 text-on-surface py-3 rounded-xl hover:bg-surface-container-high transition-colors"
-         href="{% url 'public:booking_identify' tenant.slug %}?service={{ service.pk }}&employee={{ employee.pk }}&date={{ selected_date|date:'Y-m-d' }}&time={{ t|time:'H:i' }}">
+         href="{% url 'public:booking_identify' tenant.slug %}?service={{ service.pk }}&employee={{ employee.pk }}&date={{ selected_date|date:'Y-m-d' }}&time={{ t|time:'H:i' }}{% if via %}&via={{ via }}{% endif %}">
         {{ t|time:"H:i" }}
       </a>
       {% endfor %}

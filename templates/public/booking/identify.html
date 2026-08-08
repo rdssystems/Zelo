@@ -2,7 +2,7 @@
 
 {% block header_title %}Seus dados{% endblock %}
 {% block back_link %}
-<a aria-label="Voltar" class="w-10 h-10 flex items-center justify-center rounded-full bg-surface-container hover:bg-surface-container-high transition-colors text-on-surface" href="{% url 'public:booking_schedule' tenant.slug %}?service={{ service.pk }}&employee={{ employee.pk }}&date={{ date|date:'Y-m-d' }}">
+<a aria-label="Voltar" class="w-10 h-10 flex items-center justify-center rounded-full bg-surface-container hover:bg-surface-container-high transition-colors text-on-surface" href="{% url 'public:booking_schedule' tenant.slug %}?service={{ service.pk }}&employee={{ employee.pk }}&date={{ date|date:'Y-m-d' }}{% if via %}&via={{ via }}{% endif %}">
   <span class="material-symbols-outlined">arrow_back</span>
 </a>
 {% endblock %}

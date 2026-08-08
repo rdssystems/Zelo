@@ -2,9 +2,15 @@
 
 {% block header_title %}Escolha o horário{% endblock %}
 {% block back_link %}
+{% if via == "profissional" %}
+<a aria-label="Voltar" class="w-10 h-10 flex items-center justify-center rounded-full bg-surface-container hover:bg-surface-container-high transition-colors text-on-surface" href="{% url 'public:booking_professional_services' tenant.slug %}?employee={{ employee.pk }}">
+  <span class="material-symbols-outlined">arrow_back</span>
+</a>
+{% else %}
 <a aria-label="Voltar" class="w-10 h-10 flex items-center justify-center rounded-full bg-surface-container hover:bg-surface-container-high transition-colors text-on-surface" href="{% url 'public:booking_employee' tenant.slug %}?service={{ service.pk }}">
   <span class="material-symbols-outlined">arrow_back</span>
 </a>
+{% endif %}
 {% endblock %}
 
 {% block content %}
@@ -31,10 +37,10 @@
               {% if d.date == selected_date %}bg-primary-container border-2 border-primary-container text-on-primary-container shadow-md
               {% elif d.has_slots %}bg-surface-container-lowest border-outline-variant hover:bg-surface-container text-on-surface
               {% else %}bg-transparent border-transparent text-outline/40{% endif %}"
-       hx-get="{% url 'public:booking_schedule_slots' tenant.slug %}?service={{ service.pk }}&employee={{ employee.pk }}&date={{ d.date|date:'Y-m-d' }}"
+       hx-get="{% url 'public:booking_schedule_slots' tenant.slug %}?service={{ service.pk }}&employee={{ employee.pk }}&date={{ d.date|date:'Y-m-d' }}{% if via %}&via={{ via }}{% endif %}"
        hx-target="#time-slots" hx-swap="outerHTML"
-       hx-push-url="{% url 'public:booking_schedule' tenant.slug %}?service={{ service.pk }}&employee={{ employee.pk }}&date={{ d.date|date:'Y-m-d' }}"
-       href="{% url 'public:booking_schedule' tenant.slug %}?service={{ service.pk }}&employee={{ employee.pk }}&date={{ d.date|date:'Y-m-d' }}">
+       hx-push-url="{% url 'public:booking_schedule' tenant.slug %}?service={{ service.pk }}&employee={{ employee.pk }}&date={{ d.date|date:'Y-m-d' }}{% if via %}&via={{ via }}{% endif %}"
+       href="{% url 'public:booking_schedule' tenant.slug %}?service={{ service.pk }}&employee={{ employee.pk }}&date={{ d.date|date:'Y-m-d' }}{% if via %}&via={{ via }}{% endif %}">
       <span class="text-[11px] uppercase font-semibold {% if d.date == selected_date %}text-on-primary-container{% else %}text-on-surface-variant{% endif %}">{{ d.date|date:"D" }}</span>
       <span class="font-display text-xl">{{ d.date|date:"d" }}</span>
     </a>

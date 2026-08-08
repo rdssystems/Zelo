@@ -47,6 +47,21 @@ def _get_linked_active_employee(tenant, service, employee_id):
     return employee
 
 
+def _get_bookable_employee(tenant, employee_id):
+    return get_object_or_404(
+        Employee.objects.for_tenant(tenant).filter(is_active=True), pk=employee_id
+    )
+
+
+def _via_from_request(request):
+    """Qual entrada o cliente usou pra chegar na agenda — "servico" (padrão,
+    vitrine do salão) ou "profissional" (decisão do usuário em 2026-08-08:
+    dá pra entrar escolhendo primeiro quem atende). Só existe pra fazer o
+    botão "Voltar" retornar pro mesmo fluxo que o cliente usou pra chegar
+    até aqui, em vez de sempre assumir o caminho por serviço."""
+    return "profissional" if request.GET.get("via") == "profissional" else None
+
+
 def _parse_date(raw):
     try:
         return datetime.date.fromisoformat(raw)
@@ -123,9 +138,38 @@ def booking_employee(request, tenant_slug):
     )
 
 
+def booking_professional(request, tenant_slug):
+    """Entrada alternativa (chave "por profissional" na tela de serviços,
+    decisão do usuário em 2026-08-08): lista quem atende, antes de mostrar
+    o quê. Só quem tem ao menos 1 serviço ativo vinculado aparece — sem
+    isso o próximo passo (escolher serviço) ficaria vazio."""
+    employees = (
+        Employee.objects.for_tenant(request.tenant)
+        .filter(is_active=True, service_links__service__is_active=True)
+        .distinct()
+    )
+    return render(
+        request,
+        "public/booking/professional.html",
+        {"tenant": request.tenant, "employees": employees},
+    )
+
+
+def booking_professional_services(request, tenant_slug):
+    tenant = request.tenant
+    employee = _get_bookable_employee(tenant, request.GET.get("employee"))
+    services = bookable_services(tenant).filter(employee_links__employee=employee)
+    return render(
+        request,
+        "public/booking/professional_services.html",
+        {"tenant": tenant, "employee": employee, "services": services},
+    )
+
+
 def _schedule_context(request, tenant):
     service = _get_bookable_service(tenant, request.GET.get("service"))
     employee = _get_linked_active_employee(tenant, service, request.GET.get("employee"))
+    via = _via_from_request(request)
 
     today = datetime.date.today()
     end_date = today + datetime.timedelta(days=SCHEDULE_WINDOW_DAYS - 1)
@@ -150,6 +194,7 @@ def _schedule_context(request, tenant):
         "selected_date": selected_date,
         "morning_times": [t for t in times if t.hour < 12],
         "afternoon_times": [t for t in times if t.hour >= 12],
+        "via": via,
     }
 
 
@@ -170,11 +215,14 @@ def booking_identify(request, tenant_slug):
     employee = _get_linked_active_employee(tenant, service, request.GET.get("employee"))
     date = _parse_date(request.GET.get("date"))
     start_time = _parse_time(request.GET.get("time"))
+    via = _via_from_request(request)
 
     booking_qs = (
         f"service={service.pk}&employee={employee.pk}"
         f"&date={date.isoformat()}&time={start_time.isoformat()}"
     )
+    if via:
+        booking_qs += f"&via={via}"
 
     if not is_slot_available(employee, service, date, start_time):
         return render(
@@ -226,6 +274,7 @@ def booking_identify(request, tenant_slug):
             "date": date,
             "start_time": start_time,
             "booking_qs": booking_qs,
+            "via": via,
             "show_name_field": show_name_field,
             "phone_value": phone_value,
             "name_value": name_value,
@@ -246,6 +295,7 @@ def booking_confirm(request, tenant_slug):
     employee = _get_linked_active_employee(tenant, service, request.GET.get("employee"))
     date = _parse_date(request.GET.get("date"))
     start_time = _parse_time(request.GET.get("time"))
+    via = _via_from_request(request)
     client = get_object_or_404(
         Client.objects.for_tenant(tenant), pk=request.GET.get("client")
     )
@@ -278,6 +328,7 @@ def booking_confirm(request, tenant_slug):
             "employee": employee,
             "date": date,
             "start_time": start_time,
+            "via": via,
             "client": client,
             "error": error,
         },

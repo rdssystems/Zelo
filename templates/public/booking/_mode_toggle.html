@@ -1,0 +1,12 @@
+<div class="px-6 mb-5 flex justify-center">
+  <div class="inline-flex bg-surface-container-low rounded-pill p-1 gap-1">
+    <a href="{% url 'public:booking_service' tenant.slug %}"
+       class="px-4 py-2 rounded-pill text-sm font-semibold transition-colors {% if mode == 'servico' %}bg-primary text-on-primary{% else %}text-on-surface-variant hover:text-on-surface{% endif %}">
+      Por serviço
+    </a>
+    <a href="{% url 'public:booking_professional' tenant.slug %}"
+       class="px-4 py-2 rounded-pill text-sm font-semibold transition-colors {% if mode == 'profissional' %}bg-primary text-on-primary{% else %}text-on-surface-variant hover:text-on-surface{% endif %}">
+      Por profissional
+    </a>
+  </div>
+</div>

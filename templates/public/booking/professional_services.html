@@ -1,0 +1,45 @@
+{% extends "public/_wizard_base.html" %}
+
+{% block header_title %}Escolha o serviço{% endblock %}
+{% block back_link %}
+<a aria-label="Voltar" class="w-10 h-10 flex items-center justify-center rounded-full bg-surface-container hover:bg-surface-container-high transition-colors text-on-surface" href="{% url 'public:booking_professional' tenant.slug %}">
+  <span class="material-symbols-outlined">arrow_back</span>
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="px-6 mb-6">
+  <div class="flex items-center gap-3 bg-surface-container-low p-4 rounded-2xl border border-surface-container-high">
+    <div class="w-12 h-12 rounded-full overflow-hidden shrink-0">
+      {% if employee.photo %}
+      <img class="w-full h-full object-cover" src="{{ employee.photo.url }}" alt="Foto {{ employee.full_name }}" onerror="this.onerror=null; this.src='https://ui-avatars.com/api/?name={{ employee.full_name|urlencode }}&background=d4a373&color=ffffff';"/>
+      {% else %}
+      <div class="w-full h-full bg-primary-container text-on-primary-container flex items-center justify-center font-display">{{ employee.full_name|first|upper }}</div>
+      {% endif %}
+    </div>
+    <p class="text-on-surface font-semibold">{{ employee.full_name }}</p>
+  </div>
+</div>
+<div class="px-6 flex flex-col gap-4">
+  {% for service in services %}
+  <a class="bg-surface-container-lowest rounded-2xl p-5 shadow-sm border border-surface-variant/40 hover:border-primary/40 hover:shadow-md transition-all flex flex-col gap-1"
+     href="{% url 'public:booking_schedule' tenant.slug %}?service={{ service.pk }}&employee={{ employee.pk }}&via=profissional">
+    <h3 class="font-display text-xl text-on-surface">{{ service.name }}</h3>
+    {% if service.description %}
+    <p class="text-sm text-on-surface-variant line-clamp-2">{{ service.description }}</p>
+    {% endif %}
+    <div class="flex items-center justify-between mt-3 pt-3 border-t border-surface-variant/50">
+      <div class="flex items-center gap-1.5 text-on-surface-variant text-sm">
+        <span class="material-symbols-outlined text-[18px]">schedule</span>
+        {{ service.duration_minutes }} min
+      </div>
+      <span class="font-semibold text-lg text-primary">R$ {{ service.price }}</span>
+    </div>
+  </a>
+  {% empty %}
+  <div class="text-center py-16">
+    <p class="text-on-surface-variant">Nenhum serviço disponível com este profissional no momento.</p>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}

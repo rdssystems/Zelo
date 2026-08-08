@@ -28,6 +28,12 @@ A plataforma cobra **assinatura mensal dos tenants** via Asaas.
 - RF03: Fluxo de agendamento: **1) escolher serviço → 2) escolher funcionário que presta aquele
   serviço → 3) ver agenda daquele funcionário (respeitando jornada e horários já ocupados) →
   4) escolher horário → 5) informar telefone (+ nome na primeira vez) → 6) confirmar.**
+- RF03b ✅ *(implementado em 2026-08-08)*: Chave "Por serviço" (padrão, é a vitrine do salão —
+  decisão do usuário) / "Por profissional" na tela de escolha de serviço — inverte a ordem do
+  RF03: lista quem atende (só quem tem ao menos 1 serviço ativo vinculado), depois os serviços
+  daquele profissional, convergindo na mesma agenda de sempre (passo 3 em diante do RF03 é
+  idêntico nos dois fluxos). "Voltar" retorna pro fluxo pelo qual o cliente entrou (parâmetro
+  `via` propagado por toda a URL da agenda em diante), não sempre pro caminho por serviço.
 - RF04: Telefone é o identificador único do cliente dentro daquele tenant (não precisa senha).
   Se o telefone já existe, recupera nome e histórico; se não existe, cadastra na hora.
 - RF05: Sistema bloqueia horários fora da jornada do funcionário e horários já ocupados.
