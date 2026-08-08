@@ -59,6 +59,11 @@ class ReportsAccessTest(TestCase):
         response = self.client.get("/painel/dashboard/")
         self.assertRedirects(response, "/painel/relatorios/")
 
+    def test_period_preset_shortcuts_rendered(self):
+        self.client.force_login(self.admin)
+        response = self.client.get("/painel/relatorios/")
+        self.assertContains(response, "setPeriodPreset(this.closest('form'), 'week')")
+
 
 class ReportsDataTest(TestCase):
     @classmethod

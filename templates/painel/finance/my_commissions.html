@@ -8,7 +8,8 @@
   <p class="text-on-surface-variant">Suas comissões geradas por período, pendentes e pagas.</p>
 </div>
 
-<form class="flex items-center gap-4 mb-8 bg-surface-container-lowest border border-surface-variant rounded-xl p-4" method="get">
+<form class="flex flex-wrap items-center gap-4 mb-8 bg-surface-container-lowest border border-surface-variant rounded-xl p-4" method="get">
+  {% include "painel/_period_preset_buttons.html" %}
   <div class="flex items-center gap-2">
     <label class="text-sm text-on-surface-variant">De</label>
     <input class="bg-transparent border-0 border-b border-outline-variant text-on-surface focus:ring-0 focus:border-primary" name="start" type="date" value="{{ start|date:'Y-m-d' }}"/>

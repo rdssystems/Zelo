@@ -33,6 +33,33 @@
     } }
   }
 </script>
+<script>
+  // Atalhos "Dia/Semana/Mês" dos filtros De/Até (Caixa, Relatórios, Minha
+  // Comissão — todos usam o mesmo padrão de campos `name="start"`/`name="end"`
+  // dentro do form). Formata em data LOCAL (não `toISOString`, que converte
+  // pra UTC e pode voltar um dia por causa do fuso).
+  function setPeriodPreset(form, preset) {
+    const fmt = (d) => {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return `${y}-${m}-${day}`;
+    };
+    const today = new Date();
+    let start = today;
+    if (preset === "week") {
+      const weekday = today.getDay(); // 0 = domingo
+      const diffToMonday = weekday === 0 ? 6 : weekday - 1;
+      start = new Date(today);
+      start.setDate(today.getDate() - diffToMonday);
+    } else if (preset === "month") {
+      start = new Date(today.getFullYear(), today.getMonth(), 1);
+    }
+    form.querySelector('input[name="start"]').value = fmt(start);
+    form.querySelector('input[name="end"]').value = fmt(today);
+    form.submit();
+  }
+</script>
 </head>
 <body class="bg-background text-on-background font-sans antialiased flex min-h-screen"
       hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}' x-data="{ mobileNavOpen: false }">

@@ -583,6 +583,15 @@ class FinancePanelTest(TestCase):
         self.assertContains(response, "Pagar comissão")
         self.assertContains(response, "Ana Silva")
 
+    def test_period_preset_shortcuts_rendered(self):
+        """Atalhos Dia/Semana/Mês (2026-08-08) — mesmo componente reaproveitado
+        em Caixa, Relatórios e Minha Comissão (ver testes correspondentes)."""
+        self.client.force_login(self.admin)
+        response = self.client.get("/painel/caixa/")
+        self.assertContains(response, "setPeriodPreset(this.closest('form'), 'day')")
+        self.assertContains(response, "setPeriodPreset(this.closest('form'), 'week')")
+        self.assertContains(response, "setPeriodPreset(this.closest('form'), 'month')")
+
 
 class MyCommissionsTest(TestCase):
     """RF12 — só as próprias comissões do funcionário, nunca de outro nem o
@@ -648,6 +657,11 @@ class MyCommissionsTest(TestCase):
         self.client.force_login(self.ana.user)
         response = self.client.get("/painel/caixa/")
         self.assertEqual(response.status_code, 403)
+
+    def test_period_preset_shortcuts_rendered(self):
+        self.client.force_login(self.ana.user)
+        response = self.client.get("/painel/minha-comissao/")
+        self.assertContains(response, "setPeriodPreset(this.closest('form'), 'day')")
 
 
 class ComandaFinalizeTest(TestCase):
