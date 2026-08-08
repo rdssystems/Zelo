@@ -192,6 +192,38 @@
   </div>
 
   <div class="bg-surface-container-lowest rounded-2xl shadow-[0_4px_40px_-10px_rgba(125,86,45,0.08)] border border-surface-container p-8">
+    <h3 class="text-label-caps uppercase text-outline mb-2">Autonomia do funcionário</h3>
+    <p class="text-sm text-on-surface-variant mb-4">
+      Controla o que o funcionário consegue fazer sozinho em "Minha Agenda", sem depender de
+      você. Vale só pelos próprios agendamentos dele — nunca de um colega.
+    </p>
+    <label class="flex items-start gap-3 text-sm text-on-surface-variant">
+      <input class="mt-0.5 rounded border-outline text-primary focus:ring-primary" type="checkbox" name="employee_can_create_appointments"
+             {% if form.employee_can_create_appointments.value %}checked{% endif %}/>
+      <span>
+        Funcionário pode agendar<br/>
+        <span class="text-xs">Cria um encaixe manual pra si mesmo em "Minha Agenda" (não pode agendar pra outro colega).</span>
+      </span>
+    </label>
+    <label class="flex items-start gap-3 text-sm text-on-surface-variant mt-4">
+      <input class="mt-0.5 rounded border-outline text-primary focus:ring-primary" type="checkbox" name="employee_can_confirm_appointments"
+             {% if form.employee_can_confirm_appointments.value %}checked{% endif %}/>
+      <span>
+        Funcionário pode confirmar agendamento<br/>
+        <span class="text-xs">Só faz sentido com "Confirmar agendamento automaticamente" desligado acima — senão o agendamento já nasce confirmado e não sobra nada pra confirmar.</span>
+      </span>
+    </label>
+    <label class="flex items-start gap-3 text-sm text-on-surface-variant mt-4">
+      <input class="mt-0.5 rounded border-outline text-primary focus:ring-primary" type="checkbox" name="employee_can_start_appointments"
+             {% if form.employee_can_start_appointments.value %}checked{% endif %}/>
+      <span>
+        Funcionário pode iniciar atendimento<br/>
+        <span class="text-xs">Abre a comanda no Caixa direto por "Minha Agenda", quando o cliente chegar. Finalizar a comanda continua sendo só do admin.</span>
+      </span>
+    </label>
+  </div>
+
+  <div class="bg-surface-container-lowest rounded-2xl shadow-[0_4px_40px_-10px_rgba(125,86,45,0.08)] border border-surface-container p-8">
     <h3 class="text-label-caps uppercase text-outline mb-2">Aniversário de clientes</h3>
     <p class="text-sm text-on-surface-variant mb-4">
       No dia do aniversário de um cliente (com dia/mês cadastrado na ficha dele), avisa você por

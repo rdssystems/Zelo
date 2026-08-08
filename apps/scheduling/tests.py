@@ -2492,6 +2492,220 @@ class MyAgendaTest(TestCase):
         self.assertEqual(response.status_code, 403)
 
 
+class EmployeeSchedulingPermissionsTest(TestCase):
+    """Autonomia do funcionário na própria agenda (decisão do usuário em
+    2026-08-07) — 3 toggles independentes em `Tenant`, desligados por
+    padrão; cada ação só vale pro PRÓPRIO agendamento do funcionário, nunca
+    de um colega (admin nunca tem essa restrição)."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.tenant, cls.admin = make_tenant_with_admin("salao-permissoes")
+        cls.ana = make_employee(cls.tenant, email="ana@salao-permissoes.com", full_name="Ana")
+        cls.bia = make_employee(cls.tenant, email="bia@salao-permissoes.com", full_name="Bia")
+        cls.client_ = make_client(cls.tenant)
+        cls.service = create_service(
+            tenant=cls.tenant, name="Corte", duration_minutes=60, price=Decimal("100")
+        )
+        cls.tomorrow = datetime.date.today() + datetime.timedelta(days=1)
+
+    def _new_appointment_payload(self, employee, date, **overrides):
+        data = {
+            "service": self.service.pk,
+            "employee": employee.pk,
+            "date": date.isoformat(),
+            "time": "09:00",
+            "phone": "11912345678",
+            "name": "Cliente Novo",
+            "birth_day": "",
+            "birth_month": "",
+            "notes": "",
+        }
+        data.update(overrides)
+        return data
+
+    # -- confirmar ----------------------------------------------------
+
+    def test_confirm_blocked_when_flag_off(self):
+        appointment = book(
+            self.tenant, self.ana, self.service, self.client_,
+            self.tomorrow, datetime.time(9, 0), datetime.time(10, 0),
+            status=AppointmentStatus.PENDING,
+        )
+        self.client.force_login(self.ana.user)
+        response = self.client.post(f"/painel/agenda/{appointment.pk}/confirmar/")
+        self.assertEqual(response.status_code, 403)
+        appointment.refresh_from_db()
+        self.assertEqual(appointment.status, AppointmentStatus.PENDING)
+
+    def test_confirm_allowed_on_own_appointment_when_flag_on(self):
+        self.tenant.employee_can_confirm_appointments = True
+        self.tenant.save(update_fields=["employee_can_confirm_appointments"])
+        appointment = book(
+            self.tenant, self.ana, self.service, self.client_,
+            self.tomorrow, datetime.time(9, 0), datetime.time(10, 0),
+            status=AppointmentStatus.PENDING,
+        )
+        self.client.force_login(self.ana.user)
+        response = self.client.post(
+            f"/painel/agenda/{appointment.pk}/confirmar/?date={self.tomorrow.isoformat()}"
+        )
+        self.assertEqual(response.status_code, 200)
+        appointment.refresh_from_db()
+        self.assertEqual(appointment.status, AppointmentStatus.CONFIRMED)
+
+    def test_confirm_blocked_on_colleagues_appointment_even_when_flag_on(self):
+        self.tenant.employee_can_confirm_appointments = True
+        self.tenant.save(update_fields=["employee_can_confirm_appointments"])
+        appointment = book(
+            self.tenant, self.bia, self.service, self.client_,
+            self.tomorrow, datetime.time(9, 0), datetime.time(10, 0),
+            status=AppointmentStatus.PENDING,
+        )
+        self.client.force_login(self.ana.user)
+        response = self.client.post(
+            f"/painel/agenda/{appointment.pk}/confirmar/?date={self.tomorrow.isoformat()}"
+        )
+        self.assertEqual(response.status_code, 403)
+        appointment.refresh_from_db()
+        self.assertEqual(appointment.status, AppointmentStatus.PENDING)
+
+    # -- iniciar atendimento -------------------------------------------
+
+    def test_start_blocked_when_flag_off(self):
+        appointment = book(
+            self.tenant, self.ana, self.service, self.client_,
+            self.tomorrow, datetime.time(9, 0), datetime.time(10, 0),
+            status=AppointmentStatus.CONFIRMED,
+        )
+        self.client.force_login(self.ana.user)
+        response = self.client.post(f"/painel/agenda/{appointment.pk}/iniciar/")
+        self.assertEqual(response.status_code, 403)
+        appointment.refresh_from_db()
+        self.assertEqual(appointment.status, AppointmentStatus.CONFIRMED)
+
+    def test_start_allowed_on_own_appointment_when_flag_on(self):
+        self.tenant.employee_can_start_appointments = True
+        self.tenant.save(update_fields=["employee_can_start_appointments"])
+        appointment = book(
+            self.tenant, self.ana, self.service, self.client_,
+            self.tomorrow, datetime.time(9, 0), datetime.time(10, 0),
+            status=AppointmentStatus.CONFIRMED,
+        )
+        self.client.force_login(self.ana.user)
+        response = self.client.post(
+            f"/painel/agenda/{appointment.pk}/iniciar/?date={self.tomorrow.isoformat()}"
+        )
+        self.assertEqual(response.status_code, 200)
+        appointment.refresh_from_db()
+        self.assertEqual(appointment.status, AppointmentStatus.IN_PROGRESS)
+
+    def test_start_blocked_on_colleagues_appointment_even_when_flag_on(self):
+        self.tenant.employee_can_start_appointments = True
+        self.tenant.save(update_fields=["employee_can_start_appointments"])
+        appointment = book(
+            self.tenant, self.bia, self.service, self.client_,
+            self.tomorrow, datetime.time(9, 0), datetime.time(10, 0),
+            status=AppointmentStatus.CONFIRMED,
+        )
+        self.client.force_login(self.ana.user)
+        response = self.client.post(
+            f"/painel/agenda/{appointment.pk}/iniciar/?date={self.tomorrow.isoformat()}"
+        )
+        self.assertEqual(response.status_code, 403)
+        appointment.refresh_from_db()
+        self.assertEqual(appointment.status, AppointmentStatus.CONFIRMED)
+
+    # -- agendar ---------------------------------------------------------
+
+    def test_new_appointment_blocked_when_flag_off(self):
+        self.client.force_login(self.ana.user)
+        response = self.client.get("/painel/agenda/novo/")
+        self.assertEqual(response.status_code, 403)
+
+    def test_new_appointment_form_locks_employee_field_when_flag_on(self):
+        self.tenant.employee_can_create_appointments = True
+        self.tenant.save(update_fields=["employee_can_create_appointments"])
+        self.client.force_login(self.ana.user)
+        response = self.client.get("/painel/agenda/novo/")
+        self.assertEqual(response.status_code, 200)
+        body = response.content.decode()
+        self.assertIn("Ana", body)
+        self.assertNotIn("Bia", body)
+
+    def test_new_appointment_rejects_tampered_employee_field(self):
+        """Mesmo que o funcionário force outro `employee` no POST, o form só
+        aceita ele mesmo — o queryset já vem travado em
+        `NewAppointmentForm.__init__` (`ModelChoiceField` rejeita valor fora
+        do queryset)."""
+        self.tenant.employee_can_create_appointments = True
+        self.tenant.save(update_fields=["employee_can_create_appointments"])
+        monday = next_weekday(self.tomorrow, 0)
+        set_working_hours(
+            self.ana,
+            [{"weekday": 0, "start_time": datetime.time(9, 0), "end_time": datetime.time(18, 0)}],
+        )
+        self.client.force_login(self.ana.user)
+        response = self.client.post(
+            "/painel/agenda/novo/", self._new_appointment_payload(self.bia, monday)
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(Appointment.objects.filter(employee=self.bia).exists())
+
+    def test_new_appointment_creates_for_self_when_flag_on(self):
+        self.tenant.employee_can_create_appointments = True
+        self.tenant.save(update_fields=["employee_can_create_appointments"])
+        monday = next_weekday(self.tomorrow, 0)
+        set_working_hours(
+            self.ana,
+            [{"weekday": 0, "start_time": datetime.time(9, 0), "end_time": datetime.time(18, 0)}],
+        )
+        self.client.force_login(self.ana.user)
+        response = self.client.post(
+            "/painel/agenda/novo/", self._new_appointment_payload(self.ana, monday)
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(
+            Appointment.objects.filter(employee=self.ana, client__phone="11912345678").exists()
+        )
+
+    # -- admin nunca é afetado / "Minha Agenda" mostra os botões --------
+
+    def test_admin_always_allowed_regardless_of_flags(self):
+        appointment = book(
+            self.tenant, self.ana, self.service, self.client_,
+            self.tomorrow, datetime.time(9, 0), datetime.time(10, 0),
+            status=AppointmentStatus.PENDING,
+        )
+        self.client.force_login(self.admin)
+        response = self.client.post(
+            f"/painel/agenda/{appointment.pk}/confirmar/?date={self.tomorrow.isoformat()}"
+        )
+        self.assertEqual(response.status_code, 200)
+        appointment.refresh_from_db()
+        self.assertEqual(appointment.status, AppointmentStatus.CONFIRMED)
+
+    def test_my_agenda_shows_action_buttons_when_flags_on(self):
+        self.tenant.employee_can_confirm_appointments = True
+        self.tenant.employee_can_start_appointments = True
+        self.tenant.employee_can_create_appointments = True
+        self.tenant.save(update_fields=[
+            "employee_can_confirm_appointments",
+            "employee_can_start_appointments",
+            "employee_can_create_appointments",
+        ])
+        book(
+            self.tenant, self.ana, self.service, self.client_,
+            self.tomorrow, datetime.time(9, 0), datetime.time(10, 0),
+            status=AppointmentStatus.PENDING,
+        )
+        self.client.force_login(self.ana.user)
+        response = self.client.get(f"/painel/minha-agenda/?date={self.tomorrow.isoformat()}")
+        self.assertContains(response, "Confirmar")
+        self.assertContains(response, "Iniciar Atendimento")
+        self.assertContains(response, "Novo Agendamento")
+
+
 class PackageCoverageTest(TestCase):
     """Pacote de mensalidade cobrindo o serviço (decisão do usuário em
     2026-08-04): agendamento nasce com `package` marcado; `price_at_booking`

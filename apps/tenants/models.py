@@ -144,6 +144,29 @@ class Tenant(models.Model):
         "cliente novo — tanto no agendamento público quanto no cadastro manual pelo painel. "
         "Cliente já cadastrado sem aniversário não é bloqueado por causa disso.",
     )
+    # Autonomia do funcionário na própria agenda (decisão do usuário em
+    # 2026-08-07) — desligado por padrão, o admin decide ativar em
+    # Configurações. Cada ação só vale pro PRÓPRIO agendamento do
+    # funcionário (nunca de um colega) — enforced em
+    # `apps.scheduling.views._employee_actor_mismatch`, não aqui.
+    employee_can_create_appointments = models.BooleanField(
+        "funcionário pode agendar", default=False,
+        help_text="Marcado: o funcionário consegue criar um encaixe manual pra si mesmo em "
+        "\"Minha Agenda\" (só pra ele — não pra outro colega). Desmarcado (padrão): só o "
+        "admin cria agendamento manual.",
+    )
+    employee_can_confirm_appointments = models.BooleanField(
+        "funcionário pode confirmar agendamento", default=False,
+        help_text="Marcado: o funcionário consegue confirmar um agendamento pendente dele "
+        "mesmo em \"Minha Agenda\" — só faz sentido com a confirmação automática desligada "
+        "acima. Desmarcado (padrão): só o admin confirma na Agenda.",
+    )
+    employee_can_start_appointments = models.BooleanField(
+        "funcionário pode iniciar atendimento", default=False,
+        help_text="Marcado: o funcionário consegue clicar em \"Iniciar Atendimento\" nos "
+        "próprios agendamentos em \"Minha Agenda\", abrindo a comanda no Caixa. Desmarcado "
+        "(padrão): só o admin inicia atendimento na Agenda.",
+    )
     is_active = models.BooleanField("ativo", default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 

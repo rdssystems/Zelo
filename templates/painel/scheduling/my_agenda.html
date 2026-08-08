@@ -3,9 +3,18 @@
 {% block title %}Zellup — Minha Agenda{% endblock %}
 
 {% block content %}
-<div class="mb-8">
-  <h2 class="font-display text-headline-md text-on-surface mb-2">Minha Agenda</h2>
-  <p class="text-on-surface-variant">Seus próprios atendimentos, dia a dia.</p>
+<div class="mb-8 flex flex-wrap items-start justify-between gap-4">
+  <div>
+    <h2 class="font-display text-headline-md text-on-surface mb-2">Minha Agenda</h2>
+    <p class="text-on-surface-variant">Seus próprios atendimentos, dia a dia.</p>
+  </div>
+  {% if request.tenant.employee_can_create_appointments %}
+  <button class="px-5 py-2.5 rounded-pill bg-primary text-on-primary font-semibold hover:opacity-90 transition-opacity inline-flex items-center gap-2 text-sm"
+          hx-get="{% url 'scheduling:new' %}?date={{ selected_date|date:'Y-m-d' }}" hx-target="#modal-slot" hx-swap="innerHTML">
+    <span class="material-symbols-outlined text-[18px]">add</span>
+    Novo Agendamento
+  </button>
+  {% endif %}
 </div>
 
 <div class="flex items-center gap-4 mb-8 bg-surface-container-lowest border border-surface-variant rounded-xl p-3">
@@ -21,35 +30,5 @@
   </a>
 </div>
 
-<div class="flex flex-col gap-3">
-  {% for appointment in appointments %}
-  <div class="bg-surface-container-lowest rounded-2xl p-5 border border-surface-variant shadow-sm flex flex-col md:flex-row md:items-center gap-4">
-    <div class="md:w-24 shrink-0">
-      <span class="font-display text-2xl text-primary">{{ appointment.start_time|time:"H:i" }}</span>
-      <p class="text-xs text-on-surface-variant">{{ appointment.end_time|time:"H:i" }}</p>
-    </div>
-    <div class="flex-1">
-      <p class="font-semibold text-on-surface">{{ appointment.service.name }}</p>
-      <p class="text-sm text-on-surface-variant">{{ appointment.client.name }}</p>
-    </div>
-    <div>
-      {% if appointment.status == "pending" %}
-      <span class="inline-flex items-center px-3 py-1 rounded-pill bg-surface-variant text-on-surface-variant text-label-caps uppercase">Pendente</span>
-      {% elif appointment.status == "confirmed" %}
-      <span class="inline-flex items-center px-3 py-1 rounded-pill bg-secondary-container text-on-secondary-container text-label-caps uppercase">Confirmado</span>
-      {% elif appointment.status == "completed" %}
-      <span class="inline-flex items-center px-3 py-1 rounded-pill bg-[#e8f5e9] text-[#2e7d32] text-label-caps uppercase">Concluído</span>
-      {% elif appointment.status == "canceled" %}
-      <span class="inline-flex items-center px-3 py-1 rounded-pill bg-error-container text-on-error-container text-label-caps uppercase">Cancelado</span>
-      {% elif appointment.status == "no_show" %}
-      <span class="inline-flex items-center px-3 py-1 rounded-pill bg-error-container text-on-error-container text-label-caps uppercase">Não compareceu</span>
-      {% endif %}
-    </div>
-  </div>
-  {% empty %}
-  <div class="bg-surface-container-lowest rounded-2xl py-16 text-center border border-surface-variant">
-    <p class="text-on-surface-variant">Nenhum atendimento neste dia.</p>
-  </div>
-  {% endfor %}
-</div>
+{% include "painel/scheduling/_my_items.html" %}
 {% endblock %}

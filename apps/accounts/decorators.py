@@ -74,6 +74,52 @@ def superadmin_required(view_func):
     return wrapper
 
 
+def scheduling_action_required(permission_field):
+    """Permite a ação a quem sempre pôde (admin do salão) **ou** ao
+    funcionário logado, só quando o dono ligou `Tenant.<permission_field>`
+    em Configurações (regra combinada com o usuário em 2026-08-07 — 3
+    toggles independentes: agendar/confirmar/iniciar atendimento).
+
+    Só cobre "o funcionário tem permissão pra essa ação, em algum
+    agendamento" — a view ainda precisa checar que o agendamento específico
+    é DELE (não dá pra saber aqui, o pk só chega dentro da view; ver
+    `apps.scheduling.views._employee_actor_mismatch`).
+    """
+
+    def decorator(view_func):
+        @wraps(view_func)
+        @login_required
+        def wrapper(request, *args, **kwargs):
+            user = request.user
+            if user.role == "tenant_admin" and request.tenant is not None:
+                if not request.tenant.theme_confirmed:
+                    return redirect("choose_theme")
+                if _panel_access_blocked(request):
+                    messages.warning(
+                        request,
+                        "A assinatura do salão está com o pagamento pendente — regularize "
+                        "para voltar a usar o painel normalmente.",
+                    )
+                    return redirect("billing:my_plan")
+                return view_func(request, *args, **kwargs)
+            if hasattr(user, "employee_profile") and request.tenant is not None:
+                if _panel_access_blocked(request):
+                    return HttpResponseForbidden(
+                        "A assinatura do salão está com o pagamento pendente — fale com o "
+                        "administrador do salão para regularizar."
+                    )
+                if not getattr(request.tenant, permission_field):
+                    return HttpResponseForbidden(
+                        "Seu salão não habilitou essa ação para funcionários."
+                    )
+                return view_func(request, *args, **kwargs)
+            return HttpResponseForbidden("Acesso restrito.")
+
+        return wrapper
+
+    return decorator
+
+
 def employee_required(view_func):
     """Restringe a view ao funcionário logado (precisa ter um Employee vinculado).
 

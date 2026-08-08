@@ -19,7 +19,7 @@
       <div class="mb-6 rounded-lg bg-error-container text-on-error-container px-4 py-3 text-sm">{{ form.non_field_errors|join:" " }}</div>
       {% endif %}
 
-      <form hx-post="{% url 'scheduling:new' %}" hx-target="#agenda-items" hx-swap="outerHTML" class="space-y-6">
+      <form hx-post="{% url 'scheduling:new' %}" hx-target="{% if is_mine %}#my-agenda-items{% else %}#agenda-items{% endif %}" hx-swap="outerHTML" class="space-y-6">
         {% csrf_token %}
         <div class="grid sm:grid-cols-2 gap-6">
           <div>

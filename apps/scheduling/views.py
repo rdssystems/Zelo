@@ -1,7 +1,7 @@
 import datetime
 
 from django.core.exceptions import ValidationError
-from django.http import HttpResponse
+from django.http import HttpResponse, HttpResponseForbidden
 from django.shortcuts import get_object_or_404, render
 from django.template.loader import render_to_string
 from django.urls import reverse
@@ -10,7 +10,11 @@ from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError as DRFValidationError
 from rest_framework.response import Response
 
-from apps.accounts.decorators import employee_required, tenant_admin_required
+from apps.accounts.decorators import (
+    employee_required,
+    scheduling_action_required,
+    tenant_admin_required,
+)
 from apps.accounts.permissions import IsTenantAdminOrReadOnly, IsTenantMember
 from apps.clients.services import find_client_by_phone, get_or_create_client
 from apps.employees.models import Employee
@@ -460,10 +464,33 @@ def appointment_detail(request, pk):
     )
 
 
+def _my_agenda_response(request, date):
+    """Equivalente de `_agenda_response`, mas pra "Minha Agenda" — só os
+    agendamentos do funcionário logado (RF12 + autonomia de 2026-08-07)."""
+    employee = request.user.employee_profile
+    appointments = (
+        Appointment.objects.for_tenant(request.tenant)
+        .filter(date=date, employee=employee)
+        .select_related("client", "service")
+        .order_by("start_time")
+    )
+    items = render_to_string(
+        "painel/scheduling/_my_items.html",
+        {"appointments": appointments, "selected_date": date},
+        request=request,
+    )
+    modal_reset = '<div id="modal-slot" hx-swap-oob="true"></div>'
+    return HttpResponse(items + modal_reset)
+
+
 def _agenda_action_response(request):
-    """Devolve o HTMX pro lugar de onde a ação partiu — lista de um dia
-    (`#agenda-items`) ou grade semanal (`#agenda-week-grid`), conforme o
-    parâmetro `view` presente na query string do botão que disparou."""
+    """Devolve o HTMX pro lugar de onde a ação partiu — "Minha Agenda"
+    (`#my-agenda-items`) pra quem age como funcionário, ou lista de um dia
+    (`#agenda-items`)/grade semanal (`#agenda-week-grid`) pro admin,
+    conforme o parâmetro `view` presente na query string do botão."""
+    if request.user.role != "tenant_admin":
+        date = _parse_date(request.GET.get("date"))
+        return _my_agenda_response(request, date)
     if request.GET.get("view") == "week":
         week_start = _week_start_for(_parse_date(request.GET.get("week")))
         employee_id = _employee_filter_id(request)
@@ -475,6 +502,9 @@ def _agenda_action_response(request):
 def _agenda_return_qs_and_target(request):
     """Mesma decisão de `_agenda_action_response`, mas pros modais de
     confirmação (GET) montarem a URL de ação e o alvo do swap corretos."""
+    if request.user.role != "tenant_admin":
+        date = request.GET.get("date", "")
+        return f"date={date}", "#my-agenda-items"
     if request.GET.get("view") == "week":
         week_start = _week_start_for(_parse_date(request.GET.get("week")))
         employee_id = _employee_filter_id(request)
@@ -483,10 +513,23 @@ def _agenda_return_qs_and_target(request):
     return f"date={date}", "#agenda-items"
 
 
+def _employee_actor_mismatch(request, appointment):
+    """Funcionário só pode agir no PRÓPRIO agendamento — admin não tem essa
+    restrição (decisão do usuário em 2026-08-07). `None` libera a ação."""
+    if request.user.role == "tenant_admin":
+        return None
+    if appointment.employee_id != request.user.employee_profile.pk:
+        return HttpResponseForbidden("Você só pode agir nos seus próprios agendamentos.")
+    return None
+
+
 @employee_required
 def my_agenda(request):
-    """RF12 — só os próprios agendamentos do funcionário logado, somente
-    leitura (ações de status continuam exclusivas do admin em /painel/agenda/)."""
+    """RF12 — só os próprios agendamentos do funcionário logado. Desde
+    2026-08-07, se o tenant ligar a permissão correspondente em
+    Configurações, a lista também mostra os botões de agendar/confirmar/
+    iniciar atendimento (ver `_my_items.html`) — sem isso, continua
+    somente leitura como sempre foi."""
     employee = request.user.employee_profile
     date = _parse_date(request.GET.get("date"))
     appointments = (
@@ -519,14 +562,19 @@ def _default_confirm_message(appointment):
     )
 
 
-@tenant_admin_required
+@scheduling_action_required("employee_can_confirm_appointments")
 def appointment_confirm_prepare(request, pk):
     """Modal aberto ao clicar "Confirmar" num agendamento pendente — em vez
     de confirmar na hora, mostra uma mensagem de WhatsApp pronta (editável)
     pro cliente. O botão do modal confirma de verdade (POST em
     `scheduling:confirm`) e abre o WhatsApp com a mensagem, os dois na mesma
-    ação (ver `_appointment_confirm_modal.html`)."""
+    ação (ver `_appointment_confirm_modal.html`). Desde 2026-08-07 também
+    acessível ao funcionário (se o tenant ligar a permissão), restrito ao
+    próprio agendamento (`_employee_actor_mismatch`)."""
     appointment = _get_appointment(request, pk)
+    mismatch = _employee_actor_mismatch(request, appointment)
+    if mismatch:
+        return mismatch
     return_qs, target = _agenda_return_qs_and_target(request)
     client = appointment.client
     return render(
@@ -542,11 +590,14 @@ def appointment_confirm_prepare(request, pk):
     )
 
 
-@tenant_admin_required
+@scheduling_action_required("employee_can_confirm_appointments")
 def appointment_confirm(request, pk):
     if request.method != "POST":
         return HttpResponse(status=405)
     appointment = _get_appointment(request, pk)
+    mismatch = _employee_actor_mismatch(request, appointment)
+    if mismatch:
+        return mismatch
     try:
         confirm_appointment(appointment)
     except ValidationError:
@@ -554,11 +605,14 @@ def appointment_confirm(request, pk):
     return _agenda_action_response(request)
 
 
-@tenant_admin_required
+@scheduling_action_required("employee_can_start_appointments")
 def appointment_start(request, pk):
     if request.method != "POST":
         return HttpResponse(status=405)
     appointment = _get_appointment(request, pk)
+    mismatch = _employee_actor_mismatch(request, appointment)
+    if mismatch:
+        return mismatch
     try:
         start_appointment(appointment)
     except ValidationError:
@@ -669,7 +723,16 @@ def _slots_context(tenant, service_id, employee_id, date_str, selected_time_str=
     }
 
 
-@tenant_admin_required
+def _lock_employee_for_actor(request):
+    """Funcionário só pode agendar pra SI MESMO (decisão do usuário em
+    2026-08-07) — admin continua escolhendo qualquer um. `None` = sem trava
+    (admin)."""
+    if request.user.role == "tenant_admin":
+        return None
+    return request.user.employee_profile
+
+
+@scheduling_action_required("employee_can_create_appointments")
 def new_appointment_slots(request):
     """Parcial HTMX: grade de horários livres, atualizada a cada troca de
     serviço/profissional/data no modal de novo agendamento (encaixe manual)."""
@@ -683,7 +746,7 @@ def new_appointment_slots(request):
     return render(request, "painel/scheduling/_new_slots.html", context)
 
 
-@tenant_admin_required
+@scheduling_action_required("employee_can_create_appointments")
 def new_appointment_client_lookup(request):
     """Parcial HTMX: avisa no modal de encaixe manual quando o telefone
     digitado já é de um cliente cadastrado — `get_or_create_client` ignora
@@ -693,11 +756,15 @@ def new_appointment_client_lookup(request):
     return render(request, "painel/scheduling/_new_client_hint.html", {"client": client})
 
 
-@tenant_admin_required
+@scheduling_action_required("employee_can_create_appointments")
 def appointment_new(request):
     date_param = request.GET.get("date", "")
+    lock_employee = _lock_employee_for_actor(request)
+    is_mine = lock_employee is not None
     if request.method == "POST":
-        form = NewAppointmentForm(request.POST, tenant=request.tenant)
+        form = NewAppointmentForm(
+            request.POST, tenant=request.tenant, lock_employee=lock_employee
+        )
         if form.is_valid():
             data = form.cleaned_data
             try:
@@ -722,6 +789,8 @@ def appointment_new(request):
                     for msg in errors:
                         form.add_error(field if field in form.fields else None, msg)
             else:
+                if is_mine:
+                    return _my_agenda_response(request, data["date"])
                 return _agenda_response(request, data["date"])
         slots_context = _slots_context(
             request.tenant,
@@ -734,10 +803,14 @@ def appointment_new(request):
         initial = {}
         if date_param:
             initial["date"] = date_param
-        form = NewAppointmentForm(tenant=request.tenant, initial=initial)
+        form = NewAppointmentForm(
+            tenant=request.tenant, initial=initial, lock_employee=lock_employee
+        )
         slots_context = _slots_context(request.tenant, None, None, date_param, None)
     response = render(
-        request, "painel/scheduling/_new_form.html", {"form": form, **slots_context}
+        request,
+        "painel/scheduling/_new_form.html",
+        {"form": form, "is_mine": is_mine, **slots_context},
     )
     if request.method == "POST":
         response.headers["HX-Retarget"] = "#modal-slot"

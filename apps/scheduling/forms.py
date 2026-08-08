@@ -33,14 +33,24 @@ class NewAppointmentForm(forms.Form):
     )
     notes = forms.CharField(required=False, widget=forms.Textarea, label="Observações")
 
-    def __init__(self, *args, tenant=None, **kwargs):
+    def __init__(self, *args, tenant=None, lock_employee=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["service"].queryset = Service.objects.for_tenant(tenant).filter(
             is_active=True
         )
-        self.fields["employee"].queryset = Employee.objects.for_tenant(tenant).filter(
-            is_active=True
-        )
+        if lock_employee is not None:
+            # Funcionário agendando por conta própria só pode escolher a si
+            # mesmo (decisão do usuário em 2026-08-07) — restringir o
+            # queryset aqui também barra quem tentar forjar outro `pk` no
+            # POST (`ModelChoiceField` rejeita valor fora do queryset).
+            self.fields["employee"].queryset = Employee.objects.filter(
+                pk=lock_employee.pk
+            )
+            self.initial["employee"] = lock_employee.pk
+        else:
+            self.fields["employee"].queryset = Employee.objects.for_tenant(tenant).filter(
+                is_active=True
+            )
 
     def clean_date(self):
         date = self.cleaned_data["date"]
