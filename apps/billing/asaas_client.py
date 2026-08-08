@@ -96,6 +96,17 @@ def create_subscription(*, customer_id, value, next_due_date, description="", ex
     return _request("POST", "/subscriptions", json=payload)
 
 
+def cancel_subscription(asaas_subscription_id):
+    """Encerra a recorrência (`DELETE /subscriptions/{id}`) — o Asaas remove
+    cobranças pendentes/atrasadas dessa assinatura e para de gerar novas, mas
+    NÃO mexe numa cobrança já paga/confirmada (o período corrente já pago
+    continua intacto). Decisão do usuário em 2026-08-08: cancelar em Meu
+    Plano só impede a próxima cobrança, o acesso não é cortado na hora —
+    `apps.billing.services.cancel_subscription` é quem aplica essa regra
+    localmente (`Subscription.canceled_at`), este aqui só fala com o Asaas."""
+    return _request("DELETE", f"/subscriptions/{asaas_subscription_id}")
+
+
 def get_subscription_payments(asaas_subscription_id):
     """Lista as cobranças (`Payment`) já geradas pra essa assinatura — usado
     logo após criar a assinatura pra pegar a `invoiceUrl` da 1ª fatura."""

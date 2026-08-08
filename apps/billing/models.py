@@ -68,6 +68,19 @@ class Subscription(models.Model):
     current_period_start = models.DateField("início do período atual", null=True, blank=True)
     current_period_end = models.DateField("fim do período atual", null=True, blank=True)
     grace_period_days = models.PositiveSmallIntegerField("dias de tolerância", default=5)
+    first_active_at = models.DateTimeField(
+        "data de adesão", null=True, blank=True,
+        help_text="Primeira vez que a assinatura ficou ativa (1º pagamento confirmado) — "
+        "diferente de current_period_start, que é reiniciado a cada renovação/troca de plano. "
+        "Setado uma única vez, nunca sobrescrito depois.",
+    )
+    canceled_at = models.DateTimeField(
+        "cancelada em", null=True, blank=True,
+        help_text="Quando o admin pediu cancelamento em Meu Plano (decisão do usuário em "
+        "2026-08-08: cancelar só impede a PRÓXIMA cobrança — o acesso continua até "
+        "current_period_end, o período já pago não é interrompido). Não confundir com "
+        "status=canceled, que é imediato (usado pro superadmin/webhook de fato encerrado).",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

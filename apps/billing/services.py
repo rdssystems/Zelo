@@ -1,4 +1,5 @@
 import datetime
+from decimal import Decimal
 
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
@@ -191,7 +192,14 @@ def subscription_blocks_panel_access(tenant):
     acontecer — `create_subscription_for_tenant` sempre seta — mas por
     segurança) não bloqueia, diferente do caso overdue sem período: aqui a
     ausência do dado é uma anomalia que não deve penalizar o tenant.
-    `pending`/`active` nunca bloqueiam.
+
+    `active` com `canceled_at` setado (2026-08-08 — cancelamento
+    self-service em Meu Plano) ✅: só bloqueia depois que `current_period_end`
+    passa — o admin pediu pra não renovar, mas o período já pago continua
+    valendo até o fim, sem tolerância extra (ele já sabia a data exata ao
+    cancelar). Sem `current_period_end` conhecido bloqueia direto (mesmo
+    critério defensivo do caso overdue). `active` sem `canceled_at`, e
+    `pending`, nunca bloqueiam.
 
     Usado pelos decorators de painel (`apps.accounts.decorators`) — a
     página pública de agendamento (`/<slug>/`) nunca é afetada, só o painel
@@ -211,6 +219,10 @@ def subscription_blocks_panel_access(tenant):
         if not subscription.trial_ends_at:
             return False
         return timezone.now() > subscription.trial_ends_at
+    if subscription.status == SubscriptionStatus.ACTIVE and subscription.canceled_at:
+        if not subscription.current_period_end:
+            return True
+        return timezone.localdate() > subscription.current_period_end
     return False
 
 
@@ -289,6 +301,74 @@ def get_or_create_checkout_url(subscription, *, admin_email=""):
     return invoice_url
 
 
+def cancel_subscription(subscription):
+    """Cancelamento self-service, botão "Cancelar assinatura" em Meu Plano
+    (decisão do usuário em 2026-08-08): só impede a PRÓXIMA cobrança — o
+    acesso continua até `current_period_end` (o período já pago não é
+    interrompido, ver `subscription_blocks_panel_access`). Chama o Asaas
+    (`DELETE /subscriptions/{id}`, remove cobranças futuras/pendentes dessa
+    recorrência sem mexer na já paga) e só então grava `canceled_at` — se a
+    chamada falhar, nada muda localmente."""
+    if not subscription.is_recurring:
+        raise ValidationError("Esta assinatura não tem cobrança recorrente pra cancelar.")
+    if subscription.canceled_at:
+        raise ValidationError("Esta assinatura já está marcada pra cancelar.")
+    asaas_client.cancel_subscription(subscription.asaas_subscription_id)
+    subscription.canceled_at = timezone.now()
+    subscription.save(update_fields=["canceled_at", "updated_at"])
+    return subscription
+
+
+_PAYMENT_STATUS_LABELS = {
+    "PENDING": "Aguardando pagamento",
+    "RECEIVED": "Recebida",
+    "CONFIRMED": "Confirmada",
+    "OVERDUE": "Vencida",
+    "REFUNDED": "Estornada",
+    "RECEIVED_IN_CASH": "Recebida em dinheiro",
+    "REFUND_REQUESTED": "Estorno solicitado",
+    "CHARGEBACK_REQUESTED": "Chargeback solicitado",
+    "CHARGEBACK_DISPUTE": "Em disputa de chargeback",
+    "AWAITING_CHARGEBACK_REVERSAL": "Aguardando reversão de chargeback",
+    "DUNNING_REQUESTED": "Em negativação",
+    "DUNNING_RECEIVED": "Negativação recebida",
+    "AWAITING_RISK_ANALYSIS": "Em análise de risco",
+}
+
+
+def get_transaction_history(subscription):
+    """Histórico de cobranças pra exibir em Meu Plano — busca ao vivo no
+    Asaas (`get_subscription_payments`) em vez de espelhar localmente: o
+    Asaas já é a fonte da verdade de pagamento, duplicar aqui arriscaria
+    desatualizar. `None` (não lista vazia) se a assinatura não é recorrente
+    ou a chamada falhar — o template distingue "sem transação" de "não deu
+    pra carregar". Normaliza o payload do Asaas (data como `date` de
+    verdade, status traduzido) pra não misturar isso no template."""
+    if not subscription.is_recurring:
+        return None
+    try:
+        payments = asaas_client.get_subscription_payments(subscription.asaas_subscription_id)
+    except asaas_client.AsaasError:
+        return None
+    history = []
+    for payment in payments:
+        due_date = payment.get("dueDate")
+        status = payment.get("status", "")
+        value = payment.get("value")
+        history.append({
+            "due_date": datetime.date.fromisoformat(due_date) if due_date else None,
+            # Asaas devolve float no JSON — regra do projeto é Decimal pra
+            # dinheiro (nunca float); quantiza em 2 casas pra bater com a
+            # formatação do resto da tela ("129,90", não "129,9").
+            "value": (
+                Decimal(str(value)).quantize(Decimal("0.01")) if value is not None else None
+            ),
+            "status": _PAYMENT_STATUS_LABELS.get(status, status),
+            "invoice_url": payment.get("invoiceUrl"),
+        })
+    return history
+
+
 # ---------------------------------------------------------------------------
 # Webhook do Asaas — POST /webhooks/asaas/
 # ---------------------------------------------------------------------------
@@ -337,14 +417,20 @@ def handle_asaas_webhook(*, event_type, payment_data):
         return
 
     if event_type in _ACTIVATING_EVENTS:
+        update_fields = ["status", "current_period_start", "current_period_end", "updated_at"]
         subscription.status = SubscriptionStatus.ACTIVE
         subscription.current_period_start = timezone.localdate()
         subscription.current_period_end = timezone.localdate() + datetime.timedelta(
             days=SUBSCRIPTION_PERIOD_DAYS
         )
-        subscription.save(
-            update_fields=["status", "current_period_start", "current_period_end", "updated_at"]
-        )
+        if not subscription.first_active_at:
+            # "Data de adesão" de verdade (2026-08-08) — setada só na 1ª vez
+            # que a assinatura ativa, nunca sobrescrita nas renovações
+            # seguintes (diferente de current_period_start, que reinicia a
+            # cada ciclo).
+            subscription.first_active_at = timezone.now()
+            update_fields.append("first_active_at")
+        subscription.save(update_fields=update_fields)
     elif event_type in _OVERDUE_EVENTS:
         subscription.status = SubscriptionStatus.OVERDUE
         subscription.save(update_fields=["status", "updated_at"])

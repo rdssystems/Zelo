@@ -364,6 +364,12 @@ def my_plan(request):
         deadline = billing_ops.grace_deadline(subscription)
         if deadline is not None:
             grace_days_left = (deadline - timezone.localdate()).days
+    # Histórico de transação (2026-08-08) só custa a chamada ao Asaas pra
+    # quem realmente tem cobrança recorrente ativa — não faz sentido buscar
+    # em trial/pending/overdue sem asaas_subscription_id.
+    transaction_history = None
+    if subscription.status == SubscriptionStatus.ACTIVE and subscription.is_recurring:
+        transaction_history = billing_ops.get_transaction_history(subscription)
     return render(
         request,
         "painel/billing/my_plan.html",
@@ -376,8 +382,60 @@ def my_plan(request):
             "grace_days_left": grace_days_left,
             "panel_blocked": billing_ops.subscription_blocks_panel_access(request.tenant),
             "show_welcome": request.GET.get("ativado") == "1",
+            "transaction_history": transaction_history,
         },
     )
+
+
+@tenant_admin_required(allow_when_blocked=True)
+def cancel_subscription_confirm(request):
+    subscription = Subscription.objects.select_related("plan").get(tenant=request.tenant)
+    period_end = subscription.current_period_end
+    if period_end:
+        message = (
+            f"Sua assinatura do plano {subscription.plan.name} deixa de renovar — "
+            f"nenhuma nova cobrança será gerada. Você continua com acesso normal ao "
+            f"painel até {period_end.strftime('%d/%m/%Y')} (fim do período já pago)."
+        )
+    else:
+        message = (
+            f"Sua assinatura do plano {subscription.plan.name} deixa de renovar — "
+            "nenhuma nova cobrança será gerada."
+        )
+    return render(
+        request,
+        "painel/_confirm_action.html",
+        {
+            "title": "Cancelar assinatura",
+            "message": message,
+            "icon": "cancel",
+            "confirm_label": "Cancelar assinatura",
+            "action_url": reverse("billing:cancel_subscription"),
+            "target": "#modal-slot",
+        },
+    )
+
+
+@tenant_admin_required(allow_when_blocked=True)
+def cancel_subscription_view(request):
+    if request.method != "POST":
+        return HttpResponse(status=405)
+    subscription = Subscription.objects.select_related("plan").get(tenant=request.tenant)
+    try:
+        billing_ops.cancel_subscription(subscription)
+    except ValidationError as exc:
+        messages.error(request, " ".join(exc.messages))
+    except asaas_client.AsaasError as exc:
+        messages.error(request, f"Não deu pra cancelar agora, tenta de novo em instantes: {exc}")
+    else:
+        messages.success(
+            request,
+            "Assinatura cancelada — você continua com acesso normal até o fim do período "
+            "já pago, sem nenhuma cobrança nova depois disso.",
+        )
+    response = HttpResponse()
+    response.headers["HX-Redirect"] = reverse("billing:my_plan")
+    return response
 
 
 @tenant_admin_required(allow_when_blocked=True)

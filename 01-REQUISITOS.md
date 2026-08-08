@@ -417,11 +417,15 @@ evento se não recebe 200 a tempo, reenvio é ignorado sem reprocessar). `PAYMEN
 `PAYMENT_RECEIVED` → `active`; `PAYMENT_OVERDUE` → `overdue`; `PAYMENT_DELETED`/
 `PAYMENT_REFUNDED`/`SUBSCRIPTION_DELETED` → `canceled`.
 
-**Estado real das credenciais**: `ASAAS_API_KEY`/`ASAAS_WEBHOOK_TOKEN` seguem vazios no `.env`
-(decisão do usuário — só preencher depois). Com a chave vazia, `asaas_client` levanta
-`AsaasNotConfigured` e a tela de checkout mostra aviso amigável ("pagamento ainda não ativado")
-em vez de quebrar — todo o resto (models, views, templates, testes) já está pronto, só falta a
-chave de sandbox/produção pra virar cobrança de verdade.
+**Estado real das credenciais ✅ *(ativado em produção, confirmado em 2026-08-08)*:**
+`ASAAS_API_KEY`/`ASAAS_WEBHOOK_TOKEN` de produção preenchidas no `.env` local **e** na VPS desde
+o deploy inicial (2026-08-04, mesmo `.env` copiado pros dois — ver `VPS-INFRAESTRUTURA-ATUAL.md`
+§10). Webhook cadastrado no painel do Asaas (`https://zellup.com.br/webhooks/asaas/`, os 6
+eventos acima, fila de sincronização ativa) e testado de ponta a ponta com uma assinatura real
+(checkout → pagamento → webhook → `AsaasWebhookEvent` gravado → `Subscription` virou `active`
+sozinha, sem intervenção manual). Sem a chave (`ASAAS_API_KEY` vazia, cenário de outro ambiente),
+`asaas_client` levanta `AsaasNotConfigured` e a tela de checkout mostra aviso amigável em vez de
+quebrar.
 
 **RF30 (bloqueio por inadimplência) ✅ *(implementado em 2026-07-31)*:**
 `apps.billing.services.subscription_blocks_panel_access(tenant)` decide se o painel bloqueia —
@@ -449,10 +453,33 @@ banner de "Meu Plano" (`painel/billing/my_plan.html`) e o rótulo "Gratuito" do 
 estado, em vez da contagem regressiva.
 
 Aplicado nos dois decorators de painel (`apps/accounts/decorators.py`):
-`tenant_admin_required(allow_when_blocked=True)` isenta uma view específica (só usado nas 5
-views de billing citadas acima); qualquer outra view do tenant_admin redireciona pra
-`/painel/plano/` com uma mensagem. `employee_required` não tem pra onde redirecionar (funcionário
-não acessa `/painel/plano/`), então devolve 403 direto com mensagem pra falar com o admin.
+`tenant_admin_required(allow_when_blocked=True)` isenta uma view específica (views de billing —
+Meu Plano, seleção de plano, checkout, envio de CPF/CNPJ, polling de status, confirmar/executar
+cancelamento); qualquer outra view do tenant_admin redireciona pra `/painel/plano/` com uma
+mensagem. `employee_required` não tem pra onde redirecionar (funcionário não acessa
+`/painel/plano/`), então devolve 403 direto com mensagem pra falar com o admin.
+
+**Cancelamento self-service ✅ *(implementado em 2026-08-08)*:** botão "Cancelar assinatura" em
+Meu Plano, só visível com assinatura `active` e recorrente (`Subscription.is_recurring`).
+Decisão do usuário: cancelar só impede a PRÓXIMA cobrança — o acesso ao painel continua normal
+até `current_period_end` (o período já pago não é cortado), consistente com o que o próprio
+Asaas faz ao remover uma assinatura (`DELETE /subscriptions/{id}` — reference:
+[docs.asaas.com/reference/remover-assinatura](https://docs.asaas.com/reference/remover-assinatura)
+— remove cobrança futura/pendente, não mexe na já paga). Campo novo `Subscription.canceled_at`
+(nunca sobrescreve `status`, que só o webhook/superadmin mudam de verdade) —
+`subscription_blocks_panel_access` bloqueia esse caso especificamente quando `status == active`
+E `canceled_at` setado E `current_period_end` já passou (sem tolerância extra, o admin já sabia
+a data exata ao cancelar). `apps.billing.services.cancel_subscription` chama o Asaas ANTES de
+gravar `canceled_at` — se a chamada falhar, nada muda localmente.
+
+Junto, Meu Plano ganhou um card "Detalhes da assinatura" (só quando `active`): **data de
+adesão** (`Subscription.first_active_at`, setada uma única vez na 1ª ativação via webhook,
+nunca sobrescrita nas renovações seguintes — diferente de `current_period_start`, que reinicia a
+cada ciclo), **período atual**, **valor** e **histórico de transações**
+(`apps.billing.services.get_transaction_history`, busca ao vivo no Asaas via
+`get_subscription_payments` em vez de espelhar localmente — o Asaas é a fonte da verdade de
+pagamento; `None` silencioso se a chamada falhar, pra não derrubar a tela de Meu Plano por causa
+disso).
 `templates/painel/billing/my_plan.html` mostra contagem regressiva da carência (dias restantes
 até bloquear) ou aviso de já bloqueado, conforme o caso.
 

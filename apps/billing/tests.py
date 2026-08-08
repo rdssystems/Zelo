@@ -532,6 +532,107 @@ class CheckoutServiceTest(TestCase):
             billing_ops.get_or_create_checkout_url(subscription)
 
 
+class CancelSubscriptionServiceTest(TestCase):
+    """Cancelamento self-service (decisão do usuário em 2026-08-08): só
+    impede a próxima cobrança, não mexe em status/current_period_end."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.tenant, cls.admin = make_tenant_with_admin("salao-cancelar")
+        cls.plan = Plan.objects.get(name="Profissional")
+
+    def _active_recurring_subscription(self):
+        subscription = Subscription.objects.get(tenant=self.tenant)
+        subscription.plan = self.plan
+        subscription.status = SubscriptionStatus.ACTIVE
+        subscription.asaas_customer_id = "cus_1"
+        subscription.asaas_subscription_id = "sub_1"
+        subscription.current_period_start = timezone.localdate()
+        subscription.current_period_end = timezone.localdate() + datetime.timedelta(days=20)
+        subscription.save()
+        return subscription
+
+    def test_blocks_when_not_recurring(self):
+        subscription = Subscription.objects.get(tenant=self.tenant)
+        subscription.plan = self.plan
+        subscription.status = SubscriptionStatus.ACTIVE
+        subscription.save()
+        with self.assertRaises(ValidationError):
+            billing_ops.cancel_subscription(subscription)
+
+    def test_blocks_when_already_canceled(self):
+        subscription = self._active_recurring_subscription()
+        subscription.canceled_at = timezone.now()
+        subscription.save()
+        with self.assertRaises(ValidationError):
+            billing_ops.cancel_subscription(subscription)
+
+    @patch("apps.billing.asaas_client.cancel_subscription")
+    def test_happy_path_calls_asaas_and_marks_canceled_at(self, mock_cancel):
+        subscription = self._active_recurring_subscription()
+        period_end_before = subscription.current_period_end
+        status_before = subscription.status
+
+        billing_ops.cancel_subscription(subscription)
+
+        mock_cancel.assert_called_once_with("sub_1")
+        subscription.refresh_from_db()
+        self.assertIsNotNone(subscription.canceled_at)
+        # não mexe no acesso já pago nem no status — só marca a intenção.
+        self.assertEqual(subscription.current_period_end, period_end_before)
+        self.assertEqual(subscription.status, status_before)
+
+    @patch("apps.billing.asaas_client.cancel_subscription")
+    def test_asaas_error_does_not_mark_canceled(self, mock_cancel):
+        mock_cancel.side_effect = asaas_client.AsaasError("falha de rede")
+        subscription = self._active_recurring_subscription()
+        with self.assertRaises(asaas_client.AsaasError):
+            billing_ops.cancel_subscription(subscription)
+        subscription.refresh_from_db()
+        self.assertIsNone(subscription.canceled_at)
+
+
+class TransactionHistoryServiceTest(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.tenant, cls.admin = make_tenant_with_admin("salao-historico")
+        cls.plan = Plan.objects.get(name="Profissional")
+
+    def test_none_when_not_recurring(self):
+        subscription = Subscription.objects.get(tenant=self.tenant)
+        self.assertIsNone(billing_ops.get_transaction_history(subscription))
+
+    @patch("apps.billing.asaas_client.get_subscription_payments")
+    def test_normalizes_payment_payload(self, mock_payments):
+        mock_payments.return_value = [
+            {
+                "dueDate": "2026-08-07",
+                "value": 129.9,
+                "status": "CONFIRMED",
+                "invoiceUrl": "https://sandbox.asaas.com/i/xyz",
+            },
+        ]
+        subscription = Subscription.objects.get(tenant=self.tenant)
+        subscription.asaas_subscription_id = "sub_hist"
+        subscription.save()
+
+        history = billing_ops.get_transaction_history(subscription)
+
+        self.assertEqual(len(history), 1)
+        self.assertEqual(history[0]["due_date"], datetime.date(2026, 8, 7))
+        self.assertEqual(history[0]["value"], Decimal("129.90"))
+        self.assertEqual(history[0]["status"], "Confirmada")
+        self.assertEqual(history[0]["invoice_url"], "https://sandbox.asaas.com/i/xyz")
+
+    @patch("apps.billing.asaas_client.get_subscription_payments")
+    def test_none_when_asaas_call_fails(self, mock_payments):
+        mock_payments.side_effect = asaas_client.AsaasError("indisponível")
+        subscription = Subscription.objects.get(tenant=self.tenant)
+        subscription.asaas_subscription_id = "sub_hist"
+        subscription.save()
+        self.assertIsNone(billing_ops.get_transaction_history(subscription))
+
+
 class WebhookServiceTest(TestCase):
     @classmethod
     def setUpTestData(cls):
@@ -555,6 +656,25 @@ class WebhookServiceTest(TestCase):
         subscription = Subscription.objects.get(tenant=self.tenant)
         self.assertEqual(subscription.status, SubscriptionStatus.ACTIVE)
         self.assertIsNotNone(subscription.current_period_end)
+        self.assertIsNotNone(subscription.first_active_at)
+
+    def test_first_active_at_not_overwritten_on_renewal(self):
+        """"Data de adesão" (2026-08-08) é a 1ª ativação — renovações
+        seguintes reiniciam current_period_start/end, mas não isso."""
+        self._pending_subscription()
+        billing_ops.handle_asaas_webhook(
+            event_type="PAYMENT_CONFIRMED",
+            payment_data={"id": "pay_1", "subscription": "sub_789"},
+        )
+        subscription = Subscription.objects.get(tenant=self.tenant)
+        first_active_at = subscription.first_active_at
+
+        billing_ops.handle_asaas_webhook(
+            event_type="PAYMENT_CONFIRMED",
+            payment_data={"id": "pay_1_renewal", "subscription": "sub_789"},
+        )
+        subscription.refresh_from_db()
+        self.assertEqual(subscription.first_active_at, first_active_at)
 
     def test_payment_overdue_marks_subscription_overdue(self):
         subscription = self._pending_subscription()
@@ -719,6 +839,88 @@ class MyPlanPanelTest(TestCase):
         self.assertContains(response, "credenciais do Asaas pendentes")
 
 
+class CancelSubscriptionViewTest(TestCase):
+    """Botão "Cancelar assinatura" em Meu Plano (2026-08-08)."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.tenant, cls.admin = make_tenant_with_admin("salao-cancelarview")
+        cls.plan = Plan.objects.get(name="Profissional")
+
+    def _active_recurring_subscription(self):
+        subscription = Subscription.objects.get(tenant=self.tenant)
+        subscription.plan = self.plan
+        subscription.status = SubscriptionStatus.ACTIVE
+        subscription.asaas_customer_id = "cus_1"
+        subscription.asaas_subscription_id = "sub_1"
+        subscription.current_period_start = timezone.localdate()
+        subscription.current_period_end = timezone.localdate() + datetime.timedelta(days=20)
+        subscription.save()
+        return subscription
+
+    def test_cancel_button_hidden_when_not_recurring(self):
+        subscription = Subscription.objects.get(tenant=self.tenant)
+        subscription.plan = self.plan
+        subscription.status = SubscriptionStatus.ACTIVE
+        subscription.save()
+        self.client.force_login(self.admin)
+        response = self.client.get("/painel/plano/")
+        self.assertNotContains(response, "Cancelar assinatura")
+
+    def test_cancel_button_shown_when_active_and_recurring(self):
+        self._active_recurring_subscription()
+        self.client.force_login(self.admin)
+        response = self.client.get("/painel/plano/")
+        self.assertContains(response, "Cancelar assinatura")
+
+    def test_confirm_modal_mentions_period_end_date(self):
+        subscription = self._active_recurring_subscription()
+        self.client.force_login(self.admin)
+        response = self.client.get("/painel/plano/cancelar/confirmar/")
+        self.assertContains(response, subscription.current_period_end.strftime("%d/%m/%Y"))
+
+    @patch("apps.billing.asaas_client.cancel_subscription")
+    def test_post_cancels_and_redirects(self, mock_cancel):
+        subscription = self._active_recurring_subscription()
+        self.client.force_login(self.admin)
+        response = self.client.post("/painel/plano/cancelar/")
+        self.assertEqual(response.headers.get("HX-Redirect"), "/painel/plano/")
+        mock_cancel.assert_called_once_with("sub_1")
+        subscription.refresh_from_db()
+        self.assertIsNotNone(subscription.canceled_at)
+        # acesso não é cortado na hora — status/período continuam intactos.
+        self.assertEqual(subscription.status, SubscriptionStatus.ACTIVE)
+
+    @patch("apps.billing.asaas_client.cancel_subscription")
+    def test_after_cancel_access_continues_until_period_end(self, mock_cancel):
+        subscription = self._active_recurring_subscription()
+        self.client.force_login(self.admin)
+        self.client.post("/painel/plano/cancelar/")
+        response = self.client.get("/painel/clientes/")
+        self.assertEqual(response.status_code, 200)
+
+    def test_cancel_button_hidden_once_already_canceled(self):
+        subscription = self._active_recurring_subscription()
+        subscription.canceled_at = timezone.now()
+        subscription.save()
+        self.client.force_login(self.admin)
+        response = self.client.get("/painel/plano/")
+        self.assertNotContains(response, "Cancelar assinatura")
+        self.assertContains(response, "sem nova cobrança agendada")
+
+    @patch("apps.billing.asaas_client.get_subscription_payments")
+    def test_shows_transaction_history_table(self, mock_payments):
+        mock_payments.return_value = [
+            {"dueDate": "2026-08-07", "value": 129.9, "status": "CONFIRMED", "invoiceUrl": "https://x"},
+        ]
+        self._active_recurring_subscription()
+        self.client.force_login(self.admin)
+        response = self.client.get("/painel/plano/")
+        self.assertContains(response, "Histórico de transações")
+        self.assertContains(response, "Confirmada")
+        self.assertContains(response, "129,90")
+
+
 class SubscriptionBlocksPanelAccessTest(TestCase):
     """RF30 — decisão do usuário em 2026-07-31: `canceled` bloqueia na hora;
     `overdue` só depois do `grace_period_days` contado do fim do último
@@ -793,6 +995,30 @@ class SubscriptionBlocksPanelAccessTest(TestCase):
         subscription = self._set_subscription(
             status=SubscriptionStatus.CANCELED,
             current_period_end=timezone.localdate(),
+        )
+        self.assertTrue(billing_ops.subscription_blocks_panel_access(subscription.tenant))
+
+    def test_active_with_self_cancellation_before_period_end_does_not_block(self):
+        """Decisão do usuário em 2026-08-08: cancelar em Meu Plano só impede
+        a PRÓXIMA cobrança — acesso continua até o período já pago acabar."""
+        subscription = self._set_subscription(
+            status=SubscriptionStatus.ACTIVE,
+            current_period_end=timezone.localdate() + datetime.timedelta(days=5),
+            canceled_at=timezone.now(),
+        )
+        self.assertFalse(billing_ops.subscription_blocks_panel_access(subscription.tenant))
+
+    def test_active_with_self_cancellation_after_period_end_blocks(self):
+        subscription = self._set_subscription(
+            status=SubscriptionStatus.ACTIVE,
+            current_period_end=timezone.localdate() - datetime.timedelta(days=1),
+            canceled_at=timezone.now(),
+        )
+        self.assertTrue(billing_ops.subscription_blocks_panel_access(subscription.tenant))
+
+    def test_active_with_self_cancellation_and_unknown_period_blocks(self):
+        subscription = self._set_subscription(
+            status=SubscriptionStatus.ACTIVE, current_period_end=None, canceled_at=timezone.now(),
         )
         self.assertTrue(billing_ops.subscription_blocks_panel_access(subscription.tenant))
 

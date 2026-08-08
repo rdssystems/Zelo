@@ -91,6 +91,79 @@
 </div>
 {% endif %}
 
+{% if subscription.status == "active" %}
+<section class="bg-surface-container-lowest rounded-2xl border border-surface-variant shadow-sm p-8 mb-8">
+  <h3 class="text-label-caps uppercase text-outline mb-6">Detalhes da assinatura</h3>
+  <dl class="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-6">
+    <div>
+      <dt class="text-xs text-on-surface-variant mb-1">Data de adesão</dt>
+      <dd class="font-semibold text-on-surface">
+        {% if subscription.first_active_at %}{{ subscription.first_active_at|date:"d/m/Y" }}{% else %}—{% endif %}
+      </dd>
+    </div>
+    <div>
+      <dt class="text-xs text-on-surface-variant mb-1">Período atual</dt>
+      <dd class="font-semibold text-on-surface">
+        {{ subscription.current_period_start|date:"d/m/Y"|default:"—" }} a {{ subscription.current_period_end|date:"d/m/Y"|default:"—" }}
+      </dd>
+    </div>
+    <div>
+      <dt class="text-xs text-on-surface-variant mb-1">Valor</dt>
+      <dd class="font-semibold text-on-surface">R$ {{ subscription.plan.price }}/mês</dd>
+    </div>
+  </dl>
+
+  {% if subscription.canceled_at %}
+  <div class="flex items-center gap-3 bg-surface-container border border-outline-variant rounded-xl px-4 py-3 mb-6">
+    <span class="material-symbols-outlined text-outline">event_busy</span>
+    <p class="text-sm text-on-surface-variant">
+      Cancelada em {{ subscription.canceled_at|date:"d/m/Y" }} — sem nova cobrança agendada.
+      Acesso ao painel continua normal até {{ subscription.current_period_end|date:"d/m/Y" }}.
+    </p>
+  </div>
+  {% elif subscription.is_recurring %}
+  <button class="px-5 py-2.5 rounded-pill border border-error/40 text-error text-sm font-semibold hover:bg-error-container/20 transition-colors mb-6"
+          hx-get="{% url 'billing:cancel_subscription_confirm' %}" hx-target="#modal-slot" hx-swap="innerHTML">
+    Cancelar assinatura
+  </button>
+  {% endif %}
+
+  {% if transaction_history is not None %}
+  <h4 class="text-label-caps uppercase text-outline mb-3">Histórico de transações</h4>
+  {% if transaction_history %}
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="text-left text-xs text-on-surface-variant border-b border-surface-variant">
+          <th class="py-2 pr-4 font-normal">Vencimento</th>
+          <th class="py-2 pr-4 font-normal">Valor</th>
+          <th class="py-2 pr-4 font-normal">Status</th>
+          <th class="py-2 font-normal">Fatura</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for payment in transaction_history %}
+        <tr class="border-b border-surface-variant/50 last:border-0">
+          <td class="py-2 pr-4 text-on-surface">{{ payment.due_date|date:"d/m/Y"|default:"—" }}</td>
+          <td class="py-2 pr-4 text-on-surface">R$ {{ payment.value }}</td>
+          <td class="py-2 pr-4 text-on-surface-variant">{{ payment.status }}</td>
+          <td class="py-2">
+            {% if payment.invoice_url %}
+            <a href="{{ payment.invoice_url }}" target="_blank" rel="noopener" class="text-primary hover:underline">Ver fatura</a>
+            {% else %}—{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="text-sm text-on-surface-variant italic">Nenhuma transação ainda.</p>
+  {% endif %}
+  {% endif %}
+</section>
+{% endif %}
+
 <section class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
   {% for card in plan_cards %}
   {% with plan=card.plan %}
