@@ -17,6 +17,12 @@
 <style>
   .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24; }
   [x-cloak] { display: none !important; }
+  /* Telas baixas (720p e afins) — encolhe a interface toda de forma
+     proporcional (fontSize do tema já é rem, segue o tamanho raiz) em vez
+     de cada elemento ficar grande demais pro espaço vertical disponível. */
+  @media (max-height: 720px) {
+    html { font-size: 87.5%; }
+  }
 </style>
 <script id="tailwind-config">
   tailwind.config = {
@@ -39,10 +45,10 @@
   {% if request.user.role == "tenant_admin" %}
   {% include "painel/notifications/_bell.html" %}
   {% endif %}
-  <nav class="flex-1 space-y-2">
+  <nav class="flex-1 min-h-0 overflow-y-auto space-y-2">
     {% include "painel/_nav_links.html" %}
   </nav>
-  <div class="mt-auto border-t border-surface-variant pt-4 px-4">
+  <div class="mt-auto shrink-0 border-t border-surface-variant pt-4 px-4">
     <p class="text-sm text-on-surface-variant truncate">{{ request.user.email }}</p>
     <p class="text-label-caps uppercase text-outline mt-0.5">{{ request.tenant.name }}</p>
     {% include "painel/_sidebar_plan.html" %}
