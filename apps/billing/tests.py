@@ -144,6 +144,79 @@ class SubscriptionChangeTest(TestCase):
             )
 
 
+class PlanDowngradeEmployeeLimitTest(TestCase):
+    """Trava de downgrade (decisão do usuário em 2026-08-07): não deixa o
+    tenant assinar um plano com `max_employees` menor do que a quantidade de
+    funcionários ativos que ele já tem — nem pelo self-service
+    (`select_plan`, antes do checkout) nem pelo override do superadmin
+    (`change_subscription_plan`). O plano atual não muda quando barrado."""
+
+    @classmethod
+    def setUpTestData(cls):
+        from apps.employees.services import create_employee
+
+        cls.tenant, cls.admin = make_tenant_with_admin("salao-downgrade")
+        cls.superadmin = make_superadmin(email="root-downgrade@zellup.local")
+        cls.studio = Plan.objects.get(name="Studio")  # max_employees=6
+        cls.profissional = Plan.objects.get(name="Profissional")  # max_employees=3
+        for i in range(4):
+            create_employee(
+                tenant=cls.tenant,
+                full_name=f"Funcionário {i}",
+                email=f"func{i}@salao-downgrade.com",
+                password="Senha@123",
+                default_commission_type="percentage",
+                default_commission_value=Decimal("40"),
+            )
+
+    def test_select_plan_blocked_when_over_new_limit(self):
+        """4 funcionários ativos, tentando assinar o Profissional (limite 3)."""
+        subscription = Subscription.objects.get(tenant=self.tenant)
+        with self.assertRaises(ValidationError) as ctx:
+            billing_ops.select_plan(subscription, self.profissional)
+        message = " ".join(ctx.exception.messages)
+        self.assertIn("4 funcionários", message)
+        self.assertIn("Profissional", message)
+        self.assertIn("3", message)
+        subscription.refresh_from_db()
+        self.assertIsNone(subscription.plan)
+
+    def test_select_plan_allowed_when_within_new_limit(self):
+        subscription = Subscription.objects.get(tenant=self.tenant)
+        billing_ops.select_plan(subscription, self.studio)
+        subscription.refresh_from_db()
+        self.assertEqual(subscription.plan, self.studio)
+
+    def test_change_subscription_plan_blocked_when_over_new_limit(self):
+        subscription = Subscription.objects.get(tenant=self.tenant)
+        with self.assertRaises(ValidationError):
+            billing_ops.change_subscription_plan(subscription, self.profissional)
+        subscription.refresh_from_db()
+        self.assertIsNone(subscription.plan)
+
+    def test_view_shows_message_and_keeps_current_plan(self):
+        subscription = Subscription.objects.get(tenant=self.tenant)
+        subscription.plan = self.studio
+        subscription.status = "trialing"
+        subscription.save(update_fields=["plan", "status"])
+        self.client.force_login(self.admin)
+        response = self.client.post(
+            f"/painel/plano/assinar/{self.profissional.pk}/", follow=True
+        )
+        self.assertContains(response, "4 funcionários")
+        subscription.refresh_from_db()
+        self.assertEqual(subscription.plan, self.studio)
+
+    def test_superadmin_view_blocked_too(self):
+        self.client.force_login(self.superadmin)
+        response = self.client.post(
+            f"/plataforma/assinantes/{self.tenant.id}/plano/", {"plan": self.profissional.pk}
+        )
+        self.assertEqual(response.status_code, 302)
+        subscription = Subscription.objects.get(tenant=self.tenant)
+        self.assertIsNone(subscription.plan)
+
+
 class PlataformaAccessTest(TestCase):
     @classmethod
     def setUpTestData(cls):
@@ -602,7 +675,9 @@ class MyPlanPanelTest(TestCase):
         self.assertContains(response, "sem conta de funcionário extra")
 
     def test_plan_max_employees_seeded_correctly(self):
-        self.assertEqual(Plan.objects.get(name="Individual").max_employees, 0)
+        # Individual = 1 (o próprio dono, decisão de 2026-08-07 — antes era
+        # 0 porque o dono não contava; agora ele ocupa a vaga).
+        self.assertEqual(Plan.objects.get(name="Individual").max_employees, 1)
         self.assertEqual(Plan.objects.get(name="Profissional").max_employees, 3)
         self.assertEqual(Plan.objects.get(name="Studio").max_employees, 6)
 
@@ -752,6 +827,86 @@ class SidebarPlanExpiredTest(TestCase):
         self.assertNotContains(response, "dias restante")
 
 
+class SidebarPlanUrgencyTest(TestCase):
+    """`apps.billing.context_processors.sidebar_plan` — cor progressiva do
+    contador de dias (decisão do usuário em 2026-08-07), só nos dois casos
+    com risco real de bloqueio (trial e carência do atraso); plano ativo
+    contando pra próxima cobrança normal nunca fica "urgente"."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.tenant, cls.admin = make_tenant_with_admin("salao-urgencia")
+        cls.plan = Plan.objects.get(name="Profissional")
+
+    def _set_trial_ends_at(self, value):
+        subscription = Subscription.objects.get(tenant=self.tenant)
+        subscription.trial_ends_at = value
+        subscription.save(update_fields=["trial_ends_at"])
+
+    def _set_overdue(self, current_period_end):
+        subscription = Subscription.objects.get(tenant=self.tenant)
+        subscription.plan = self.plan
+        subscription.status = SubscriptionStatus.OVERDUE
+        subscription.current_period_end = current_period_end
+        subscription.grace_period_days = 5
+        subscription.save()
+
+    def test_trial_far_from_expiring_has_no_urgency(self):
+        self._set_trial_ends_at(timezone.now() + datetime.timedelta(days=6))
+        self.client.force_login(self.admin)
+        response = self.client.get("/painel/plano/")
+        self.assertIsNone(response.context["sidebar_plan_urgency"])
+
+    def test_trial_3_days_left_is_warning(self):
+        self._set_trial_ends_at(timezone.now() + datetime.timedelta(days=3))
+        self.client.force_login(self.admin)
+        response = self.client.get("/painel/plano/")
+        self.assertEqual(response.context["sidebar_plan_urgency"], "warning")
+
+    def test_trial_1_day_left_is_urgent(self):
+        self._set_trial_ends_at(timezone.now() + datetime.timedelta(days=1))
+        self.client.force_login(self.admin)
+        response = self.client.get("/painel/plano/")
+        self.assertEqual(response.context["sidebar_plan_urgency"], "urgent")
+
+    def test_trial_expired_is_critical(self):
+        self._set_trial_ends_at(timezone.now() - datetime.timedelta(days=1))
+        self.client.force_login(self.admin)
+        response = self.client.get("/painel/plano/")
+        self.assertEqual(response.context["sidebar_plan_urgency"], "critical")
+
+    def test_overdue_shows_grace_countdown_not_gratuito(self):
+        """Correção de 2026-08-07: antes caía no mesmo ramo do trial e
+        mostrava "Gratuito" com base em `trial_ends_at` (irrelevante pra
+        quem já foi pagante)."""
+        self._set_overdue(current_period_end=timezone.localdate() - datetime.timedelta(days=2))
+        # grace_period_days=5, período acabou há 2 dias -> 3 dias de carência.
+        self.client.force_login(self.admin)
+        response = self.client.get("/painel/plano/")
+        self.assertEqual(response.context["sidebar_plan_days_left"], 3)
+        self.assertEqual(response.context["sidebar_plan_urgency"], "warning")
+        self.assertIn("atrasado", response.context["sidebar_plan_label"])
+        self.assertNotEqual(response.context["sidebar_plan_label"], "Gratuito")
+
+    def test_overdue_last_day_of_grace_is_critical(self):
+        self._set_overdue(current_period_end=timezone.localdate() - datetime.timedelta(days=5))
+        self.client.force_login(self.admin)
+        response = self.client.get("/painel/plano/")
+        self.assertEqual(response.context["sidebar_plan_days_left"], 0)
+        self.assertEqual(response.context["sidebar_plan_urgency"], "critical")
+
+    def test_active_plan_never_gets_urgency_even_near_renewal(self):
+        subscription = Subscription.objects.get(tenant=self.tenant)
+        subscription.plan = self.plan
+        subscription.status = SubscriptionStatus.ACTIVE
+        subscription.current_period_end = timezone.localdate() + datetime.timedelta(days=1)
+        subscription.save()
+        self.client.force_login(self.admin)
+        response = self.client.get("/painel/clientes/")
+        self.assertEqual(response.context["sidebar_plan_days_left"], 1)
+        self.assertIsNone(response.context["sidebar_plan_urgency"])
+
+
 class PanelAccessBlockedPanelTest(TestCase):
     """Integração do RF30 com os decorators de painel
     (`apps.accounts.decorators`) — tenant_admin é redirecionado pra
@@ -791,7 +946,10 @@ class PanelAccessBlockedPanelTest(TestCase):
 
     def test_blocked_admin_can_still_checkout(self):
         self._block_subscription()
-        plan = Plan.objects.get(name="Individual")
+        # "Individual" (max_employees=0) não serve aqui — setUpTestData já
+        # cria 1 funcionário ativo (Ana Silva), e a trava de downgrade
+        # (2026-08-07) bloquearia por motivo alheio ao que este teste cobre.
+        plan = Plan.objects.get(name="Profissional")
         self.client.force_login(self.admin)
         response = self.client.post(f"/painel/plano/assinar/{plan.pk}/")
         self.assertEqual(response.status_code, 302)
@@ -856,7 +1014,10 @@ class TrialExpiredPanelBlockTest(TestCase):
 
     def test_expired_trial_admin_can_still_select_plan_and_checkout(self):
         self._expire_trial()
-        plan = Plan.objects.get(name="Individual")
+        # Mesmo motivo do análogo em PanelAccessBlockedPanelTest: setUpTestData
+        # já cria 1 funcionário ativo, "Individual" (max_employees=0) bateria
+        # na trava de downgrade por um motivo que não é o que este teste cobre.
+        plan = Plan.objects.get(name="Profissional")
         self.client.force_login(self.admin)
         response = self.client.post(f"/painel/plano/assinar/{plan.pk}/")
         self.assertEqual(response.status_code, 302)

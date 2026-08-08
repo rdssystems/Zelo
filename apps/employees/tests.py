@@ -693,6 +693,33 @@ class OwnerEmployeeTest(TestCase):
         self.assertContains(response, "Informe seu nome")
         self.assertFalse(Employee.objects.filter(tenant=self.tenant).exists())
 
+    def test_settings_view_reverts_toggle_when_plan_is_full(self):
+        """Decisão do usuário em 2026-08-07: se ligar "também atende"
+        estoura a vaga do plano, Configurações desfaz o toggle — não deixa
+        o Tenant com owner_attends=True sem o Employee correspondente
+        ativo (form.save() já persistiu o campo antes de sync_owner_employee
+        checar a vaga)."""
+        from apps.billing.models import Plan, Subscription, SubscriptionStatus
+
+        plan = Plan.objects.create(name="Teste Cheio", price=Decimal("49.90"), max_employees=1)
+        Subscription.objects.create(tenant=self.tenant, plan=plan, status=SubscriptionStatus.ACTIVE)
+        employee_ops.create_employee(
+            tenant=self.tenant, full_name="Ana Silva", email="ana@salao-a.com",
+            password="Senha@123", default_commission_type=CommissionType.PERCENTAGE,
+            default_commission_value=Decimal("40"),
+        )  # ocupa a única vaga do plano
+
+        self.client.force_login(self.admin)
+        response = self.client.post(
+            "/painel/configuracoes/",
+            self._settings_payload(owner_name="Carlos Dono", owner_attends="on"),
+            follow=True,
+        )
+        self.assertContains(response, "permite até 1")
+        self.tenant.refresh_from_db()
+        self.assertFalse(self.tenant.owner_attends)
+        self.assertFalse(Employee.objects.filter(tenant=self.tenant, user=self.admin).exists())
+
     def test_owner_employee_appears_in_panel_list_marked_as_dono(self):
         self.tenant.owner_name = "Carlos Dono"
         self.tenant.owner_attends = True
@@ -736,9 +763,12 @@ class OwnerEmployeeTest(TestCase):
 
 
 class EmployeeSeatLimitTest(TestCase):
-    """Plano vira limite de quantos FUNCIONÁRIOS (conta de login própria) o
-    tenant pode ter — decisão do usuário em 2026-08-04. O perfil do dono via
-    "também atende" nunca conta (ver Employee.is_owner/sync_owner_employee)."""
+    """Plano vira limite de quantas PESSOAS atendem cliente no tenant —
+    decisão do usuário em 2026-08-04, com o perfil do dono via "também
+    atende" passando a ocupar vaga igual um funcionário contratado desde
+    2026-08-07 (reverte a decisão original de nunca contá-lo — ver
+    Employee.is_owner/sync_owner_employee). O que nunca conta é o LOGIN: o
+    dono continua sem User de funcionário separado."""
 
     @classmethod
     def setUpTestData(cls):
@@ -783,16 +813,36 @@ class EmployeeSeatLimitTest(TestCase):
         make_employee(self.tenant, email="bia@salao-seats.com", full_name="Bia")
         self.assertEqual(Employee.objects.filter(tenant=self.tenant).count(), 2)
 
-    def test_owner_attending_never_counts_toward_limit(self):
+    def test_owner_attending_counts_toward_limit(self):
+        """Decisão de 2026-08-07 (reverte a de 2026-08-04): o dono gera
+        comissão e atende cliente igual um funcionário contratado, então
+        ocupa vaga igual eles."""
         self.tenant.owner_name = "Dona Catarina"
         self.tenant.owner_attends = True
         self.tenant.save()
         employee_ops.sync_owner_employee(self.tenant)
 
-        # limite=1 e o dono não conta — ainda dá pra criar 1 funcionário real.
-        make_employee(self.tenant, email="ana@salao-seats.com")
+        # limite=1 e agora o dono OCUPA essa vaga — não sobra espaço pra
+        # contratar ninguém.
         with self.assertRaises(ValidationError):
-            make_employee(self.tenant, email="bia@salao-seats.com", full_name="Bia")
+            make_employee(self.tenant, email="ana@salao-seats.com")
+
+    def test_turning_on_owner_attends_blocked_when_plan_is_full(self):
+        """A trava vale também pra LIGAR o toggle, não só pra contratar —
+        checada antes de criar/reativar a vaga do dono (decisão do usuário:
+        Configurações reverte o toggle quando isso acontece, ver
+        apps.tenants.tests)."""
+        make_employee(self.tenant, email="ana@salao-seats.com")  # ocupa a única vaga (limite=1)
+        self.tenant.owner_name = "Dona Catarina"
+        self.tenant.owner_attends = True
+        self.tenant.save()
+        with self.assertRaises(ValidationError):
+            employee_ops.sync_owner_employee(self.tenant)
+        self.assertFalse(
+            Employee.objects.filter(
+                tenant=self.tenant, user=self.admin, is_active=True
+            ).exists()
+        )
 
     def test_deactivated_employee_frees_a_seat(self):
         employee = make_employee(self.tenant, email="ana@salao-seats.com")
@@ -810,6 +860,56 @@ class EmployeeSeatLimitTest(TestCase):
             employee_ops.set_employee_active(employee, True)
         employee.refresh_from_db()
         self.assertFalse(employee.is_active)
+
+    def test_toggle_confirm_shows_seat_limit_warning_instead_of_reactivate_prompt(self):
+        """Pedido do usuário em 2026-08-07: avisar ANTES de confirmar, não
+        deixar clicar em "Reativar" só pra falhar depois."""
+        employee = make_employee(self.tenant, email="ana@salao-seats.com")
+        employee_ops.set_employee_active(employee, False)  # libera a vaga (limite=1)
+        make_employee(self.tenant, email="bia@salao-seats.com", full_name="Bia")  # ocupa a vaga
+        self.client.force_login(self.admin)
+        response = self.client.get(f"/painel/funcionarios/{employee.pk}/toggle/confirmar/")
+        self.assertContains(response, "Limite do plano atingido")
+        self.assertContains(response, "Teste Individual")
+        self.assertNotContains(response, "Reativar funcionário")
+
+    def test_toggle_confirm_normal_prompt_when_within_limit(self):
+        """Desativar continua sempre livre (não mexe em vaga) — o aviso é
+        só na hora de REATIVAR além do limite."""
+        employee = make_employee(self.tenant, email="ana@salao-seats.com")
+        self.client.force_login(self.admin)
+        response = self.client.get(f"/painel/funcionarios/{employee.pk}/toggle/confirmar/")
+        self.assertContains(response, "Desativar funcionário")
+        self.assertNotContains(response, "Limite do plano atingido")
+
+    def test_toggle_post_blocked_beyond_limit_shows_warning_not_500(self):
+        """Defesa mesmo passando direto pelo POST (ex.: raça entre abrir o
+        modal e confirmar) — antes disso estourava sem tratamento."""
+        employee = make_employee(self.tenant, email="ana@salao-seats.com")
+        employee_ops.set_employee_active(employee, False)
+        make_employee(self.tenant, email="bia@salao-seats.com", full_name="Bia")
+        self.client.force_login(self.admin)
+        response = self.client.post(f"/painel/funcionarios/{employee.pk}/toggle/")
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Limite do plano atingido")
+        employee.refresh_from_db()
+        self.assertFalse(employee.is_active)
+
+    def test_new_employee_page_redirects_with_warning_when_plan_is_full(self):
+        """Pedido do usuário: avisar já ao clicar em "Novo Funcionário",
+        antes de preencher o formulário inteiro."""
+        make_employee(self.tenant, email="ana@salao-seats.com")  # ocupa a única vaga (limite=1)
+        self.client.force_login(self.admin)
+        response = self.client.get("/painel/funcionarios/novo/", follow=True)
+        self.assertRedirects(response, "/painel/funcionarios/")
+        self.assertContains(response, "Teste Individual")
+        self.assertContains(response, "permite até 1")
+
+    def test_new_employee_page_loads_normally_within_limit(self):
+        self.client.force_login(self.admin)
+        response = self.client.get("/painel/funcionarios/novo/")
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Novo Funcionário")
 
 
 class EmployeePhotoCompressionTest(TestCase):

@@ -122,6 +122,18 @@ A plataforma cobra **assinatura mensal dos tenants** via Asaas.
 - RF11: O vínculo funcionário↔serviço reflete automaticamente na página pública.
 - RF12: Funcionário logado vê: sua agenda, seus atendimentos por período e o total de comissão
   gerada (pendente/paga) por período.
+- RF12b ✅ *(implementado em 2026-08-07)*: Autonomia do funcionário na própria agenda —
+  3 toggles independentes em Configurações (`Tenant.employee_can_create_appointments`,
+  `employee_can_confirm_appointments`, `employee_can_start_appointments`; todos desligados por
+  padrão, decisão do usuário). Ligados, o funcionário ganha em "Minha Agenda" (`/painel/minha-agenda/`)
+  os mesmos botões de agendar/confirmar/iniciar atendimento que o admin tem em `/painel/agenda/`
+  (`apps.accounts.decorators.scheduling_action_required`) — **sempre restrito ao PRÓPRIO
+  agendamento** (nunca de um colega): "agendar" só permite escolher a si mesmo como profissional
+  (`NewAppointmentForm(lock_employee=...)`, queryset travado — rejeita `employee` forjado no
+  POST) e confirmar/iniciar validam dono do agendamento
+  (`apps.scheduling.views._employee_actor_mismatch`) antes de agir. Finalizar a comanda
+  (RF16/RF17) continua exclusivo do admin no Caixa — fora do escopo desses 3 toggles. Admin nunca
+  é afetado por essas flags (acesso completo sempre, como já era).
 
 ### 3.3 Serviços
 - RF13: Admin cadastra serviço: nome, descrição, duração (minutos), preço, ativo/inativo.
@@ -155,6 +167,7 @@ A plataforma cobra **assinatura mensal dos tenants** via Asaas.
   cobrado por outra forma de pagamento normalmente. Vale tanto pra 1 atendimento quanto pra uma
   comanda com vários serviços (`credit_amount` em `complete_appointment`/`complete_client_comanda`).
 - RF17: Admin/funcionário pode criar agendamento manualmente (encaixe, cliente por telefone/balcão).
+  Funcionário só a partir de 2026-08-07 e só com a permissão ligada em Configurações — ver RF12b.
 - RF17b: Com o cliente já no salão, o admin pode adicionar um serviço extra à comanda em
   andamento (ex.: veio pro corte e decidiu fazer manicure) — vira um novo agendamento "em
   atendimento" na hora, sem checar agenda futura, agrupado com os demais atendimentos do mesmo
@@ -382,11 +395,9 @@ em qualquer assinatura não-ativa sem `trial_ends_at`).
 | Estoque (marketing) | básico | profissional completo (RF43-46) | profissional completo |
 | Extras (marketing) | — | comissão automática, CRM completo, pacotes de mensalidade, relatórios (em breve) | idem Profissional *(único diferencial é o limite de funcionários, decisão de 2026-08-05)* |
 
-⚠️ **O texto acima é só copy de marketing** (`apps/billing/views.py::PLAN_HIGHLIGHTS`), exibido
-na vitrine — **não existe enforcement real ainda**. `Plan` continua sem campo de limite
-(`max_employees` etc. seguem só documentados aqui, não criados) — nenhum tenant é bloqueado por
-passar de N funcionários ou usar estoque profissional num plano "Essencial". Isso é o próximo
-passo, deliberadamente fora deste corte (fatia de hoje foi "assinar", não "limitar").
+⚠️ *(texto de marketing acima escrito antes do enforcement existir — ver correção abaixo, RF41
+"Pendente")* O texto é copy de vitrine (`apps/billing/views.py::PLAN_HIGHLIGHTS`); o enforcement
+de verdade é código, ver abaixo.
 
 **Checkout self-service dentro do painel ✅ *(implementado)*:** `/painel/plano/` — tenant_admin
 logado escolhe um plano (`billing:select_plan`), o sistema pede CPF/CNPJ do salão se ainda não
@@ -445,9 +456,48 @@ não acessa `/painel/plano/`), então devolve 403 direto com mensagem pra falar 
 `templates/painel/billing/my_plan.html` mostra contagem regressiva da carência (dias restantes
 até bloquear) ou aviso de já bloqueado, conforme o caso.
 
-**Pendente pra fechar RF41 de vez** (não fez parte deste corte): `Plan.max_employees` +
-`Plan.stock_professional_enabled` como campos reais, e o enforcement em si (bloquear cadastro de
-funcionário além do limite, esconder telas de estoque profissional pra quem não tem no plano) —
+**`Plan.max_employees` ✅ *(implementado em 2026-08-04, `billing/migrations/0008`)*:** campo real
+em `Plan`, seedado (Individual=1, Profissional=3, Studio=6 — Individual era 0 até 2026-08-07, ver
+abaixo). Enforcement em `apps.billing.services.assert_can_add_employee` — bloqueia
+criar/reativar funcionário quando `funcionários_ativos >= plano.max_employees`
+(`employee_seats_used`); `max_employees=None` continua sem limite (reservado pra plano
+customizado); sem plano (trial) não há limite.
+
+**Trava de downgrade ✅ *(implementado em 2026-08-07)*:** o enforcement acima só pegava na hora de
+*adicionar* funcionário — um tenant podia trocar pra um plano menor e ficar "acima do limite" sem
+aviso nenhum, só esbarrando por acaso na próxima contratação. `assert_plan_fits_employee_count`
+(mesmo arquivo) agora barra a troca de plano ANTES de ir pro checkout quando
+`funcionários_ativos > novo_plano.max_employees` — usado tanto em `select_plan` (self-service,
+`/painel/plano/`) quanto em `change_subscription_plan` (override do superadmin em
+`/plataforma/assinantes/`). Mensagem explica quantos funcionários o tenant tem e o limite do
+plano; não desativa ninguém automaticamente — o admin decide quem desativar (em Funcionários) ou
+desiste da troca e continua no plano atual (que fica intocado, a exceção interrompe antes do
+`save`).
+
+**Dono ("também atende") passa a ocupar vaga ✅ *(implementado em 2026-08-07 — reverte decisão de
+2026-08-04)*:** decisão original era o perfil do responsável (RF: "também atende", reaproveita o
+próprio login de admin) NUNCA contar pro limite do plano — só "conta de login" contava. Usuário
+percebeu a brecha: o dono gera comissão e atende cliente igual um funcionário contratado (CPF
+dele ≠ CNPJ do salão, é gente trabalhando de verdade), então um Profissional (3) com o dono
+atendendo + 3 contratados eram 4 pessoas atendendo pelo preço de 3. Agora `employee_seats_used`
+conta o `Employee` do dono igual qualquer outro quando `is_active=True` (só o LOGIN continua
+sendo o mesmo `User` do admin, isso não muda). Efeitos:
+- `Plan.max_employees` do Individual subiu de 0 pra 1 (`billing/migrations/0012`) — sem isso, o
+  próprio dono não conseguiria ligar "também atende" no plano feito exatamente pra esse caso.
+  Profissional (3) e Studio (6) não mudaram de número nem de preço — já eram vendidos como
+  "pessoas atendendo no total", só a aplicação estava incompleta.
+- Ligar "também atende" em Configurações agora também respeita a vaga
+  (`apps.employees.services.sync_owner_employee` chama `assert_can_add_employee` ANTES de
+  criar/reativar o perfil do dono — nunca depois, senão a própria vaga nova se conta a mais no
+  total). Desligar continua sempre livre (devolve a vaga).
+- Se ligar o toggle estoura a vaga, `apps.tenants.views.settings_view` reverte
+  `Tenant.owner_attends` pra `False` (senão o Tenant ficaria com o campo `True` sem o `Employee`
+  correspondente ativo, já que `form.save()` persiste o formulário inteiro antes de
+  `sync_owner_employee` checar a vaga) e mostra a mensagem de erro — não desativa ninguém
+  automaticamente, mesma filosofia da trava de downgrade acima.
+
+**Ainda pendente pra fechar RF41 de vez:** `Plan.stock_professional_enabled` como campo real e o
+enforcement de esconder telas de estoque profissional (RF43-46) pra quem não tem no plano —
 provavelmente em `apps/tenants/services.py` ou um middleware novo, decisão de onde colocar ainda
 em aberto.
 

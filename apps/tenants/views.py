@@ -176,7 +176,15 @@ def settings_view(request):
             # importa apps.tenants.models) — mesmo padrão de services.py.
             from apps.employees.services import sync_owner_employee
 
-            sync_owner_employee(tenant)
+            try:
+                sync_owner_employee(tenant)
+            except ValidationError as exc:
+                # Vaga de plano lotada (2026-08-07) — reverte o toggle já
+                # salvo por form.save() acima, senão o Tenant fica com
+                # owner_attends=True sem o Employee correspondente ativo.
+                tenant.owner_attends = False
+                tenant.save(update_fields=["owner_attends"])
+                messages.error(request, " ".join(exc.messages))
             try:
                 set_business_hours(
                     tenant,

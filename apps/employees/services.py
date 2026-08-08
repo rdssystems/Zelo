@@ -303,6 +303,13 @@ def sync_owner_employee(tenant):
     Configurações); jornada, serviços e comissão continuam editados no
     próprio perfil, igual aos demais funcionários. Chamado por
     `apps.tenants.views.settings_view` a cada save de Configurações.
+
+    Desde 2026-08-07 o dono ocupa vaga do plano igual um funcionário
+    contratado (`apps.billing.services.employee_seats_used`) — ligar
+    "também atende" quando o salão já está no limite levanta
+    `ValidationError` (checado ANTES de criar/reativar a vaga, senão a
+    vaga nova se conta a mais no total). Só se aplica a LIGAR o toggle
+    (criar/reativar); desligar sempre é livre, é a vaga sendo devolvida.
     """
     owner_user = tenant.users.filter(role=User.Role.TENANT_ADMIN).first()
     if owner_user is None:
@@ -311,6 +318,12 @@ def sync_owner_employee(tenant):
     if not tenant.owner_attends:
         Employee.objects.filter(tenant=tenant, user=owner_user).update(is_active=False)
         return None
+
+    existing = Employee.objects.filter(tenant=tenant, user=owner_user).first()
+    if existing is None or not existing.is_active:
+        from apps.billing.services import assert_can_add_employee
+
+        assert_can_add_employee(tenant)
 
     employee, created = Employee.objects.get_or_create(
         tenant=tenant,

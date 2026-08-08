@@ -50,6 +50,7 @@ def change_subscription_plan(subscription, plan):
             "Esta assinatura tem pagamento recorrente ativo — o plano é controlado "
             "automaticamente pela cobrança e não pode ser trocado manualmente."
         )
+    assert_plan_fits_employee_count(subscription.tenant, plan)
     subscription.plan = plan
     if plan is not None:
         today = timezone.localdate()
@@ -105,32 +106,37 @@ def grace_deadline(subscription):
 
 
 def employee_seats_used(tenant):
-    """Funcionários ATIVOS que ocupam vaga do plano. Não conta o perfil do
-    responsável (`Employee.is_owner`) — "também atende" reaproveita o
-    próprio login do dono e é sempre livre, nunca uma vaga paga."""
-    from django.contrib.auth import get_user_model
-
+    """Funcionários ATIVOS que ocupam vaga do plano — inclui o perfil do
+    responsável quando "também atende" está ligado (decisão do usuário em
+    2026-08-07, revertendo a decisão de 2026-08-04 de nunca contá-lo): o
+    dono gera comissão e atende cliente igual qualquer funcionário
+    contratado, então ocupa vaga igual eles. `Employee.is_owner` não conta
+    LOGIN extra (continua reaproveitando o `User` do admin), só a vaga do
+    plano — ver `apps.employees.services.sync_owner_employee`, que checa o
+    limite antes de ligar o toggle."""
     from apps.employees.models import Employee
 
-    User = get_user_model()
     return (
         Employee.objects.for_tenant(tenant)
         .filter(is_active=True)
-        .exclude(user__role=User.Role.TENANT_ADMIN)
         .count()
     )
 
 
 def assert_can_add_employee(tenant):
     """Trava de vaga de funcionário por plano (decisão do usuário em
-    2026-08-04). Durante o teste grátis (sem plano escolhido ainda) não há
-    limite — "acesso completo" já é a promessa do trial. Com plano escolhido,
+    2026-08-04, com o dono passando a contar na vaga em 2026-08-07). Durante
+    o teste grátis (sem plano escolhido ainda) não há limite — "acesso
+    completo" já é a promessa do trial. Com plano escolhido,
     `Plan.max_employees=None` continua sem limite (reservado pra plano
     customizado); com número definido, bloqueia ao atingir o total de
-    funcionários ativos (perfil do dono não conta, ver `employee_seats_used`).
+    funcionários ativos, incluindo o perfil do dono se "também atende"
+    estiver ligado (ver `employee_seats_used`).
 
     Chamado por `apps.employees.services.create_employee`/`set_employee_active`
-    (reativação) — nunca por `sync_owner_employee`, que é sempre livre.
+    (reativação) e também por `sync_owner_employee` antes de ligar "também
+    atende" — cada um checa ANTES de criar/reativar a vaga correspondente,
+    nunca depois (senão a própria vaga nova se conta a mais no total).
     """
     try:
         subscription = tenant.subscription
@@ -144,6 +150,31 @@ def assert_can_add_employee(tenant):
             f"Seu plano ({plan.name}) permite até {plan.max_employees} "
             f"funcionário{'s' if plan.max_employees != 1 else ''}. Desative alguém ou "
             "faça upgrade em Meu Plano pra adicionar mais."
+        )
+
+
+def assert_plan_fits_employee_count(tenant, plan):
+    """Trava de downgrade (decisão do usuário em 2026-08-07): se o tenant já
+    tem mais funcionários ativos do que o `plan` sendo assinado permite,
+    barra a troca ANTES de ir pro checkout — em vez de deixar o tenant ficar
+    "acima do limite" do próprio plano até esbarrar por acaso em
+    `assert_can_add_employee` na próxima contratação. Não desativa ninguém
+    escolhendo por conta própria — devolve uma mensagem clara pro admin
+    resolver manualmente (desativar alguém em Funcionários) ou desistir da
+    troca (o plano atual não muda, a exceção interrompe antes do `save`).
+
+    Usada por `select_plan` (self-service, antes do checkout) e
+    `change_subscription_plan` (override do superadmin em `/plataforma/`).
+    """
+    if plan is None or plan.max_employees is None:
+        return
+    seats_used = employee_seats_used(tenant)
+    if seats_used > plan.max_employees:
+        raise ValidationError(
+            f"Seu salão tem {seats_used} funcionário{'s' if seats_used != 1 else ''} "
+            f"ativo{'s' if seats_used != 1 else ''}, mas o plano {plan.name} permite até "
+            f"{plan.max_employees}. Desative funcionários suficientes em Funcionários e "
+            "tente assinar de novo, ou continue no plano atual."
         )
 
 
@@ -194,6 +225,7 @@ def select_plan(subscription, plan):
     é quem de fato cria a cobrança."""
     if subscription.status == SubscriptionStatus.ACTIVE:
         raise ValidationError("Esta conta já tem uma assinatura ativa.")
+    assert_plan_fits_employee_count(subscription.tenant, plan)
     subscription.plan = plan
     subscription.save(update_fields=["plan", "updated_at"])
     return subscription

@@ -1,5 +1,9 @@
 {% if sidebar_plan_label %}
-<p class="text-xs text-outline mt-0.5">
+<p class="text-xs mt-0.5
+   {% if sidebar_plan_urgency == "critical" %}text-error font-semibold
+   {% elif sidebar_plan_urgency == "urgent" %}text-orange-600 font-semibold
+   {% elif sidebar_plan_urgency == "warning" %}text-amber-600
+   {% else %}text-outline{% endif %}">
   {% if sidebar_plan_label == "Gratuito" %}
     Gratuito
     {% if sidebar_plan_expired %}

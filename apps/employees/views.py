@@ -121,6 +121,18 @@ def employee_list(request):
 
 @tenant_admin_required
 def employee_create(request):
+    # Checa a vaga ANTES de mostrar o formulário — sem isso o admin só
+    # descobria que o plano estava cheio depois de preencher tudo e
+    # submeter (a checagem de verdade continua em create_employee, esta
+    # aqui é só pra avisar cedo).
+    from apps.billing.services import assert_can_add_employee
+
+    try:
+        assert_can_add_employee(request.tenant)
+    except ValidationError as exc:
+        messages.error(request, " ".join(exc.messages))
+        return redirect("employees:list")
+
     form = EmployeeForm(request.POST or None, request.FILES or None)
     if request.method == "POST" and form.is_valid():
         data = form.cleaned_data.copy()
@@ -208,6 +220,17 @@ def _items_response(request):
 @tenant_admin_required
 def employee_toggle_confirm(request, pk):
     employee = _get_employee(request, pk)
+    if not employee.is_active:
+        from apps.billing.services import assert_can_add_employee
+
+        try:
+            assert_can_add_employee(request.tenant)
+        except ValidationError as exc:
+            return render(
+                request,
+                "painel/employees/_seat_limit_modal.html",
+                {"message": " ".join(exc.messages)},
+            )
     if employee.is_active:
         context = {
             "title": "Desativar funcionário",
@@ -239,7 +262,19 @@ def employee_toggle(request, pk):
     if request.method != "POST":
         return HttpResponse(status=405)
     employee = _get_employee(request, pk)
-    employee_ops.set_employee_active(employee, not employee.is_active)
+    try:
+        employee_ops.set_employee_active(employee, not employee.is_active)
+    except ValidationError as exc:
+        # Vaga lotada entre abrir o modal e clicar em "Reativar" (ex.: duas
+        # abas) — employee_toggle_confirm já pré-checa, isso é só defesa.
+        response = render(
+            request,
+            "painel/employees/_seat_limit_modal.html",
+            {"message": " ".join(exc.messages)},
+        )
+        response.headers["HX-Retarget"] = "#modal-slot"
+        response.headers["HX-Reswap"] = "innerHTML"
+        return response
     return _items_response(request)
 
 

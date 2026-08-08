@@ -16,10 +16,12 @@ class Plan(models.Model):
     order = models.PositiveSmallIntegerField("ordem de exibição", default=0)
     max_employees = models.PositiveSmallIntegerField(
         "limite de funcionários", null=True, blank=True,
-        help_text="Quantidade máxima de contas de funcionário (login próprio) permitida "
-        "neste plano. O perfil do responsável usando \"também atende\" (Configurações) "
-        "reaproveita o próprio login do dono e NUNCA conta aqui — ver "
-        "apps.employees.models.Employee.is_owner. Vazio = sem limite.",
+        help_text="Quantidade máxima de PESSOAS atendendo cliente neste plano — conta "
+        "funcionário contratado E o responsável quando \"também atende\" está ligado "
+        "(decisão do usuário em 2026-08-07: o dono ocupa vaga igual qualquer funcionário, "
+        "porque também gera comissão e atende cliente; só não conta LOGIN extra, o perfil "
+        "dele reaproveita o próprio User de admin — ver "
+        "apps.employees.models.Employee.is_owner). Vazio = sem limite.",
     )
     created_at = models.DateTimeField(auto_now_add=True)
 
