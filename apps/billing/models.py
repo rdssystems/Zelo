@@ -123,3 +123,44 @@ class AsaasWebhookEvent(models.Model):
 
     def __str__(self):
         return f"{self.event_type} — {self.payment_id}"
+
+
+class PlatformSettings(models.Model):
+    """Configuração global da plataforma — singleton (sempre `pk=1`), editada
+    pelo superadmin em `/plataforma/configuracoes/`. Usar `get_solo()`, nunca
+    `.objects.get()`/`.create()` direto (garante a linha única existir)."""
+
+    support_whatsapp = models.CharField(
+        "WhatsApp de suporte", max_length=20, blank=True,
+        help_text="Número que recebe os pedidos de suporte abertos pelos tenants (botão "
+        "\"Suporte\" no painel). Qualquer formato serve — normalizado igual ao WhatsApp do "
+        "tenant (`Tenant.whatsapp_wa_me_number`). Vazio = botão de suporte avisa que ainda não "
+        "está configurado, em vez de gerar link quebrado.",
+    )
+
+    class Meta:
+        verbose_name = "configuração da plataforma"
+        verbose_name_plural = "configurações da plataforma"
+
+    def __str__(self):
+        return "Configurações da plataforma"
+
+    def save(self, *args, **kwargs):
+        self.pk = 1
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def get_solo(cls):
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj
+
+    @property
+    def support_whatsapp_wa_me_number(self):
+        """Mesma lógica de `Tenant.whatsapp_wa_me_number` — só dígitos, com
+        DDI 55 garantido na frente. `None` sem número cadastrado."""
+        digits = "".join(ch for ch in self.support_whatsapp if ch.isdigit())
+        if not digits:
+            return None
+        if not digits.startswith("55"):
+            digits = f"55{digits}"
+        return digits

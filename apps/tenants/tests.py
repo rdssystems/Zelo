@@ -1083,3 +1083,60 @@ class TenantImageCompressionTest(TestCase):
         tenant.save()
 
         self.assertEqual(tenant.logo.name, original_name)
+
+
+class SupportModalViewTest(TestCase):
+    """Botão "Suporte" — acessível a tenant_admin E funcionário (decisão do
+    usuário em 2026-08-09: não é bloqueado por RF30, é justamente quando a
+    assinatura está com problema que mais se precisa de ajuda)."""
+
+    @classmethod
+    def setUpTestData(cls):
+        User = get_user_model()
+        cls.tenant = Tenant.objects.create(name="Salão A", slug="salao-a")
+        cls.admin = User.objects.create_user(
+            email="dona@salao-a.com", password="x", role=User.Role.TENANT_ADMIN, tenant=cls.tenant,
+        )
+
+    def test_login_required(self):
+        response = self.client.get("/painel/suporte/")
+        self.assertEqual(response.status_code, 302)
+
+    def test_tenant_admin_sees_configured_number(self):
+        from apps.billing.services import update_platform_settings
+
+        update_platform_settings(support_whatsapp="34999998888")
+        self.client.force_login(self.admin)
+        response = self.client.get("/painel/suporte/")
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "5534999998888")
+        self.assertContains(response, "Abrir WhatsApp")
+
+    def test_employee_can_also_reach_support(self):
+        from apps.employees.services import create_employee
+
+        employee = create_employee(
+            tenant=self.tenant, full_name="Ana", email="ana@salao-a.com",
+            password="Senha@123", default_commission_type="percentage",
+            default_commission_value=Decimal("40"),
+        )
+        self.client.force_login(employee.user)
+        response = self.client.get("/painel/suporte/")
+        self.assertEqual(response.status_code, 200)
+
+    def test_graceful_message_when_number_not_configured(self):
+        self.client.force_login(self.admin)
+        response = self.client.get("/painel/suporte/")
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "ainda não foi configurado")
+        self.assertNotContains(response, "Abrir WhatsApp")
+
+    def test_message_includes_tenant_name_and_category_options(self):
+        from apps.billing.services import update_platform_settings
+
+        update_platform_settings(support_whatsapp="34999998888")
+        self.client.force_login(self.admin)
+        response = self.client.get("/painel/suporte/")
+        self.assertContains(response, "Salão A")
+        self.assertContains(response, "Erro no sistema")
+        self.assertContains(response, "Cobrança/assinatura")

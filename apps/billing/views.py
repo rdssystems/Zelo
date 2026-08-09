@@ -17,12 +17,13 @@ from . import asaas_client
 from . import services as billing_ops
 from .forms import (
     PlanForm,
+    PlatformSettingsForm,
     SubscriberDeleteForm,
     SubscriptionPeriodForm,
     SubscriptionPlanForm,
     SubscriptionStatusForm,
 )
-from .models import Plan, Subscription, SubscriptionStatus
+from .models import Plan, PlatformSettings, Subscription, SubscriptionStatus
 
 # Conteúdo de marketing dos planos (não é dado de negócio, não precisa virar
 # model — só 3 planos conhecidos, ver 01-REQUISITOS.md §4.2). Chave = nome do
@@ -96,6 +97,29 @@ def platform_dashboard(request):
         ).count(),
     }
     return render(request, "plataforma/dashboard.html", context)
+
+
+# ---------------------------------------------------------------------------
+# Configurações da plataforma — /plataforma/configuracoes/
+# ---------------------------------------------------------------------------
+
+
+@superadmin_required
+def platform_settings_view(request):
+    settings_obj = PlatformSettings.get_solo()
+    if request.method == "POST":
+        form = PlatformSettingsForm(request.POST)
+        if form.is_valid():
+            billing_ops.update_platform_settings(**form.cleaned_data)
+            messages.success(request, "Configurações atualizadas.")
+            return redirect("plataforma:settings")
+    else:
+        form = PlatformSettingsForm(initial={"support_whatsapp": settings_obj.support_whatsapp})
+    return render(
+        request,
+        "plataforma/settings.html",
+        {"form": form, "active_nav": "settings"},
+    )
 
 
 # ---------------------------------------------------------------------------

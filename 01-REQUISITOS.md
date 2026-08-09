@@ -297,6 +297,23 @@ dois links coexistem, por instrução explícita do usuário).
   (não funcionário) — leitura é por usuário (`AnnouncementRead`), cada admin dispensa a sua
   própria, mesmo aviso pode aparecer não-lido pra outro tenant.
 
+### 3.11 Suporte ao tenant ✅ *(implementado em 2026-08-09)*
+- RF49: Botão "Suporte" no painel (sidebar, tenant_admin **e** funcionário — de propósito não
+  passa pelo bloqueio RF30, é justamente quando a assinatura está com problema que mais se
+  precisa de ajuda) abre um modal: escolher categoria (Erro no sistema / Dúvida de uso /
+  Cobrança-assinatura / Sugestão / Outro) + campo de texto livre, botão "Abrir WhatsApp" monta a
+  mensagem (nome + slug do salão, categoria, texto) e abre `wa.me/<número>` — sem ticket/histórico
+  guardado no banco, é só um link inteligente (decisão do usuário: começar simples, considerar um
+  model de verdade só se precisar rastrear volume/histórico depois).
+- RF50: Número de WhatsApp que recebe esses pedidos é definido pelo próprio superadmin em
+  `/plataforma/configuracoes/` (`PlatformSettings`, model singleton — sempre `pk=1`, acessar via
+  `PlatformSettings.get_solo()`, nunca `.objects.get()`/`.create()` direto), não fixo em `.env` —
+  decisão do usuário: quer poder trocar sem precisar de deploy (começa com número pessoal, planeja
+  trocar pra um número dedicado da Zellup depois). Normalização do número (só dígitos + DDI 55)
+  reaproveita a mesma lógica de `Tenant.whatsapp_wa_me_number`
+  (`PlatformSettings.support_whatsapp_wa_me_number`). Sem número configurado, o modal mostra aviso
+  em vez de gerar link quebrado.
+
 ## 4. Requisitos funcionais — Fase 2 (planejar modelo de dados agora, não construir agora)
 
 - RF37 ✅ *(implementado em 2026-08-05)*: Relatórios (faturamento por período, por funcionário,

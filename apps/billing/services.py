@@ -6,7 +6,7 @@ from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 from . import asaas_client
-from .models import AsaasWebhookEvent, Plan, Subscription, SubscriptionStatus
+from .models import AsaasWebhookEvent, Plan, PlatformSettings, Subscription, SubscriptionStatus
 
 SUBSCRIPTION_PERIOD_DAYS = 30
 
@@ -25,6 +25,13 @@ def update_plan(plan, *, name, price, description, is_active, order):
     plan.order = order
     plan.save()
     return plan
+
+
+def update_platform_settings(*, support_whatsapp):
+    settings_obj = PlatformSettings.get_solo()
+    settings_obj.support_whatsapp = support_whatsapp
+    settings_obj.save(update_fields=["support_whatsapp"])
+    return settings_obj
 
 
 TRIAL_DAYS = 5

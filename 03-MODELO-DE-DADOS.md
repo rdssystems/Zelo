@@ -171,6 +171,16 @@ vezes. Puramente técnico, não é exibido em nenhum painel.
 | received_at | datetime | |
 | _constraint_ | unique(payment_id, event_type) | é essa constraint que faz a dedupe (`IntegrityError` capturado em `apps.billing.services._record_webhook_event`) |
 
+### `PlatformSettings` ✅ *(2026-08-09)*
+Singleton (sempre `pk=1`, acessar via `PlatformSettings.get_solo()` — nunca `.objects.get()`/
+`.create()` direto) — config geral da plataforma, editada pelo superadmin em
+`/plataforma/configuracoes/`. Hoje só o WhatsApp de suporte (RF49/RF50); campo novo entra aqui
+direto, não em `.env` (é ajuste operacional, não segredo).
+
+| Campo | Tipo | Obs |
+|---|---|---|
+| support_whatsapp | string, blank | número que recebe pedido de suporte aberto pelo botão "Suporte" no painel do tenant; qualquer formato, normalizado por `support_whatsapp_wa_me_number` (mesma lógica de `Tenant.whatsapp_wa_me_number`) |
+
 ### `Announcement`
 Aviso de atualização do app, criado pelo superadmin em `/plataforma/avisos/` — broadcast pra
 **todos** os tenants (sem alvo por tenant). Visível só a `tenant_admin` (sininho no painel).

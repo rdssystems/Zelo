@@ -15,7 +15,7 @@ from apps.tenants.tests import IsolationProbe
 
 from . import asaas_client
 from . import services as billing_ops
-from .models import AsaasWebhookEvent, Plan, Subscription, SubscriptionStatus
+from .models import AsaasWebhookEvent, Plan, PlatformSettings, Subscription, SubscriptionStatus
 
 User = get_user_model()
 
@@ -1265,3 +1265,70 @@ class TrialExpiredPanelBlockTest(TestCase):
         self.client.force_login(self.admin)
         response = self.client.get("/painel/clientes/")
         self.assertEqual(response.status_code, 200)
+
+
+class PlatformSettingsDomainTest(TestCase):
+    """Singleton (sempre `pk=1`) — botão "Suporte" no painel dos tenants
+    lê `support_whatsapp_wa_me_number` daqui (2026-08-09)."""
+
+    def test_get_solo_creates_row_once(self):
+        self.assertEqual(PlatformSettings.objects.count(), 0)
+        first = PlatformSettings.get_solo()
+        second = PlatformSettings.get_solo()
+        self.assertEqual(first.pk, 1)
+        self.assertEqual(second.pk, 1)
+        self.assertEqual(PlatformSettings.objects.count(), 1)
+
+    def test_save_always_forces_pk_1(self):
+        obj = PlatformSettings(pk=999, support_whatsapp="34999998888")
+        obj.save()
+        self.assertEqual(obj.pk, 1)
+        self.assertEqual(PlatformSettings.objects.count(), 1)
+
+    def test_wa_me_number_adds_ddi_and_strips_formatting(self):
+        obj = PlatformSettings.get_solo()
+        obj.support_whatsapp = "(34) 99999-8888"
+        self.assertEqual(obj.support_whatsapp_wa_me_number, "5534999998888")
+
+    def test_wa_me_number_keeps_existing_ddi(self):
+        obj = PlatformSettings.get_solo()
+        obj.support_whatsapp = "+55 34 99999-8888"
+        self.assertEqual(obj.support_whatsapp_wa_me_number, "5534999998888")
+
+    def test_wa_me_number_none_when_empty(self):
+        obj = PlatformSettings.get_solo()
+        obj.support_whatsapp = ""
+        self.assertIsNone(obj.support_whatsapp_wa_me_number)
+
+
+class PlatformSettingsPanelTest(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.superadmin = make_superadmin()
+        cls.tenant, cls.admin = make_tenant_with_admin("salao-a")
+
+    def test_login_required(self):
+        response = self.client.get("/plataforma/configuracoes/")
+        self.assertEqual(response.status_code, 302)
+
+    def test_tenant_admin_forbidden(self):
+        self.client.force_login(self.admin)
+        response = self.client.get("/plataforma/configuracoes/")
+        self.assertEqual(response.status_code, 403)
+
+    def test_superadmin_updates_support_whatsapp(self):
+        self.client.force_login(self.superadmin)
+        response = self.client.post(
+            "/plataforma/configuracoes/", {"support_whatsapp": "34999998888"}
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(
+            PlatformSettings.get_solo().support_whatsapp_wa_me_number, "5534999998888"
+        )
+
+    def test_form_prefilled_with_current_value(self):
+        PlatformSettings.get_solo()
+        billing_ops.update_platform_settings(support_whatsapp="34999998888")
+        self.client.force_login(self.superadmin)
+        response = self.client.get("/plataforma/configuracoes/")
+        self.assertContains(response, "34999998888")

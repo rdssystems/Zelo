@@ -81,6 +81,10 @@
     <p class="text-sm text-on-surface-variant truncate">{{ request.user.email }}</p>
     <p class="text-label-caps uppercase text-outline mt-0.5">{{ request.tenant.name }}</p>
     {% include "painel/_sidebar_plan.html" %}
+    <button type="button" class="mt-3 flex items-center gap-2 text-on-surface-variant hover:text-primary transition-colors text-sm"
+            hx-get="{% url 'support_modal' %}" hx-target="#modal-slot" hx-swap="innerHTML">
+      <span class="material-symbols-outlined text-[18px]">support_agent</span> Suporte
+    </button>
     <button type="button" data-pwa-install-button
             class="hidden mt-3 flex items-center gap-2 text-on-surface-variant hover:text-primary transition-colors text-sm">
       <span class="material-symbols-outlined text-[18px]">install_desktop</span> Instalar app
@@ -137,6 +141,20 @@
       <p class="text-sm text-on-surface-variant truncate">{{ request.user.email }}</p>
       <p class="text-label-caps uppercase text-outline mt-0.5">{{ request.tenant.name }}</p>
       {% include "painel/_sidebar_plan.html" %}
+      <button type="button" class="mt-3 flex items-center gap-2 text-on-surface-variant hover:text-primary transition-colors text-sm"
+              hx-get="{% url 'support_modal' %}" hx-target="#modal-slot" hx-swap="innerHTML">
+        <span class="material-symbols-outlined text-[18px]">support_agent</span> Suporte
+      </button>
+      <button type="button" data-pwa-install-button
+              class="hidden mt-3 flex items-center gap-2 text-on-surface-variant hover:text-primary transition-colors text-sm">
+        <span class="material-symbols-outlined text-[18px]">install_desktop</span> Instalar app
+      </button>
+      <form action="{% url 'logout' %}" method="post" class="mt-3">
+        {% csrf_token %}
+        <button class="flex items-center gap-2 text-on-surface-variant hover:text-primary transition-colors text-sm" type="submit">
+          <span class="material-symbols-outlined text-[18px]">logout</span> Sair
+        </button>
+      </form>
     </div>
   </aside>
 </div>

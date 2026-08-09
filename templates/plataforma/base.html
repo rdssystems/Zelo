@@ -74,6 +74,9 @@
     <a class="flex items-center gap-4 px-4 py-3 rounded-lg {% if active == 'announcements' %}text-primary font-bold border-r-4 border-primary bg-primary-container/10{% else %}text-on-surface-variant font-medium hover:bg-surface-container-high group{% endif %} transition-colors" href="{% url 'announcements:list' %}">
       <span class="material-symbols-outlined {% if active != 'announcements' %}text-outline group-hover:text-primary{% endif %} transition-colors" {% if active == 'announcements' %}style="font-variation-settings: 'FILL' 1;"{% endif %}>campaign</span><span>Avisos</span>
     </a>
+    <a class="flex items-center gap-4 px-4 py-3 rounded-lg {% if active == 'settings' %}text-primary font-bold border-r-4 border-primary bg-primary-container/10{% else %}text-on-surface-variant font-medium hover:bg-surface-container-high group{% endif %} transition-colors" href="{% url 'plataforma:settings' %}">
+      <span class="material-symbols-outlined {% if active != 'settings' %}text-outline group-hover:text-primary{% endif %} transition-colors" {% if active == 'settings' %}style="font-variation-settings: 'FILL' 1;"{% endif %}>settings</span><span>Configurações</span>
+    </a>
     {% endwith %}
     <div class="pt-4 mt-4 border-t border-surface-variant">
       <a class="flex items-center gap-4 px-4 py-3 rounded-lg text-on-surface-variant font-medium hover:bg-surface-container-high transition-colors" href="/superadmin/" target="_blank" rel="noopener">

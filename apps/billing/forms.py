@@ -5,6 +5,13 @@ from apps.tenants.forms import BRDecimalField
 from .models import Plan, SubscriptionStatus
 
 
+class PlatformSettingsForm(forms.Form):
+    support_whatsapp = forms.CharField(
+        max_length=20, required=False, label="WhatsApp de suporte",
+        help_text="Recebe os pedidos abertos pelo botão \"Suporte\" no painel dos tenants.",
+    )
+
+
 class PlanForm(forms.Form):
     name = forms.CharField(max_length=60, label="Nome do plano")
     description = forms.CharField(

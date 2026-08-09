@@ -6,6 +6,7 @@ app_name = "plataforma"
 
 urlpatterns = [
     path("", views.platform_dashboard, name="dashboard"),
+    path("configuracoes/", views.platform_settings_view, name="settings"),
     path("planos/", views.plan_list, name="plan_list"),
     path("planos/novo/", views.plan_create, name="plan_create"),
     path("planos/<int:pk>/editar/", views.plan_update, name="plan_update"),

@@ -1,0 +1,25 @@
+{% extends "plataforma/base.html" %}
+
+{% block title %}Zellup — Configurações da plataforma{% endblock %}
+
+{% block content %}
+<div class="mb-8">
+  <h2 class="font-display text-headline-md text-on-surface mb-2">Configurações</h2>
+  <p class="text-on-surface-variant">Ajustes gerais da plataforma, não específicos de um tenant.</p>
+</div>
+
+<form method="post" class="max-w-lg bg-surface-container-lowest rounded-2xl border border-surface-variant shadow-sm p-8">
+  {% csrf_token %}
+  <h3 class="text-label-caps uppercase text-outline mb-6">Suporte</h3>
+  <label class="block text-label-caps uppercase text-outline mb-1" for="id_support_whatsapp">{{ form.support_whatsapp.label }}</label>
+  <input class="block w-full px-0 py-2 bg-transparent border-0 border-b {% if form.support_whatsapp.errors %}border-error{% else %}border-outline-variant{% endif %} text-on-surface text-lg focus:ring-0 focus:border-primary transition-colors"
+         id="id_support_whatsapp" name="support_whatsapp" type="text"
+         value="{{ form.support_whatsapp.value|default:'' }}" placeholder="(34) 99999-8888"/>
+  {% if form.support_whatsapp.errors %}<p class="text-error text-sm mt-1">{{ form.support_whatsapp.errors|join:" " }}</p>{% endif %}
+  <p class="text-sm text-on-surface-variant mt-2">{{ form.support_whatsapp.help_text }}</p>
+
+  <div class="flex justify-end mt-8">
+    <button class="px-8 py-3 rounded-pill bg-primary text-on-primary font-semibold hover:opacity-90 transition-opacity" type="submit">Salvar</button>
+  </div>
+</form>
+{% endblock %}

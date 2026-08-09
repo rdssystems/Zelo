@@ -15,7 +15,13 @@ from apps.finance.views import CashTransactionViewSet, CommissionViewSet, my_com
 from apps.inventory.views import ProductViewSet, StockMovementViewSet, SupplierViewSet
 from apps.scheduling.views import AppointmentViewSet, my_agenda
 from apps.services.views import ServiceViewSet
-from apps.tenants.views import TenantSettingsView, choose_theme_view, landing_view, signup_view
+from apps.tenants.views import (
+    TenantSettingsView,
+    choose_theme_view,
+    landing_view,
+    signup_view,
+    support_modal_view,
+)
 
 
 def healthz(request):
@@ -50,6 +56,7 @@ urlpatterns = [
     path("painel/logout/", auth_views.LogoutView.as_view(), name="logout"),
     path("painel/", painel_home, name="painel_home"),
     path("painel/escolher-tema/", choose_theme_view, name="choose_theme"),
+    path("painel/suporte/", support_modal_view, name="support_modal"),
     path(
         "painel/conta-excluida/",
         TemplateView.as_view(template_name="painel/account_deleted.html"),

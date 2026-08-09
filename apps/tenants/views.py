@@ -2,8 +2,9 @@ from allauth.account.models import EmailAddress
 from django.contrib import messages
 from django.contrib.auth import login as auth_login
 from django.contrib.auth import logout as auth_logout
+from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
-from django.http import HttpResponse
+from django.http import HttpResponse, HttpResponseForbidden
 from django.shortcuts import redirect, render
 from django.urls import reverse
 from django_ratelimit.decorators import ratelimit
@@ -135,6 +136,31 @@ def choose_theme_view(request):
             messages.success(request, "Tema definido! Você pode trocar depois em Configurações.")
             return redirect("painel_home")
     return render(request, "painel/choose_theme.html", {"tenant": tenant, "error": error})
+
+
+# ---------------------------------------------------------------------------
+# Suporte — /painel/suporte/
+# ---------------------------------------------------------------------------
+
+
+@login_required
+def support_modal_view(request):
+    """Modal "Falar com o suporte" — tenant_admin E funcionário acessam
+    (decisão do usuário em 2026-08-09: não é uma tela de negócio, é só um
+    atalho pro WhatsApp da plataforma). De propósito NÃO passa pelo bloqueio
+    RF30 (`tenant_admin_required`/`employee_required`) — é justamente quando
+    a assinatura está com problema que o admin mais precisa conseguir pedir
+    ajuda."""
+    if request.tenant is None:
+        return HttpResponseForbidden("Acesso restrito ao painel de um salão.")
+    from apps.billing.models import PlatformSettings
+
+    settings_obj = PlatformSettings.get_solo()
+    return render(
+        request,
+        "painel/_support_modal.html",
+        {"support_number": settings_obj.support_whatsapp_wa_me_number},
+    )
 
 
 # ---------------------------------------------------------------------------

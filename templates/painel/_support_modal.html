@@ -1,0 +1,68 @@
+<div class="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6"
+     x-data="{
+       category: '',
+       message: '',
+       categories: ['Erro no sistema', 'Dúvida de uso', 'Cobrança/assinatura', 'Sugestão', 'Outro'],
+       get whatsappUrl() {
+         const lines = [
+           'Olá! Preciso de suporte no Zellup.',
+           'Salão: {{ request.tenant.name|escapejs }} ({{ request.tenant.slug|escapejs }})',
+           'Categoria: ' + (this.category || 'Não informado'),
+           '',
+           this.message,
+         ];
+         return 'https://wa.me/{{ support_number }}?text=' + encodeURIComponent(lines.join('\n'));
+       },
+     }">
+  <div class="absolute inset-0 bg-inverse-surface/40 backdrop-blur-sm" onclick="document.getElementById('modal-slot').innerHTML = ''"></div>
+  <div class="relative w-full max-w-md bg-surface-container-lowest rounded-2xl shadow-2xl overflow-hidden">
+    <div class="p-8">
+      <div class="flex items-center gap-3 mb-6">
+        <div class="w-10 h-10 rounded-full bg-primary-container/40 flex items-center justify-center shrink-0">
+          <span class="material-symbols-outlined text-primary">support_agent</span>
+        </div>
+        <h3 class="font-display text-xl font-bold text-on-surface">Falar com o suporte</h3>
+      </div>
+
+      {% if support_number %}
+      <p class="text-sm text-on-surface-variant mb-6">
+        Conte rapidamente o que está acontecendo — sua mensagem já vai formatada pro WhatsApp.
+      </p>
+
+      <label class="block text-label-caps uppercase text-outline mb-2">Qual é o problema?</label>
+      <div class="flex flex-wrap gap-2 mb-4">
+        <template x-for="option in categories" :key="option">
+          <button type="button" @click="category = option"
+                  class="px-3 py-1.5 rounded-pill text-sm font-medium border transition-colors"
+                  :class="category === option ? 'bg-primary text-on-primary border-primary' : 'border-outline-variant text-on-surface-variant hover:bg-surface-container-high'"
+                  x-text="option"></button>
+        </template>
+      </div>
+
+      <label class="block text-label-caps uppercase text-outline mb-2" for="support-message">Detalhes (opcional)</label>
+      <textarea id="support-message" x-model="message" rows="3"
+                class="w-full rounded-lg border border-outline-variant bg-transparent px-3 py-2 text-sm text-on-surface focus:ring-1 focus:ring-primary focus:border-primary mb-8"
+                placeholder="Descreva o que está acontecendo..."></textarea>
+
+      <div class="flex justify-end gap-3">
+        <button type="button" class="px-5 py-2.5 rounded-pill border border-outline-variant text-on-surface-variant font-medium hover:bg-surface-variant transition-colors"
+                onclick="document.getElementById('modal-slot').innerHTML = ''">Cancelar</button>
+        <a :href="whatsappUrl" target="_blank" rel="noopener"
+           @click="document.getElementById('modal-slot').innerHTML = ''"
+           class="inline-flex items-center gap-2 px-6 py-2.5 rounded-pill bg-[#25D366] text-white font-semibold hover:opacity-90 transition-opacity">
+          <span class="material-symbols-outlined text-[18px]">chat</span>
+          Abrir WhatsApp
+        </a>
+      </div>
+      {% else %}
+      <p class="text-sm text-on-surface-variant mb-8">
+        O canal de suporte ainda não foi configurado pela plataforma. Tente falar com a Zellup por outro meio, por enquanto.
+      </p>
+      <div class="flex justify-end">
+        <button type="button" class="px-6 py-2.5 rounded-pill bg-primary text-on-primary font-semibold hover:opacity-90 transition-opacity"
+                onclick="document.getElementById('modal-slot').innerHTML = ''">Entendi</button>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
