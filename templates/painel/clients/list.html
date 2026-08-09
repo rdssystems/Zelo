@@ -8,20 +8,20 @@
     <h2 class="font-display text-headline-md text-on-surface mb-2">Clientes</h2>
     <p class="text-on-surface-variant">Histórico, preferências, mensalistas e crédito.</p>
   </div>
-  <div class="flex flex-wrap gap-3">
-    <button class="shrink-0 flex items-center gap-2 bg-[#25D366] text-white font-semibold text-lg px-6 py-3 rounded-pill hover:opacity-90 transition-opacity shadow-sm active:scale-95"
+  <div class="grid grid-cols-3 gap-2 md:flex md:flex-wrap md:gap-3">
+    <button class="flex flex-col md:flex-row items-center justify-center gap-1 md:gap-2 bg-[#25D366] text-white font-semibold text-[11px] md:text-lg px-2 py-2 md:px-6 md:py-3 rounded-xl md:rounded-pill hover:opacity-90 transition-opacity shadow-sm active:scale-95 text-center"
             hx-get="{% url 'clients:subscription_whatsapp_campaign' %}" hx-target="#modal-slot" hx-swap="innerHTML">
-      <span class="material-symbols-outlined">campaign</span>
+      <span class="material-symbols-outlined text-[18px] md:text-[24px]">campaign</span>
       Cobrar mensalistas
     </button>
-    <a class="shrink-0 flex items-center gap-2 border border-primary text-primary font-semibold text-lg px-6 py-3 rounded-pill hover:bg-primary-container/20 transition-colors"
+    <a class="flex flex-col md:flex-row items-center justify-center gap-1 md:gap-2 border border-primary text-primary font-semibold text-[11px] md:text-lg px-2 py-2 md:px-6 md:py-3 rounded-xl md:rounded-pill hover:bg-primary-container/20 transition-colors text-center"
        href="{% url 'clients:package_list' %}">
-      <span class="material-symbols-outlined">redeem</span>
+      <span class="material-symbols-outlined text-[18px] md:text-[24px]">redeem</span>
       Criar Pacote
     </a>
-    <a class="shrink-0 flex items-center gap-2 bg-primary text-on-primary font-semibold text-lg px-8 py-3 rounded-pill hover:opacity-90 transition-opacity shadow-sm active:scale-95"
+    <a class="flex flex-col md:flex-row items-center justify-center gap-1 md:gap-2 bg-primary text-on-primary font-semibold text-[11px] md:text-lg px-2 py-2 md:px-8 md:py-3 rounded-xl md:rounded-pill hover:opacity-90 transition-opacity shadow-sm active:scale-95 text-center"
        href="{% url 'clients:create' %}">
-      <span class="material-symbols-outlined">person_add</span>
+      <span class="material-symbols-outlined text-[18px] md:text-[24px]">person_add</span>
       Novo Cliente
     </a>
   </div>
@@ -41,7 +41,62 @@
   </div>
 </form>
 
-<div class="bg-surface-container-lowest rounded-2xl border border-surface-variant shadow-[0_4px_40px_-10px_rgba(125,86,45,0.08)] overflow-hidden">
+<div class="md:hidden bg-surface-container-lowest rounded-2xl border border-surface-variant shadow-[0_4px_40px_-10px_rgba(125,86,45,0.08)] divide-y divide-surface-variant overflow-hidden">
+  {% for client in clients %}
+  <div class="p-4">
+    <div class="flex items-start justify-between gap-3">
+      <div class="min-w-0">
+        <p class="font-semibold text-on-surface truncate">{{ client.name }}</p>
+        {% if client.is_inactive %}
+        <span class="inline-flex items-center px-2 py-0.5 rounded-pill bg-surface-variant text-on-surface-variant text-[10px] font-semibold uppercase mt-1" title="Sem atendimento concluído há mais de {{ client.tenant.client_inactive_days }} dias">Inativo</span>
+        {% endif %}
+        <p class="text-sm text-on-surface-variant mt-0.5">{{ client.phone }}</p>
+      </div>
+      <div class="flex items-center gap-1 shrink-0">
+        {% if client.whatsapp_url %}
+        <a class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-[#25D366] text-white hover:opacity-90 transition-opacity"
+           href="{{ client.whatsapp_url }}" target="_blank" rel="noopener" title="Conversar no WhatsApp">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
+            <path d="M20.52 3.449C12.831-3.984.106 1.407.101 11.892c0 2.096.549 4.14 1.595 5.945L0 24l6.335-1.652a11.882 11.882 0 0 0 5.723 1.469h.005c9.815 0 15.788-11.243 9.457-18.368zM12.063 21.784a9.87 9.87 0 0 1-5.031-1.378l-.36-.214-3.741.982.998-3.65-.235-.375a9.86 9.86 0 0 1-1.51-5.256c0-5.458 4.437-9.9 9.895-9.9 2.644 0 5.13 1.03 6.995 2.899a9.833 9.833 0 0 1 2.898 6.999c-.005 5.458-4.443 9.893-9.909 9.893z"/>
+          </svg>
+        </a>
+        {% endif %}
+        <a class="p-2 text-outline hover:text-primary transition-colors rounded-full hover:bg-surface-variant inline-flex" title="Ver ficha"
+           href="{% url 'clients:update' client.pk %}">
+          <span class="material-symbols-outlined">chevron_right</span>
+        </a>
+        <button class="p-2 text-outline hover:text-error transition-colors rounded-full hover:bg-error-container/40" title="Excluir"
+                hx-get="{% url 'clients:delete_confirm' client.pk %}" hx-target="#modal-slot" hx-swap="innerHTML">
+          <span class="material-symbols-outlined">delete</span>
+        </button>
+      </div>
+    </div>
+    <div class="flex items-center justify-between gap-2 mt-3">
+      <div>
+        {% if client.is_subscriber %}
+          {% if client.subscription_is_overdue %}
+          <span class="inline-flex items-center px-3 py-1 rounded-pill bg-error-container text-on-error-container text-label-caps uppercase">Vencida</span>
+          {% elif client.subscription_is_due_soon %}
+          <span class="inline-flex items-center px-3 py-1 rounded-pill bg-secondary-container text-on-secondary-container text-label-caps uppercase">Vence em breve</span>
+          {% else %}
+          <span class="inline-flex items-center px-3 py-1 rounded-pill bg-[#e8f5e9] text-[#2e7d32] text-label-caps uppercase">Em dia</span>
+          {% endif %}
+        {% endif %}
+      </div>
+      <span class="text-sm font-semibold {% if client.net_balance > 0 %}text-[#2e7d32]{% elif client.net_balance < 0 %}text-error{% else %}text-on-surface-variant{% endif %}">
+        {% if client.net_balance < 0 %}-{% endif %}R$ {{ client.net_balance.copy_abs }}
+      </span>
+    </div>
+  </div>
+  {% empty %}
+  <div class="py-16 text-center text-on-surface-variant px-4">
+    {% if query %}Nenhum cliente encontrado para "{{ query }}".{% else %}Nenhum cliente cadastrado ainda.{% endif %}
+  </div>
+  {% endfor %}
+</div>
+
+<div class="hidden md:block bg-surface-container-lowest rounded-2xl border border-surface-variant shadow-[0_4px_40px_-10px_rgba(125,86,45,0.08)] overflow-hidden">
   <div class="overflow-x-auto">
     <table class="w-full text-left border-collapse">
       <thead>

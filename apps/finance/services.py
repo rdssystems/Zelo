@@ -201,8 +201,33 @@ def period_summary(tenant, start_date, end_date):
     total_in = qs.filter(type=CashFlowType.IN).aggregate(total=Sum("amount"))["total"] or Decimal("0")
     total_out = qs.filter(type=CashFlowType.OUT).aggregate(total=Sum("amount"))["total"] or Decimal("0")
 
+    # Card "por tipo de venda" do Caixa (pedido do usuário em 2026-08-09,
+    # pro layout 2x2 no mobile) — sempre essas 4 categorias fixas, mesmo com
+    # total zero (senão o card "pula" de tamanho conforme o período tem ou
+    # não movimento de cada tipo).
+    sale_type_categories = (
+        CashCategory.SERVICE_SALE,
+        CashCategory.PRODUCT_SALE,
+        CashCategory.COMMISSION_PAYMENT,
+        CashCategory.PACKAGE_SALE,
+    )
+    sale_type_breakdown = [
+        {
+            "label": category.label,
+            "total": qs.filter(category=category).aggregate(total=Sum("amount"))["total"]
+            or Decimal("0"),
+        }
+        for category in sale_type_categories
+    ]
+
+    # `by_category` não repete o que já está no card "por tipo de venda"
+    # acima (pedido do usuário em 2026-08-09) — só mostra categoria que não
+    # tem card dedicado (recarga de crédito, cobrança de débito, despesa,
+    # outro).
     by_category = []
     for value, label in CashCategory.choices:
+        if value in sale_type_categories:
+            continue
         category_total = qs.filter(category=value).aggregate(total=Sum("amount"))["total"]
         if category_total:
             by_category.append({"category": label, "total": category_total})
@@ -212,6 +237,7 @@ def period_summary(tenant, start_date, end_date):
         "total_out": total_out,
         "balance": total_in - total_out,
         "by_category": by_category,
+        "sale_type_breakdown": sale_type_breakdown,
         "transactions": qs.select_related(
             "related_appointment__client", "related_appointment__service"
         ),

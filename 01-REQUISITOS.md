@@ -609,6 +609,42 @@ em requisito formal ainda).
   tenant-themed salão/barbearia). Colocar lá vazava a cor errada pro tema do tenant e quebrou um
   teste de isolamento de tema (`test_barbearia_theme_on_public_home`) na primeira tentativa —
   corrigido movendo pro include dedicado.
+- RNF09 ✅ *(implementado em 2026-08-09)*: Layout do painel compactado especificamente pra
+  celular (breakpoint `md:` do Tailwind — classe sem prefixo é mobile, `md:` reintroduz o
+  visual desktop original, nada muda em telas ≥768px):
+  - **Relatórios** (`templates/painel/reports/index.html`) e **Estoque**
+    (`templates/painel/inventory/_items.html`): os 4 cards de KPI do topo viram grid 2×2 no
+    celular (`grid-cols-2 lg:grid-cols-4`, antes era 1 coluna só).
+  - **Gráficos** (Chart.js, mesma tela de Relatórios): plugin `chartjs-plugin-datalabels` (CDN,
+    `templates/painel/base.html`) registrado globalmente — todo gráfico (doughnut, barra
+    horizontal, linha) mostra o valor numérico direto no gráfico, não só no hover (que não
+    existe em touch). Barra horizontal ganhou `layout.padding.right` pra rótulo no fim da barra
+    não cortar (`R$ 170,00` virava `R$ 17` sem isso).
+  - **Caixa** (`templates/painel/finance/`): subtítulo da página escondido no celular
+    (`hidden md:block`); filtro Dia/Semana/Mês (`painel/_period_preset_buttons.html`,
+    compartilhado com Relatórios/Minha Comissão) com padding/fonte reduzidos no celular; os 3
+    cards Entradas/Saídas/Saldo do período viraram 4 num grid 2×2 — o 4º é um card novo "Por
+    tipo de venda" (`sale_type_breakdown`, adicionado em `apps.finance.services.period_summary`)
+    com a quebra fixa Venda de serviço/Venda de produto/Pagamento de comissão/Venda de pacote
+    (sempre essas 4 categorias, mesmo com total zero, pra não pular de tamanho).
+  - **Agenda** (`templates/painel/scheduling/list.html`): a lista de profissionais (antes só
+    pills com scroll horizontal) virou um `<select>` no celular — dispara HTMX no `change`
+    (`hx-trigger="change" hx-push-url="true"`, o próprio `<select name="employee">` serializa o
+    valor escolhido na querystring do request automaticamente). Pills continuam no desktop
+    (`hidden md:flex` / `md:hidden` dividindo os dois).
+  - **Clientes** (`templates/painel/clients/list.html`): os 3 botões do topo (Cobrar
+    mensalistas/Criar Pacote/Novo Cliente) viram grid de 3 colunas compacto no celular (ícone
+    empilhado sobre o texto, fonte pequena) em vez de `flex-wrap` (que quebrava linha feio). A
+    tabela de clientes (que exigia scroll horizontal no celular) ganhou uma versão em cards
+    empilhados exclusiva pro mobile (`md:hidden`, tabela original vira `hidden md:block`) — nome,
+    telefone, WhatsApp, mensalista e saldo tudo legível sem rolar pro lado.
+  - **Estoque** (`templates/painel/inventory/_items.html`): mesmo tratamento de cards
+    empilhados no celular pra tabela de produtos — nome do produto trunca numa linha só
+    (`truncate`), categoria/unidade/SKU numa linha de apoio embaixo, badges de estoque/status
+    compactos.
+  - Todo o trabalho é puro CSS/template (nenhuma migration) exceto o novo campo computado
+    `sale_type_breakdown` (não é campo de model, é só chave a mais no dict retornado por
+    `period_summary` — sem impacto em `03-MODELO-DE-DADOS.md`).
 
 ## 6. Fora de escopo (por enquanto)
 - Pagamento online do serviço pelo cliente final (só cobrança da assinatura SaaS por ora).

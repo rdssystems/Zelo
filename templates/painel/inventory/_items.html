@@ -1,36 +1,99 @@
 <div id="product-items">
-  <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-    <div class="bg-surface-container-lowest p-6 rounded-xl border border-surface-variant shadow-sm">
-      <div class="flex items-center justify-between mb-4">
-        <span class="text-label-caps uppercase text-on-surface-variant">Total de Itens</span>
-        <span class="material-symbols-outlined text-primary bg-primary-container/20 p-2 rounded-full">inventory</span>
+  <section class="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6 mb-8">
+    <div class="bg-surface-container-lowest p-3 md:p-6 rounded-xl border border-surface-variant shadow-sm">
+      <div class="flex items-center justify-between mb-1 md:mb-4">
+        <span class="text-[10px] md:text-label-caps uppercase text-on-surface-variant">Total de Itens</span>
+        <span class="hidden md:inline material-symbols-outlined text-primary bg-primary-container/20 p-2 rounded-full">inventory</span>
       </div>
-      <div class="font-display text-3xl text-on-surface">{{ total_items }}</div>
+      <div class="font-display text-lg md:text-3xl text-on-surface">{{ total_items }}</div>
     </div>
-    <a href="{% url 'inventory:list' %}?situacao=low_stock" class="block bg-error-container/20 p-6 rounded-xl border border-error/20 shadow-sm hover:bg-error-container/30 transition-colors">
-      <div class="flex items-center justify-between mb-4">
-        <span class="text-label-caps uppercase text-error">Estoque Baixo</span>
-        <span class="material-symbols-outlined text-error bg-error-container p-2 rounded-full">warning</span>
+    <a href="{% url 'inventory:list' %}?situacao=low_stock" class="block bg-error-container/20 p-3 md:p-6 rounded-xl border border-error/20 shadow-sm hover:bg-error-container/30 transition-colors">
+      <div class="flex items-center justify-between mb-1 md:mb-4">
+        <span class="text-[10px] md:text-label-caps uppercase text-error">Estoque Baixo</span>
+        <span class="hidden md:inline material-symbols-outlined text-error bg-error-container p-2 rounded-full">warning</span>
       </div>
-      <div class="font-display text-3xl text-error">{{ low_stock_count }}</div>
+      <div class="font-display text-lg md:text-3xl text-error">{{ low_stock_count }}</div>
     </a>
-    <a href="{% url 'inventory:list' %}?situacao=expiring_batches" class="block bg-error-container/20 p-6 rounded-xl border border-error/20 shadow-sm hover:bg-error-container/30 transition-colors">
-      <div class="flex items-center justify-between mb-4">
-        <span class="text-label-caps uppercase text-error">Lotes Vencendo</span>
-        <span class="material-symbols-outlined text-error bg-error-container p-2 rounded-full">event_busy</span>
+    <a href="{% url 'inventory:list' %}?situacao=expiring_batches" class="block bg-error-container/20 p-3 md:p-6 rounded-xl border border-error/20 shadow-sm hover:bg-error-container/30 transition-colors">
+      <div class="flex items-center justify-between mb-1 md:mb-4">
+        <span class="text-[10px] md:text-label-caps uppercase text-error">Lotes Vencendo</span>
+        <span class="hidden md:inline material-symbols-outlined text-error bg-error-container p-2 rounded-full">event_busy</span>
       </div>
-      <div class="font-display text-3xl text-error">{{ expiring_batches_count }}</div>
+      <div class="font-display text-lg md:text-3xl text-error">{{ expiring_batches_count }}</div>
     </a>
-    <div class="bg-surface-container-lowest p-6 rounded-xl border border-surface-variant shadow-sm relative overflow-hidden">
+    <div class="bg-surface-container-lowest p-3 md:p-6 rounded-xl border border-surface-variant shadow-sm relative overflow-hidden">
       <div class="relative z-10">
-        <span class="text-label-caps uppercase text-on-surface-variant block mb-2">Valor em Estoque</span>
-        <div class="font-display text-3xl text-on-surface">R$ {{ total_stock_value }}</div>
+        <span class="text-[10px] md:text-label-caps uppercase text-on-surface-variant block mb-1 md:mb-2">Valor em Estoque</span>
+        <div class="font-display text-lg md:text-3xl text-on-surface">R$ {{ total_stock_value }}</div>
       </div>
       <div class="absolute right-0 bottom-0 w-24 h-24 bg-primary-container/20 rounded-tl-full -mr-6 -mb-6 blur-xl"></div>
     </div>
   </section>
 
-  <div class="bg-surface-container-lowest rounded-2xl border border-surface-variant shadow-[0_4px_40px_-10px_rgba(125,86,45,0.08)] overflow-hidden">
+  <div class="md:hidden bg-surface-container-lowest rounded-2xl border border-surface-variant shadow-[0_4px_40px_-10px_rgba(125,86,45,0.08)] divide-y divide-surface-variant overflow-hidden">
+    {% for product in products %}
+    <div class="p-4 {% if product.is_low_stock %}bg-error-container/10{% endif %} {% if not product.is_active %}opacity-60{% endif %}">
+      <div class="flex items-start justify-between gap-3">
+        <div class="min-w-0">
+          <p class="font-semibold {% if product.is_low_stock %}text-error{% else %}text-on-surface{% endif %} flex items-center gap-1.5 truncate">
+            {{ product.name }}
+            {% if product.is_low_stock %}<span class="material-symbols-outlined text-[16px] shrink-0">warning</span>{% endif %}
+          </p>
+          <p class="text-xs text-on-surface-variant mt-0.5 truncate">
+            {{ product.category.name|default:"—" }} · {{ product.unit }}{% if product.sku %} · {{ product.sku }}{% endif %}
+          </p>
+          {% if product.tracks_batches %}
+          <button class="inline-flex items-center gap-1 mt-1 text-xs text-primary hover:underline" title="Ver lotes"
+                  hx-get="{% url 'inventory:batches' product.pk %}" hx-target="#modal-slot" hx-swap="innerHTML">
+            <span class="material-symbols-outlined text-[14px]">inventory_2</span> Lotes
+          </button>
+          {% endif %}
+        </div>
+        <div class="flex items-center gap-0.5 shrink-0">
+          <button class="p-1.5 text-outline hover:text-primary transition-colors rounded-full hover:bg-surface-variant" title="Movimentar estoque"
+                  hx-get="{% url 'inventory:movement' product.pk %}" hx-target="#modal-slot" hx-swap="innerHTML">
+            <span class="material-symbols-outlined text-[20px]">swap_horiz</span>
+          </button>
+          <button class="p-1.5 text-outline hover:text-primary transition-colors rounded-full hover:bg-surface-variant" title="Editar"
+                  hx-get="{% url 'inventory:update' product.pk %}" hx-target="#modal-slot" hx-swap="innerHTML">
+            <span class="material-symbols-outlined text-[20px]">edit</span>
+          </button>
+          <button class="p-1.5 transition-colors rounded-full hover:bg-surface-variant {% if product.is_active %}text-[#2e7d32] hover:text-[#1b5e20]{% else %}text-error hover:text-error{% endif %}"
+                  title="{% if product.is_active %}Ativo — clique para desativar{% else %}Inativo — clique para ativar{% endif %}"
+                  hx-get="{% url 'inventory:toggle_confirm' product.pk %}" hx-target="#modal-slot" hx-swap="innerHTML">
+            <span class="material-symbols-outlined text-[20px]" {% if product.is_active %}style="font-variation-settings: 'FILL' 1;"{% endif %}>{% if product.is_active %}toggle_on{% else %}toggle_off{% endif %}</span>
+          </button>
+          <button class="p-1.5 text-outline hover:text-error transition-colors rounded-full hover:bg-error-container/40" title="Excluir"
+                  hx-get="{% url 'inventory:delete_confirm' product.pk %}" hx-target="#modal-slot" hx-swap="innerHTML">
+            <span class="material-symbols-outlined text-[20px]">delete</span>
+          </button>
+        </div>
+      </div>
+      <div class="flex items-center flex-wrap gap-2 mt-3">
+        <span class="text-sm text-on-surface-variant">R$ {{ product.sale_price }}</span>
+        <span class="inline-flex items-center px-2.5 py-0.5 rounded-pill text-[11px] font-semibold
+                     {% if product.is_low_stock %}bg-error text-on-error{% else %}bg-secondary-container/50 text-on-secondary-container{% endif %}">
+          {{ product.current_stock }} em estoque (mín. {{ product.min_stock_alert }})
+        </span>
+        {% if product.is_active %}
+        <span class="inline-flex items-center px-2.5 py-0.5 rounded-pill bg-[#e8f5e9] text-[#2e7d32] text-[10px] font-semibold uppercase">Ativo</span>
+        {% else %}
+        <span class="inline-flex items-center px-2.5 py-0.5 rounded-pill bg-error-container text-on-error-container text-[10px] font-semibold uppercase">Inativo</span>
+        {% endif %}
+      </div>
+    </div>
+    {% empty %}
+    <div class="py-16 text-center text-on-surface-variant px-4">
+      Nenhum produto cadastrado ainda.
+      <button class="ml-2 text-primary font-semibold hover:underline"
+              hx-get="{% url 'inventory:create' %}" hx-target="#modal-slot" hx-swap="innerHTML">
+        Cadastrar o primeiro produto
+      </button>
+    </div>
+    {% endfor %}
+  </div>
+
+  <div class="hidden md:block bg-surface-container-lowest rounded-2xl border border-surface-variant shadow-[0_4px_40px_-10px_rgba(125,86,45,0.08)] overflow-hidden">
     <div class="overflow-x-auto">
       <table class="w-full text-left border-collapse">
         <thead>

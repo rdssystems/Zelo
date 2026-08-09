@@ -34,7 +34,17 @@
   <a class="p-2 rounded-full hover:bg-surface-container-high text-on-surface-variant transition-colors" href="?date={{ next_date|date:'Y-m-d' }}{% if selected_employee_id %}&employee={{ selected_employee_id }}{% endif %}">
     <span class="material-symbols-outlined">chevron_right</span>
   </a>
-  <div class="flex items-center gap-2 overflow-x-auto">
+  <select name="employee"
+          class="md:hidden w-full shrink-0 px-3 py-2 rounded-pill text-sm font-semibold bg-surface-container text-on-surface-variant border-0 focus:ring-2 focus:ring-primary"
+          hx-get="{% url 'scheduling:agenda_items_poll' %}?date={{ selected_date|date:'Y-m-d' }}"
+          hx-target="#agenda-items" hx-swap="outerHTML" hx-trigger="change" hx-push-url="true">
+    <option value="">Todos os profissionais</option>
+    {% for employee in employees %}
+    <option value="{{ employee.pk }}" {% if selected_employee_id == employee.pk|stringformat:"s" %}selected{% endif %}>{{ employee.full_name }}</option>
+    {% endfor %}
+  </select>
+
+  <div class="hidden md:flex items-center gap-2 overflow-x-auto">
     <button type="button"
             class="shrink-0 px-4 py-2 rounded-pill text-sm font-semibold transition-colors {% if not selected_employee_id %}bg-primary text-on-primary{% else %}bg-surface-container text-on-surface-variant hover:bg-surface-container-high{% endif %}"
             hx-get="{% url 'scheduling:agenda_items_poll' %}?date={{ selected_date|date:'Y-m-d' }}"

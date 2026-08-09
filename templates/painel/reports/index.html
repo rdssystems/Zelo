@@ -88,22 +88,22 @@
     </div>
     {% endif %}
 
-    <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-      <div class="bg-primary-container/20 p-6 rounded-xl border border-primary/20 shadow-sm">
-        <span class="text-label-caps uppercase text-primary block mb-2">Faturamento do mês</span>
-        <div class="font-display text-2xl text-primary">R$ {{ month_in }}</div>
+    <section class="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6 mb-8">
+      <div class="bg-primary-container/20 p-3 md:p-6 rounded-xl border border-primary/20 shadow-sm">
+        <span class="text-[10px] md:text-label-caps uppercase text-primary block mb-1 md:mb-2">Faturamento do mês</span>
+        <div class="font-display text-lg md:text-2xl text-primary">R$ {{ month_in }}</div>
       </div>
-      <div class="bg-surface-container-lowest p-6 rounded-xl border border-surface-variant shadow-sm">
-        <span class="text-label-caps uppercase text-on-surface-variant block mb-2">Saldo do caixa hoje</span>
-        <div class="font-display text-2xl text-on-surface">R$ {{ today_balance }}</div>
+      <div class="bg-surface-container-lowest p-3 md:p-6 rounded-xl border border-surface-variant shadow-sm">
+        <span class="text-[10px] md:text-label-caps uppercase text-on-surface-variant block mb-1 md:mb-2">Saldo do caixa hoje</span>
+        <div class="font-display text-lg md:text-2xl text-on-surface">R$ {{ today_balance }}</div>
       </div>
-      <div class="bg-surface-container-lowest p-6 rounded-xl border border-surface-variant shadow-sm">
-        <span class="text-label-caps uppercase text-on-surface-variant block mb-2">Comissões pendentes</span>
-        <div class="font-display text-2xl text-on-surface">R$ {{ pending_commissions_total }}</div>
+      <div class="bg-surface-container-lowest p-3 md:p-6 rounded-xl border border-surface-variant shadow-sm">
+        <span class="text-[10px] md:text-label-caps uppercase text-on-surface-variant block mb-1 md:mb-2">Comissões pendentes</span>
+        <div class="font-display text-lg md:text-2xl text-on-surface">R$ {{ pending_commissions_total }}</div>
       </div>
-      <div class="bg-surface-container-lowest p-6 rounded-xl border border-surface-variant shadow-sm">
-        <span class="text-label-caps uppercase text-on-surface-variant block mb-2">Crédito de clientes em aberto</span>
-        <div class="font-display text-2xl text-on-surface">R$ {{ credit_liability }}</div>
+      <div class="bg-surface-container-lowest p-3 md:p-6 rounded-xl border border-surface-variant shadow-sm">
+        <span class="text-[10px] md:text-label-caps uppercase text-on-surface-variant block mb-1 md:mb-2">Crédito de clientes em aberto</span>
+        <div class="font-display text-lg md:text-2xl text-on-surface">R$ {{ credit_liability }}</div>
       </div>
     </section>
 
@@ -357,6 +357,8 @@ function reportsPage() {
 }
 
 (function () {
+  Chart.register(ChartDataLabels);
+
   const statusData = {{ status_chart_json|safe }};
   const commissionData = {{ commission_chart_json|safe }};
   const revenueData = {{ revenue_chart_json|safe }};
@@ -364,11 +366,17 @@ function reportsPage() {
   const productsData = {{ products_chart_json|safe }};
   const employeesData = {{ employees_chart_json|safe }};
   const palette = ['#7d562d', '#d4a373', '#72594d', '#fedbcc', '#ba1a1a', '#eae1db'];
+  // Rótulo de valor sempre visível nos gráficos (não só no hover) — pedido
+  // do usuário em 2026-08-09, importante no celular onde não tem hover.
+  const brl = (v) => 'R$ ' + Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   new Chart(document.getElementById('status-chart'), {
     type: 'doughnut',
     data: { labels: statusData.labels, datasets: [{ data: statusData.values, backgroundColor: palette }] },
-    options: { responsive: true, maintainAspectRatio: false },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { datalabels: { color: '#1f1b17', font: { weight: '700', size: 12 }, formatter: (value) => value } },
+    },
   });
 
   new Chart(document.getElementById('commission-chart'), {
@@ -376,7 +384,11 @@ function reportsPage() {
     data: { labels: commissionData.labels, datasets: [{ data: commissionData.values, backgroundColor: '#72594d' }] },
     options: {
       indexAxis: 'y', responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
+      layout: { padding: { right: 48 } },
+      plugins: {
+        legend: { display: false },
+        datalabels: { anchor: 'end', align: 'end', color: '#50453b', font: { size: 10, weight: '600' }, formatter: brl },
+      },
     },
   });
 
@@ -396,7 +408,13 @@ function reportsPage() {
     },
     options: {
       responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
+      plugins: {
+        legend: { display: false },
+        datalabels: {
+          align: 'top', color: '#7d562d', font: { size: 9, weight: '600' },
+          formatter: (value) => (value ? brl(value) : ''),
+        },
+      },
       scales: { y: { beginAtZero: true } },
     },
   });
@@ -406,7 +424,11 @@ function reportsPage() {
     data: { labels: servicesData.labels, datasets: [{ data: servicesData.values, backgroundColor: '#d4a373' }] },
     options: {
       indexAxis: 'y', responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
+      layout: { padding: { right: 48 } },
+      plugins: {
+        legend: { display: false },
+        datalabels: { anchor: 'end', align: 'end', color: '#50453b', font: { size: 10, weight: '600' }, formatter: brl },
+      },
     },
   });
 
@@ -415,7 +437,11 @@ function reportsPage() {
     data: { labels: productsData.labels, datasets: [{ data: productsData.values, backgroundColor: '#fedbcc' }] },
     options: {
       indexAxis: 'y', responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
+      layout: { padding: { right: 48 } },
+      plugins: {
+        legend: { display: false },
+        datalabels: { anchor: 'end', align: 'end', color: '#50453b', font: { size: 10, weight: '600' }, formatter: brl },
+      },
     },
   });
 
@@ -424,7 +450,11 @@ function reportsPage() {
     data: { labels: employeesData.labels, datasets: [{ data: employeesData.values, backgroundColor: '#72594d' }] },
     options: {
       indexAxis: 'y', responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
+      layout: { padding: { right: 48 } },
+      plugins: {
+        legend: { display: false },
+        datalabels: { anchor: 'end', align: 'end', color: '#50453b', font: { size: 10, weight: '600' }, formatter: brl },
+      },
     },
   });
 })();

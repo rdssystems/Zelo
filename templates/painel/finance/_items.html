@@ -1,16 +1,27 @@
 <div id="cash-items" x-data="{ tab: 'comandas' }">
-  <section class="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
-    <div class="bg-surface-container-lowest p-6 rounded-xl border border-surface-variant shadow-sm">
-      <span class="text-label-caps uppercase text-on-surface-variant block mb-2">Entradas</span>
-      <div class="font-display text-2xl text-on-surface">R$ {{ total_in }}</div>
+  <section class="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6 mb-8">
+    <div class="bg-surface-container-lowest p-3 md:p-6 rounded-xl border border-surface-variant shadow-sm">
+      <span class="text-[10px] md:text-label-caps uppercase text-on-surface-variant block mb-1 md:mb-2">Entradas</span>
+      <div class="font-display text-lg md:text-2xl text-on-surface">R$ {{ total_in }}</div>
     </div>
-    <div class="bg-surface-container-lowest p-6 rounded-xl border border-surface-variant shadow-sm">
-      <span class="text-label-caps uppercase text-on-surface-variant block mb-2">Saídas</span>
-      <div class="font-display text-2xl text-on-surface">R$ {{ total_out }}</div>
+    <div class="bg-surface-container-lowest p-3 md:p-6 rounded-xl border border-surface-variant shadow-sm">
+      <span class="text-[10px] md:text-label-caps uppercase text-on-surface-variant block mb-1 md:mb-2">Saídas</span>
+      <div class="font-display text-lg md:text-2xl text-on-surface">R$ {{ total_out }}</div>
     </div>
-    <div class="bg-primary-container/20 p-6 rounded-xl border border-primary/20 shadow-sm">
-      <span class="text-label-caps uppercase text-primary block mb-2">Saldo do período</span>
-      <div class="font-display text-2xl text-primary">R$ {{ balance }}</div>
+    <div class="bg-primary-container/20 p-3 md:p-6 rounded-xl border border-primary/20 shadow-sm">
+      <span class="text-[10px] md:text-label-caps uppercase text-primary block mb-1 md:mb-2">Saldo do período</span>
+      <div class="font-display text-lg md:text-2xl text-primary">R$ {{ balance }}</div>
+    </div>
+    <div class="bg-surface-container-lowest p-3 md:p-6 rounded-xl border border-surface-variant shadow-sm">
+      <span class="text-[10px] md:text-label-caps uppercase text-on-surface-variant block mb-1 md:mb-2">Por tipo de venda</span>
+      <div class="space-y-0.5 md:space-y-1.5 mt-1 md:mt-2">
+        {% for row in sale_type_breakdown %}
+        <div class="text-[10px] md:text-sm leading-tight">
+          <span class="text-on-surface-variant">{{ row.label }}:</span>
+          <span class="font-semibold text-on-surface">R$ {{ row.total }}</span>
+        </div>
+        {% endfor %}
+      </div>
     </div>
   </section>
 
