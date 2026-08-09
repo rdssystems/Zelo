@@ -78,9 +78,12 @@ def _get_service(request, pk):
 
 def _items_response(request, extra_html=""):
     """Lista atualizada + limpeza do modal (swap out-of-band do HTMX)."""
+    bookable_ids = set(
+        service_ops.bookable_services(request.tenant).values_list("pk", flat=True)
+    )
     items = render_to_string(
         "painel/services/_items.html",
-        {"services": Service.objects.for_tenant(request.tenant)},
+        {"services": Service.objects.for_tenant(request.tenant), "bookable_ids": bookable_ids},
         request=request,
     )
     modal_reset = '<div id="modal-slot" hx-swap-oob="true"></div>'
@@ -90,10 +93,18 @@ def _items_response(request, extra_html=""):
 @tenant_admin_required
 def service_list(request):
     services = Service.objects.for_tenant(request.tenant)
+    # Serviço ativo sem funcionário vinculado não aparece na página pública
+    # (RF14, `bookable_services`) — mas o admin ainda consegue agendar com
+    # ele manualmente (RF17, "encaixe" não exige o vínculo). Avisar aqui
+    # evita o admin descobrir esse gap só quando um cliente reclamar que não
+    # achou o serviço pra agendar sozinho.
+    bookable_ids = set(
+        service_ops.bookable_services(request.tenant).values_list("pk", flat=True)
+    )
     return render(
         request,
         "painel/services/list.html",
-        {"services": services, "active_nav": "services"},
+        {"services": services, "bookable_ids": bookable_ids, "active_nav": "services"},
     )
 
 

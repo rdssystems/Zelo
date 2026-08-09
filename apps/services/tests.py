@@ -395,3 +395,50 @@ class BookableServicesTest(TestCase):
 
         set_employee_active(self.employee, False)
         self.assertEqual(service_ops.bookable_services(self.tenant).count(), 0)
+
+
+class ServiceListBookabilityWarningTest(TestCase):
+    """Achado real num tenant de produção em 2026-08-09: serviço ativo sem
+    funcionário vinculado some da página pública (RF14) mas o admin
+    continua conseguindo agendar com ele manualmente (RF17, "encaixe" não
+    exige o vínculo) — sem aviso nenhum, o admin só descobria o problema
+    quando um cliente reclamasse. `/painel/servicos/` agora avisa direto na
+    lista."""
+
+    @classmethod
+    def setUpTestData(cls):
+        from apps.employees.services import create_employee, link_service
+
+        cls.tenant, cls.admin = make_tenant_with_admin("salao-a")
+        cls.linked = service_ops.create_service(
+            tenant=cls.tenant, name="Com Funcionário", duration_minutes=30, price=Decimal("50")
+        )
+        cls.unlinked = service_ops.create_service(
+            tenant=cls.tenant, name="Sem Funcionário", duration_minutes=30, price=Decimal("50")
+        )
+        cls.inactive_unlinked = service_ops.create_service(
+            tenant=cls.tenant, name="Inativo Sem Funcionário", duration_minutes=30, price=Decimal("50")
+        )
+        service_ops.set_service_active(cls.inactive_unlinked, False)
+        cls.employee = create_employee(
+            tenant=cls.tenant, full_name="Ana Silva", email="ana@salao-a.com",
+            password="Senha@123", default_commission_type="percentage",
+            default_commission_value=Decimal("40.00"),
+        )
+        link_service(cls.employee, cls.linked)
+
+    def test_warns_only_for_active_unlinked_service(self):
+        self.client.force_login(self.admin)
+        response = self.client.get("/painel/servicos/")
+        self.assertContains(response, "Sem profissional vinculado")
+        # o aviso aparece 1x só (pro "Sem Funcionário") — não pro linkado
+        # nem pro inativo (que já mostra "Inativo", não precisa dos dois).
+        self.assertContains(response, "Sem profissional vinculado", count=1)
+
+    def test_no_warning_once_employee_is_linked(self):
+        from apps.employees.services import link_service
+
+        link_service(self.employee, self.unlinked)
+        self.client.force_login(self.admin)
+        response = self.client.get("/painel/servicos/")
+        self.assertNotContains(response, "Sem profissional vinculado")

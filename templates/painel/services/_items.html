@@ -14,6 +14,12 @@
         {% if service.description %}
         <p class="text-sm text-on-surface-variant mt-1 hidden md:block">{{ service.description|truncatechars:90 }}</p>
         {% endif %}
+        {% if service.is_active and service.pk not in bookable_ids %}
+        <p class="inline-flex items-center gap-1 mt-2 px-2.5 py-1 rounded-pill bg-secondary-container/50 text-on-secondary-container text-xs font-medium" title="Vincule ao menos um funcionário ativo (aba Serviços do funcionário) pra este serviço aparecer na página pública de agendamento.">
+          <span class="material-symbols-outlined text-[14px]">visibility_off</span>
+          Sem profissional vinculado — não aparece na página pública
+        </p>
+        {% endif %}
       </div>
       <div class="col-span-1 md:col-span-2 flex items-center gap-2 text-on-surface-variant">
         <span class="material-symbols-outlined text-outline text-[18px]">schedule</span>
