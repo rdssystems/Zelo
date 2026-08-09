@@ -381,18 +381,19 @@ class CpfCnpjValidationTest(TestCase):
 
 
 class TrialTest(TestCase):
-    def test_register_tenant_sets_7_day_trial(self):
+    def test_register_tenant_sets_5_day_trial(self):
         tenant, _ = register_tenant(name="Salão Trial", email="dono@trial.com", password="Senha@123")
         subscription = Subscription.objects.get(tenant=tenant)
         self.assertIsNotNone(subscription.trial_ends_at)
         delta = subscription.trial_ends_at - timezone.now()
-        self.assertAlmostEqual(delta.days, 7, delta=1)
+        self.assertAlmostEqual(delta.days, 5, delta=1)
 
     def test_trial_days_constant_only_affects_new_subscriptions_going_forward(self):
-        """Regra do usuário em 2026-08-06: mudar TRIAL_DAYS de 14 para 7 vale
-        só pra cadastro novo — quem já tinha assinatura continua contando os
-        dias que já tinha (`trial_ends_at` é gravado uma vez no cadastro,
-        nunca recalculado depois a partir da constante)."""
+        """Regra do usuário em 2026-08-06 (e reforçada em 2026-08-08, ao
+        reduzir de 7 para 5): mudar TRIAL_DAYS vale só pra cadastro novo —
+        quem já tinha assinatura continua contando os dias que já tinha
+        (`trial_ends_at` é gravado uma vez no cadastro, nunca recalculado
+        depois a partir da constante)."""
         from unittest.mock import patch
 
         with patch("apps.billing.services.TRIAL_DAYS", 14):
@@ -409,7 +410,7 @@ class TrialTest(TestCase):
         )
         new_subscription = Subscription.objects.get(tenant=new_tenant)
         self.assertAlmostEqual(
-            (new_subscription.trial_ends_at - timezone.now()).days, 7, delta=1
+            (new_subscription.trial_ends_at - timezone.now()).days, 5, delta=1
         )
 
         # a assinatura antiga não foi retroativamente encurtada

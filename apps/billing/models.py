@@ -63,7 +63,7 @@ class Subscription(models.Model):
     asaas_subscription_id = models.CharField(max_length=60, blank=True)
     trial_ends_at = models.DateTimeField(
         "fim do período de teste", null=True, blank=True,
-        help_text="7 dias corridos a partir do cadastro (register_tenant) — acesso completo até aqui.",
+        help_text="5 dias corridos a partir do cadastro (register_tenant) — acesso completo até aqui.",
     )
     current_period_start = models.DateField("início do período atual", null=True, blank=True)
     current_period_end = models.DateField("fim do período atual", null=True, blank=True)

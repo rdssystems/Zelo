@@ -27,7 +27,7 @@ def update_plan(plan, *, name, price, description, is_active, order):
     return plan
 
 
-TRIAL_DAYS = 7
+TRIAL_DAYS = 5
 
 
 def create_subscription_for_tenant(tenant):

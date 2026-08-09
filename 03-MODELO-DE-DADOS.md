@@ -129,9 +129,10 @@ real existe ainda, nenhum tenant é bloqueado por plano. Campos propostos, ainda
 | stock_professional_enabled | bool | libera fornecedor/lote/custo médio/inventário (RF43-46) — hoje todo tenant já tem acesso, sem gate nenhum |
 
 ### `Subscription` (billing / Asaas)
-Nasce automaticamente em `register_tenant` com `trial_ends_at` = 7 dias corridos à frente
-(`apps.billing.services.TRIAL_DAYS`, reduzido de 14 pra 7 em 2026-08-06 — só vale pra cadastro
-novo, assinatura já existente na hora da mudança continua com o `trial_ends_at` que já tinha).
+Nasce automaticamente em `register_tenant` com `trial_ends_at` = 5 dias corridos à frente
+(`apps.billing.services.TRIAL_DAYS`, reduzido de 14 pra 7 em 2026-08-06 e de 7 pra 5 em
+2026-08-08 — só vale pra cadastro novo, assinatura já existente na hora da mudança continua com
+o `trial_ends_at` que já tinha).
 Tenant assina self-service em `/painel/plano/`
 (`apps.billing.services.get_or_create_checkout_url`) — cria cliente + assinatura no Asaas e
 preenche `asaas_customer_id`/`asaas_subscription_id` de verdade; webhook
@@ -146,7 +147,7 @@ tudo manualmente em `/plataforma/` (usado hoje porque `ASAAS_API_KEY` ainda est�
 | asaas_customer_id | string | preenchido no 1º checkout (`asaas_client.create_customer`) |
 | asaas_subscription_id | string | preenchido no 1º checkout (`asaas_client.create_subscription`) |
 | status | enum: trialing, **pending**, active, overdue, canceled | `pending` = novo (checkout criado no Asaas, aguardando webhook confirmar o 1º pagamento) |
-| trial_ends_at | datetime, null | fim do trial de 7 dias, setado em `register_tenant`. RF30 ✅ *(2026-07-31)* — passado esse horário, `apps.billing.services.subscription_blocks_panel_access` bloqueia o painel (sem tolerância extra) se `status` continuar `trialing`; nenhum job muda o `status` sozinho, é só comparado a cada request |
+| trial_ends_at | datetime, null | fim do trial de 5 dias, setado em `register_tenant`. RF30 ✅ *(2026-07-31)* — passado esse horário, `apps.billing.services.subscription_blocks_panel_access` bloqueia o painel (sem tolerância extra) se `status` continuar `trialing`; nenhum job muda o `status` sozinho, é só comparado a cada request |
 | grace_period_days | int, default 5 | RF30 ✅ — dias de carência após `current_period_end` antes de `apps.billing.services.subscription_blocks_panel_access` bloquear o painel de uma assinatura `overdue` |
 | current_period_start | date, null | atualizado pelo webhook (`PAYMENT_CONFIRMED`/`PAYMENT_RECEIVED`) ou manualmente pelo superadmin quando não há cobrança recorrente (`Subscription.is_recurring`) |
 | current_period_end | date, null | idem, `current_period_start` + 30 dias |
