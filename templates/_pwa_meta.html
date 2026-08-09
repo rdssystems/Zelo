@@ -1,0 +1,15 @@
+{% load static %}
+<!-- PWA: instalável na tela inicial (Android/desktop via beforeinstallprompt,
+     iOS via "Adicionar à Tela de Início" manual — ver static/js/pwa-install.js).
+     Só incluído em landing.html e painel/base.html — NÃO em _favicon.html
+     (que é compartilhado com a página pública tenant-themed): o
+     theme-color abaixo é a marca fixa do Zellup, não o tema do tenant
+     (salão/barbearia), e vazaria cor errada nas páginas públicas se
+     estivesse no include genérico. -->
+<link rel="manifest" href="{% static 'manifest.json' %}"/>
+<meta name="theme-color" content="#7d562d"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="default"/>
+<meta name="apple-mobile-web-app-title" content="Zellup"/>
+<script src="{% static 'js/pwa-install.js' %}" defer></script>

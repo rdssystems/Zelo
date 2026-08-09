@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Zellup — Sem conexão</title>
+<style>
+  /* Sem CDN, sem fonte externa — essa página precisa renderizar mesmo sem
+     internet nenhuma (é o fallback do service worker pra navegação offline). */
+  body {
+    margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    background: #fdfaf7; color: #1f1b17; font-family: -apple-system, Segoe UI, Roboto, sans-serif;
+    text-align: center; padding: 24px; box-sizing: border-box;
+  }
+  .card { max-width: 360px; }
+  h1 { font-size: 1.4rem; margin: 0 0 8px; }
+  p { color: #594f45; font-size: 0.95rem; line-height: 1.5; margin: 0 0 24px; }
+  button {
+    background: #7d562d; color: #fff; border: 0; border-radius: 999px;
+    padding: 12px 28px; font-size: 0.9rem; font-weight: 600; cursor: pointer;
+  }
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1>Sem conexão no momento</h1>
+    <p>Não foi possível carregar essa página — verifique sua internet e tente de novo.</p>
+    <button onclick="location.reload()">Tentar novamente</button>
+  </div>
+</body>
+</html>

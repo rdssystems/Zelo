@@ -7,6 +7,7 @@
   <title>Zellup — Agendamento, Comissão e Caixa para Salões e Barbearias</title>
   <meta name="description" content="Plataforma SaaS de agendamento online 24h, cálculo automático de comissão e gestão de caixa para salões de beleza e barbearias. Teste grátis 5 dias."/>
   {% include "_favicon.html" %}
+  {% include "_pwa_meta.html" %}
 
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -90,6 +91,11 @@
 
       <!-- CTA Header -->
       <div class="flex items-center gap-3">
+        <button type="button" data-pwa-install-button title="Instalar o app do Zellup"
+                class="hidden inline-flex items-center justify-center gap-1.5 text-sm font-medium text-on-surface hover:text-primary px-3 py-2.5 transition-colors">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v12m0 0l-4-4m4 4l4-4M4 20h16"/></svg>
+          <span class="hidden lg:inline">Instalar app</span>
+        </button>
         <a href="#entrar" class="hidden sm:inline-flex items-center justify-center text-sm font-medium text-on-surface hover:text-primary px-4 py-2.5 transition-colors">
           Já sou cliente
         </a>
@@ -262,7 +268,7 @@
 
           <div class="bg-surface p-8 rounded-2xl border border-outline/80 shadow-sm hover:shadow-md transition-shadow">
             <div class="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center mb-6">
-              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5 5 0 079.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5 5 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
             </div>
             <h3 class="font-semibold text-xl text-on-surface mb-2">Ficha de clientes & histórico</h3>
             <p class="text-on-surface-variant text-sm leading-relaxed">

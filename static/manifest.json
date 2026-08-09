@@ -1,0 +1,24 @@
+{
+  "name": "Zellup — Agenda, comissão e caixa",
+  "short_name": "Zellup",
+  "description": "Agenda online, cálculo de comissão e caixa para salões de beleza e barbearias.",
+  "start_url": "/painel/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#fdfaf7",
+  "theme_color": "#7d562d",
+  "lang": "pt-BR",
+  "icons": [
+    {
+      "src": "/static/img/brand/zellup-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/static/img/brand/zellup-mark.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

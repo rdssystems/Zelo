@@ -588,6 +588,27 @@ em requisito formal ainda).
   telefone somem, mas agendamentos concluídos, comissões, transações de caixa e saldo/histórico da
   carteira de crédito **não são afetados** (preservados para auditoria financeira e relatórios,
   `Appointment.client` é `PROTECT`).
+- RNF08 ✅ *(implementado em 2026-08-09)*: Painel instalável como PWA (Progressive Web App) — sem
+  app nativo separado pra Android/iOS, decisão do usuário depois de avaliar o trade-off (PWA
+  reaproveita 100% do backend/HTML existente; nativo de verdade — Capacitor — fica pra depois se
+  fizer sentido presença nas lojas). `static/manifest.json` (`start_url: /painel/`, que já
+  resolve sozinho pra tela certa tanto logado quanto deslogado, via `login_required` +
+  `painel_home`) + service worker (`templates/sw.js`, servido em `/sw.js` na raiz do domínio —
+  precisa ser na raiz pra ter escopo no site inteiro, não só em `/static/`). Estratégia de cache
+  deliberadamente conservadora: navegação (HTML) é sempre **network-first** (nunca mostra agenda,
+  caixa ou comissão desatualizada — só cai pro fallback offline se a rede falhar de verdade);
+  só asset estático (`/static/`) é cache-first. Fetch de HTMX/API nunca é interceptado.
+  Botão "Instalar app" (`static/js/pwa-install.js`, reutilizado via `data-pwa-install-button` em
+  `templates/landing.html` e `templates/painel/base.html`) escuta `beforeinstallprompt`
+  (Android/desktop Chrome/Edge) pra abrir o prompt nativo; no iOS Safari (que nunca dispara esse
+  evento) mostra instrução manual ("Compartilhar → Adicionar à Tela de Início"). Fica escondido
+  se o app já estiver rodando em modo instalado (`display-mode: standalone`).
+  **Decisão importante**: o link do manifest + `theme-color` (marca fixa do Zellup) só entram em
+  `landing.html` e `painel/base.html` via `templates/_pwa_meta.html` — **nunca** no
+  `_favicon.html` genérico (compartilhado com a página pública de agendamento, que é
+  tenant-themed salão/barbearia). Colocar lá vazava a cor errada pro tema do tenant e quebrou um
+  teste de isolamento de tema (`test_barbearia_theme_on_public_home`) na primeira tentativa —
+  corrigido movendo pro include dedicado.
 
 ## 6. Fora de escopo (por enquanto)
 - Pagamento online do serviço pelo cliente final (só cobrança da assinatura SaaS por ora).

@@ -37,6 +37,14 @@ urlpatterns = [
     path("", landing_view, name="landing"),
     path("superadmin/", admin.site.urls),
     path("healthz/", healthz),
+    # PWA: service worker precisa ser servido na raiz (não em /static/) pra
+    # ter escopo no site inteiro — ver templates/sw.js.
+    path(
+        "sw.js",
+        TemplateView.as_view(template_name="sw.js", content_type="application/javascript"),
+        name="service_worker",
+    ),
+    path("offline/", TemplateView.as_view(template_name="offline.html"), name="offline"),
     # Painel
     path("painel/login/", ZellupLoginView.as_view(), name="login"),
     path("painel/logout/", auth_views.LogoutView.as_view(), name="logout"),
