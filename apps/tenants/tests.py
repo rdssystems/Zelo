@@ -839,8 +839,8 @@ class LandingViewTest(TestCase):
     def test_root_domain_shows_landing_with_both_links(self):
         response = self.client.get("/")
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Sou Barbearia")
-        self.assertContains(response, "Sou Salão de Beleza")
+        self.assertContains(response, "Estilo Barbearia")
+        self.assertContains(response, "Estilo Salão")
         self.assertContains(response, "barbearia.testserver/painel/login/")
         self.assertContains(response, "salao.testserver/painel/login/")
 
