@@ -139,6 +139,28 @@ def choose_theme_view(request):
 
 
 # ---------------------------------------------------------------------------
+# Páginas legais — /termos/ e /privacidade/
+# ---------------------------------------------------------------------------
+
+
+def legal_page_view(request, template_name):
+    """Termos de Uso e Política de Privacidade compartilham o mesmo canal de
+    contato do suporte (`PlatformSettings.support_whatsapp`, decisão do
+    usuário em 2026-08-10) — o número fica dinâmico no texto legal em vez de
+    hardcoded, então trocar o WhatsApp em `/plataforma/configuracoes/` já
+    atualiza os dois documentos sozinho. Público, sem `@login_required` —
+    precisa ser lido antes do cadastro."""
+    from apps.billing.models import PlatformSettings
+
+    settings_obj = PlatformSettings.get_solo()
+    return render(
+        request,
+        template_name,
+        {"support_number": settings_obj.support_whatsapp_wa_me_number},
+    )
+
+
+# ---------------------------------------------------------------------------
 # Suporte — /painel/suporte/
 # ---------------------------------------------------------------------------
 

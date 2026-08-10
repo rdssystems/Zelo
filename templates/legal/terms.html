@@ -23,18 +23,23 @@
 
 <h2>3. Cadastro e conta</h2>
 <ul>
+  <li>O cadastro é destinado a maiores de 18 anos, atuando em nome próprio ou representando o estabelecimento ("Salão") que administram.</li>
   <li>Você é responsável por manter a veracidade e atualização dos dados cadastrados.</li>
   <li>Você é responsável por manter sua senha em sigilo e por toda atividade realizada com sua conta.</li>
   <li>Cada e-mail cadastrado é único em toda a Plataforma — não é possível repetir o mesmo e-mail em Salões diferentes.</li>
-  <li>Funcionários vinculados ao seu Salão recebem acesso próprio, criado e gerenciado por você.</li>
+  <li>Funcionários vinculados ao seu Salão recebem acesso próprio, criado e gerenciado por você, e suas ações no painel são de responsabilidade do Salão.</li>
 </ul>
 
 <h2>4. Assinatura e pagamento</h2>
 <p>
   O uso da Plataforma pelo Salão está sujeito ao pagamento de uma assinatura mensal, processada
-  por um provedor de pagamentos terceirizado. Os detalhes de plano, valores e política de
-  cancelamento serão apresentados no momento da contratação. O não pagamento pode resultar em
-  suspensão temporária do acesso ao painel administrativo, respeitado um período de carência.
+  por um provedor de pagamentos terceirizado. Podemos oferecer um período de teste gratuito,
+  cuja duração é informada no momento do cadastro. Os detalhes de plano, valores e política de
+  cancelamento são apresentados dentro do painel, antes da confirmação da assinatura. O não
+  pagamento pode resultar em suspensão temporária do acesso ao painel administrativo, respeitado
+  um período de carência; a página pública de agendamento do Salão não é afetada por essa
+  suspensão. Você pode cancelar a renovação automática a qualquer momento pelo próprio painel,
+  sem multa — o acesso continua até o fim do período já pago.
 </p>
 
 <h2>5. Uso permitido</h2>
@@ -78,9 +83,20 @@
   canais de contato cadastrados.
 </p>
 
-<h2>11. Lei aplicável</h2>
-<p>Estes Termos são regidos pelas leis da República Federativa do Brasil.</p>
+<h2>11. Lei aplicável e foro</h2>
+<p>
+  Estes Termos são regidos pelas leis da República Federativa do Brasil. Eventuais disputas
+  serão dirimidas, preferencialmente, no foro do domicílio do usuário, conforme art. 101, I, do
+  Código de Defesa do Consumidor, quando aplicável.
+</p>
 
 <h2>12. Contato</h2>
-<p>Dúvidas sobre estes Termos: <em>[preencher e-mail/canal de suporte]</em>.</p>
+<p>
+  Dúvidas sobre estes Termos:
+  {% if support_number %}
+  <a class="text-primary hover:underline" href="https://wa.me/{{ support_number }}" target="_blank" rel="noopener">fale com a gente pelo WhatsApp</a>.
+  {% else %}
+  use o canal de suporte disponível dentro do painel.
+  {% endif %}
+</p>
 {% endblock %}

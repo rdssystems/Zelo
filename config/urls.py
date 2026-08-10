@@ -19,6 +19,7 @@ from apps.tenants.views import (
     TenantSettingsView,
     choose_theme_view,
     landing_view,
+    legal_page_view,
     signup_view,
     support_modal_view,
 )
@@ -67,8 +68,8 @@ urlpatterns = [
     # apps/accounts/adapters.py); login por e-mail/senha continua sendo o
     # LoginView acima, sem depender do allauth.
     path("accounts/", include("allauth.urls")),
-    path("termos/", TemplateView.as_view(template_name="legal/terms.html"), name="terms"),
-    path("privacidade/", TemplateView.as_view(template_name="legal/privacy.html"), name="privacy"),
+    path("termos/", legal_page_view, {"template_name": "legal/terms.html"}, name="terms"),
+    path("privacidade/", legal_page_view, {"template_name": "legal/privacy.html"}, name="privacy"),
     path("painel/servicos/", include("apps.services.urls")),
     path("painel/funcionarios/", include("apps.employees.urls")),
     path("painel/estoque/", include("apps.inventory.urls")),

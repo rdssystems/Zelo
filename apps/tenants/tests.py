@@ -831,6 +831,32 @@ class SignUpViewTest(TestCase):
         self.assertEqual(self.client.get("/privacidade/").status_code, 200)
 
 
+class LegalPagesTest(TestCase):
+    """Termos de Uso e Política de Privacidade (decisão do usuário em
+    2026-08-10): não são mais texto-modelo com placeholder — o canal de
+    contato vem dinamicamente do WhatsApp de suporte já configurado em
+    `PlatformSettings` (ver `apps.tenants.views.legal_page_view`)."""
+
+    def test_no_longer_shows_template_disclaimer(self):
+        response = self.client.get("/termos/")
+        self.assertNotContains(response, "texto-modelo")
+
+    def test_shows_support_whatsapp_link_when_configured(self):
+        from apps.billing.models import PlatformSettings
+
+        PlatformSettings.objects.update_or_create(
+            pk=1, defaults={"support_whatsapp": "34999998888"}
+        )
+        terms = self.client.get("/termos/")
+        privacy = self.client.get("/privacidade/")
+        self.assertContains(terms, "https://wa.me/5534999998888")
+        self.assertContains(privacy, "https://wa.me/5534999998888")
+
+    def test_shows_graceful_fallback_when_not_configured(self):
+        response = self.client.get("/termos/")
+        self.assertContains(response, "canal de suporte disponível dentro do painel")
+
+
 class LandingViewTest(TestCase):
     """Domínio raiz (`/`) — landing com os 2 caminhos; nos subdomínios
     dedicados, a raiz redireciona direto pro login/cadastro daquele tema

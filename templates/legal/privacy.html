@@ -40,7 +40,9 @@
 <p>
   Compartilhamos dados apenas com fornecedores estritamente necessários para operar o serviço,
   como o provedor de processamento de pagamento da assinatura e o provedor de infraestrutura
-  (hospedagem). Não vendemos dados pessoais a terceiros.
+  (hospedagem e backup). Alguns desses fornecedores podem processar ou armazenar dados em
+  servidores fora do Brasil — nesse caso, exigimos garantias contratuais de proteção adequada,
+  conforme art. 33 da LGPD. Não vendemos dados pessoais a terceiros.
 </p>
 
 <h2>5. Seus direitos (art. 18 da LGPD)</h2>
@@ -85,5 +87,13 @@
 <p>Podemos atualizar esta política periodicamente, com a data de revisão sempre indicada no topo.</p>
 
 <h2>10. Contato do encarregado (DPO)</h2>
-<p>Para exercer seus direitos ou tirar dúvidas: <em>[preencher e-mail/canal de contato do encarregado]</em>.</p>
+<p>
+  O responsável pelo Zellup atua como encarregado do tratamento de dados (art. 41 da LGPD). Para
+  exercer seus direitos ou tirar dúvidas:
+  {% if support_number %}
+  <a class="text-primary hover:underline" href="https://wa.me/{{ support_number }}" target="_blank" rel="noopener">fale pelo WhatsApp</a>.
+  {% else %}
+  use o canal de suporte disponível dentro do painel.
+  {% endif %}
+</p>
 {% endblock %}
