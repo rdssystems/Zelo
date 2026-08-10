@@ -110,4 +110,38 @@
     <p class="text-xs text-on-surface-variant mt-2">Irreversível — apaga o salão inteiro (funcionários, clientes, agenda, caixa, estoque).</p>
   </div>
 </div>
+
+<div class="mt-8 bg-surface-container-lowest rounded-2xl border border-surface-variant p-8">
+  <h3 class="font-display text-title-lg text-on-surface mb-1">Atividade da semana</h3>
+  <p class="text-sm text-on-surface-variant mb-6">{{ activity.week_start|date:"d/m" }} a {{ activity.week_end|date:"d/m" }} — sinal rápido de uso, não é relatório completo.</p>
+  <div class="grid sm:grid-cols-3 gap-6">
+    <div>
+      <p class="text-label-caps uppercase text-outline mb-1">Agendamentos na semana</p>
+      <p class="font-display text-2xl {% if activity.appointments_this_week == 0 %}text-on-surface-variant{% else %}text-on-surface{% endif %}">
+        {{ activity.appointments_this_week }}
+      </p>
+    </div>
+    <div>
+      <p class="text-label-caps uppercase text-outline mb-1">Login essa semana</p>
+      {% if activity.logged_in_this_week %}
+      <p class="inline-flex items-center gap-1.5 text-[#2e7d32] font-semibold">
+        <span class="material-symbols-outlined text-[18px]">check_circle</span> Sim
+      </p>
+      {% else %}
+      <p class="inline-flex items-center gap-1.5 text-error font-semibold">
+        <span class="material-symbols-outlined text-[18px]">cancel</span> Não
+      </p>
+      {% endif %}
+    </div>
+    <div>
+      <p class="text-label-caps uppercase text-outline mb-1">Último login (qualquer usuário)</p>
+      {% if activity.last_login_user %}
+      <p class="text-on-surface">{{ activity.last_login_user.last_login|date:"d/m/Y H:i" }}</p>
+      <p class="text-xs text-on-surface-variant">{{ activity.last_login_user.email }}</p>
+      {% else %}
+      <p class="text-on-surface-variant">Nunca logou</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
 {% endblock %}

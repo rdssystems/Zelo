@@ -239,6 +239,7 @@ def subscriber_list(request):
             "selected_plan": request.GET.get("plan", ""),
             "q": request.GET.get("q", ""),
             "today": timezone.localdate(),
+            "now": timezone.now(),
             "active_nav": "subscribers",
         },
     )
@@ -270,6 +271,7 @@ def subscriber_detail(request, tenant_id):
             "plans": Plan.objects.filter(is_active=True),
             "status_choices": SubscriptionStatus.choices,
             "period_form": period_form,
+            "activity": billing_ops.tenant_weekly_activity(subscription.tenant),
             "active_nav": "subscribers",
         },
     )

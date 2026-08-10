@@ -34,6 +34,34 @@ def update_platform_settings(*, support_whatsapp):
     return settings_obj
 
 
+def tenant_weekly_activity(tenant):
+    """Sinal rápido de "esse salão tá usando o sistema?" pra ficha do
+    assinante em `/plataforma/assinantes/<id>/` (superadmin) — pedido do
+    usuário em 2026-08-10, pra não precisar entrar tenant por tenant tentando
+    adivinhar quem tá ativo. Semana corrente (segunda a domingo), não
+    "últimos 7 dias corridos" — mesma convenção de semana já usada em
+    `apps.scheduling.views._week_start_for`."""
+    from apps.accounts.models import User
+    from apps.scheduling.models import Appointment
+
+    today = timezone.localdate()
+    week_start = today - datetime.timedelta(days=today.weekday())
+    week_end = week_start + datetime.timedelta(days=6)
+
+    users = User.objects.filter(tenant=tenant)
+    last_login_user = users.exclude(last_login__isnull=True).order_by("-last_login").first()
+
+    return {
+        "week_start": week_start,
+        "week_end": week_end,
+        "appointments_this_week": Appointment.objects.for_tenant(tenant)
+        .filter(date__range=(week_start, week_end))
+        .count(),
+        "last_login_user": last_login_user,
+        "logged_in_this_week": users.filter(last_login__date__gte=week_start).exists(),
+    }
+
+
 TRIAL_DAYS = 5
 
 

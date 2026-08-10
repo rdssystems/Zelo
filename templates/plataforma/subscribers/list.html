@@ -1,6 +1,7 @@
 {% extends "plataforma/base.html" %}
 
 {% block title %}Zellup — Assinantes{% endblock %}
+{% block content_width %}max-w-[1600px] mx-auto{% endblock %}
 
 {% block content %}
 <div class="mb-12">
@@ -59,7 +60,13 @@
           <td class="py-4 px-6 text-on-surface-variant">{{ sub.plan.name|default:"— sem plano —" }}</td>
           <td class="py-4 px-6 text-on-surface-variant text-sm">{{ sub.current_period_start|date:"d/m/Y"|default:"—" }}</td>
           <td class="py-4 px-6 text-sm">
-            {% if sub.is_recurring %}
+            {% if sub.status == 'trialing' %}
+              {% if sub.trial_ends_at and sub.trial_ends_at < now %}
+              <span class="text-error font-semibold" title="Fim do período de teste">{{ sub.trial_ends_at|date:"d/m/Y" }} · teste vencido</span>
+              {% else %}
+              <span class="text-on-surface-variant" title="Fim do período de teste">{{ sub.trial_ends_at|date:"d/m/Y"|default:"—" }} · teste</span>
+              {% endif %}
+            {% elif sub.is_recurring %}
             <span class="inline-flex items-center gap-1 text-on-surface-variant" title="Pagamento recorrente ativo — datas controladas automaticamente">
               <span class="material-symbols-outlined text-[16px]">autorenew</span>{{ sub.current_period_end|date:"d/m/Y"|default:"—" }}
             </span>

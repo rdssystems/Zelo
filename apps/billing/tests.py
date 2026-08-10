@@ -352,6 +352,98 @@ class SubscriberPanelTest(TestCase):
         self.assertEqual(response.headers.get("HX-Redirect"), "/plataforma/assinantes/")
         self.assertFalse(Tenant.objects.filter(pk=self.tenant.pk).exists())
 
+    def test_trial_end_date_shown_for_trialing_subscriber(self):
+        """Achado do usuário em 2026-08-10: a lista só mostrava data de fim
+        pra assinatura paga (`current_period_end`), ficando vazia pro
+        assinante que ainda tá em teste."""
+        subscription = Subscription.objects.get(tenant=self.tenant)
+        self.assertIsNotNone(subscription.trial_ends_at)
+        self.client.force_login(self.superadmin)
+        response = self.client.get("/plataforma/assinantes/")
+        local_trial_end = timezone.localtime(subscription.trial_ends_at)
+        self.assertContains(response, local_trial_end.strftime("%d/%m/%Y"))
+        self.assertContains(response, "· teste")
+
+    def test_subscriber_list_uses_wide_content_block(self):
+        self.client.force_login(self.superadmin)
+        response = self.client.get("/plataforma/assinantes/")
+        self.assertContains(response, "max-w-[1600px]")
+
+
+class TenantWeeklyActivityTest(TestCase):
+    """`apps.billing.services.tenant_weekly_activity` — sinal de uso na
+    ficha do assinante (2026-08-10)."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.tenant, cls.admin = make_tenant_with_admin("salao-atividade")
+
+    def test_no_activity_by_default(self):
+        activity = billing_ops.tenant_weekly_activity(self.tenant)
+        self.assertEqual(activity["appointments_this_week"], 0)
+        self.assertFalse(activity["logged_in_this_week"])
+        self.assertIsNone(activity["last_login_user"])
+
+    def test_counts_appointment_within_current_week(self):
+        from apps.clients.models import Client
+        from apps.employees.services import create_employee, link_service
+        from apps.scheduling.models import Appointment, AppointmentStatus
+        from apps.services.services import create_service
+
+        service = create_service(
+            tenant=self.tenant, name="Corte", duration_minutes=30, price=Decimal("50")
+        )
+        employee = create_employee(
+            tenant=self.tenant, full_name="Ana", email="ana@salao-atividade.com",
+            password="Senha@123", default_commission_type="percentage",
+            default_commission_value=Decimal("40"),
+        )
+        link_service(employee, service)
+        client = Client.objects.create(tenant=self.tenant, name="Cliente", phone="11999998888")
+        Appointment.objects.create(
+            tenant=self.tenant, client=client, employee=employee, service=service,
+            date=timezone.localdate(), start_time=datetime.time(10, 0), end_time=datetime.time(10, 30),
+            status=AppointmentStatus.PENDING, price_at_booking=Decimal("50"),
+        )
+        activity = billing_ops.tenant_weekly_activity(self.tenant)
+        self.assertEqual(activity["appointments_this_week"], 1)
+
+    def test_tracks_last_login_and_logged_in_this_week(self):
+        self.admin.last_login = timezone.now()
+        self.admin.save(update_fields=["last_login"])
+        activity = billing_ops.tenant_weekly_activity(self.tenant)
+        self.assertTrue(activity["logged_in_this_week"])
+        self.assertEqual(activity["last_login_user"], self.admin)
+
+    def test_login_before_this_week_does_not_count(self):
+        self.admin.last_login = timezone.now() - datetime.timedelta(days=30)
+        self.admin.save(update_fields=["last_login"])
+        activity = billing_ops.tenant_weekly_activity(self.tenant)
+        self.assertFalse(activity["logged_in_this_week"])
+        # ainda reporta o último login, mesmo antigo (não é "nunca logou")
+        self.assertEqual(activity["last_login_user"], self.admin)
+
+
+class SubscriberDetailActivityTest(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.tenant, cls.admin = make_tenant_with_admin("salao-b")
+        cls.superadmin = make_superadmin()
+
+    def test_detail_page_shows_activity_card(self):
+        self.client.force_login(self.superadmin)
+        response = self.client.get(f"/plataforma/assinantes/{self.tenant.id}/")
+        self.assertContains(response, "Atividade da semana")
+        self.assertContains(response, "Nunca logou")
+
+    def test_detail_page_shows_last_login_when_present(self):
+        self.admin.last_login = timezone.now()
+        self.admin.save(update_fields=["last_login"])
+        self.client.force_login(self.superadmin)
+        response = self.client.get(f"/plataforma/assinantes/{self.tenant.id}/")
+        self.assertContains(response, self.admin.email)
+        self.assertNotContains(response, "Nunca logou")
+
 
 VALID_CPF = "12345678909"
 VALID_CNPJ = "11223333000104"

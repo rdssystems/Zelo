@@ -105,7 +105,7 @@
       <button class="text-on-surface p-2" type="submit"><span class="material-symbols-outlined">logout</span></button>
     </form>
   </header>
-  <div class="px-6 md:px-container-padding py-10 md:py-section-gap max-w-6xl mx-auto">
+  <div class="px-6 md:px-container-padding py-10 md:py-section-gap {% block content_width %}max-w-6xl mx-auto{% endblock %}">
     {% if messages %}
     <div class="mb-8 space-y-3">
       {% for message in messages %}

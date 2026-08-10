@@ -431,9 +431,11 @@ class ServiceListBookabilityWarningTest(TestCase):
         self.client.force_login(self.admin)
         response = self.client.get("/painel/servicos/")
         self.assertContains(response, "Sem profissional vinculado")
-        # o aviso aparece 1x só (pro "Sem Funcionário") — não pro linkado
-        # nem pro inativo (que já mostra "Inativo", não precisa dos dois).
-        self.assertContains(response, "Sem profissional vinculado", count=1)
+        # o aviso aparece 2x no HTML (bloco mobile + bloco desktop, um dos
+        # dois sempre escondido por CSS — ver templates/painel/services/
+        # _items.html) só pro "Sem Funcionário" — não pro linkado nem pro
+        # inativo (que já mostra "Inativo", não precisa dos dois).
+        self.assertContains(response, "Sem profissional vinculado", count=2)
 
     def test_no_warning_once_employee_is_linked(self):
         from apps.employees.services import link_service
