@@ -26,7 +26,7 @@ from .forms import (
 from .models import Plan, PlatformSettings, Subscription, SubscriptionStatus
 
 # Conteúdo de marketing dos planos (não é dado de negócio, não precisa virar
-# model — só 3 planos conhecidos, ver 01-REQUISITOS.md §4.2). Chave = nome do
+# model — só 4 planos conhecidos, ver 01-REQUISITOS.md §4.2). Chave = nome do
 # `Plan` no banco (seed em `apps/billing/migrations`).
 PLAN_HIGHLIGHTS = {
     "Individual": [
@@ -45,6 +45,16 @@ PLAN_HIGHLIGHTS = {
     ],
     "Studio": [
         "Até 6 funcionários",
+        "1 login por funcionário",
+        "Estoque profissional completo (fornecedor, lote/validade, custo médio, inventário)",
+        "Comissão automática por profissional",
+        "CRM completo com histórico por cliente",
+        "Pacotes de mensalidade",
+        "Alerta de aniversário do cliente",
+        "Relatórios avançados (em breve)",
+    ],
+    "Studio Plus": [
+        "Funcionários ilimitados",
         "1 login por funcionário",
         "Estoque profissional completo (fornecedor, lote/validade, custo médio, inventário)",
         "Comissão automática por profissional",

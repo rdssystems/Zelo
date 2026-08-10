@@ -108,7 +108,10 @@ ver [[WorkingHours]] do funcionário pra isso).
 ### `Plan`
 Plano de assinatura da plataforma — editável pelo superadmin em `/plataforma/planos/`, exibido
 e assinável pelo tenant em `/painel/plano/` (RF41/§4.2). 3 planos seedados via
-`billing/migrations/0005_seed_plans.py` (Essencial/Profissional/Ilimitado).
+`billing/migrations/0005_seed_plans.py` (Essencial/Profissional/Ilimitado — renomeados depois pra
+Individual/Profissional/Studio, ver `0008_plan_max_employees.py`); 4º plano ("Studio Plus",
+`max_employees=None` = ilimitado) seedado via `billing/migrations/0016_seed_studio_plus_plan.py`
+(decisão do usuário em 2026-08-10).
 
 | Campo | Tipo | Obs |
 |---|---|---|

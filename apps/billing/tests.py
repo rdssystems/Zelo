@@ -887,12 +887,29 @@ class MyPlanPanelTest(TestCase):
         self.assertContains(response, "Até 6 funcionários")
         self.assertContains(response, "sem conta de funcionário extra")
 
+    def test_studio_plus_card_shows_unlimited_employees(self):
+        """4º plano (decisão do usuário em 2026-08-10): sem limite de
+        funcionário, `max_employees=None` do model já cobre isso."""
+        self.client.force_login(self.admin)
+        response = self.client.get("/painel/plano/")
+        self.assertContains(response, "Studio Plus")
+        self.assertContains(response, "Funcionários ilimitados")
+
     def test_plan_max_employees_seeded_correctly(self):
         # Individual = 1 (o próprio dono, decisão de 2026-08-07 — antes era
         # 0 porque o dono não contava; agora ele ocupa a vaga).
         self.assertEqual(Plan.objects.get(name="Individual").max_employees, 1)
         self.assertEqual(Plan.objects.get(name="Profissional").max_employees, 3)
         self.assertEqual(Plan.objects.get(name="Studio").max_employees, 6)
+        # Studio Plus (2026-08-10): None = sem limite, reaproveita o
+        # enforcement já existente em assert_can_add_employee.
+        self.assertIsNone(Plan.objects.get(name="Studio Plus").max_employees)
+
+    def test_studio_plus_seeded_price_and_order(self):
+        plan = Plan.objects.get(name="Studio Plus")
+        self.assertEqual(plan.price, Decimal("249.90"))
+        self.assertTrue(plan.is_active)
+        self.assertEqual(plan.order, 4)
 
     def test_select_plan_sets_subscription_plan(self):
         self.client.force_login(self.admin)

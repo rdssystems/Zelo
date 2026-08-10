@@ -410,14 +410,15 @@ plano Ilimitado) tinha `trial_ends_at` nulo — nunca tinha passado pelo trial �
 `billing/migrations/0007_backfill_missing_trial_ends_at.py` (preenche 14 dias a partir de hoje
 em qualquer assinatura não-ativa sem `trial_ends_at`).
 
-**3 planos seedados ✅ *(implementado, `billing/migrations/0005_seed_plans.py`)*:**
+**4 planos seedados ✅ *(implementado, `billing/migrations/0005_seed_plans.py` + 4º plano em
+`billing/migrations/0016_seed_studio_plus_plan.py`, decisão do usuário em 2026-08-10)*:**
 
-| | Individual | Profissional | Studio |
-|---|---|---|---|
-| Preço | R$ 69,90/mês *(atualizado em 2026-08-05)* | R$ 129,90/mês *(atualizado em 2026-08-05)* | R$ 179,90/mês |
-| Funcionários (marketing) | 0 (só o dono) | até 3 | até 6 |
-| Estoque (marketing) | básico | profissional completo (RF43-46) | profissional completo |
-| Extras (marketing) | — | comissão automática, CRM completo, pacotes de mensalidade, relatórios (em breve) | idem Profissional *(único diferencial é o limite de funcionários, decisão de 2026-08-05)* |
+| | Individual | Profissional | Studio | Studio Plus |
+|---|---|---|---|---|
+| Preço | R$ 69,90/mês *(atualizado em 2026-08-05)* | R$ 129,90/mês *(atualizado em 2026-08-05)* | R$ 179,90/mês | R$ 249,90/mês *(novo em 2026-08-10)* |
+| Funcionários (marketing) | 0 (só o dono) | até 3 | até 6 | ilimitado (`max_employees=None`) |
+| Estoque (marketing) | básico | profissional completo (RF43-46) | profissional completo | profissional completo |
+| Extras (marketing) | — | comissão automática, CRM completo, pacotes de mensalidade, relatórios (em breve) | idem Profissional *(único diferencial é o limite de funcionários, decisão de 2026-08-05)* | idem Studio |
 
 ⚠️ *(texto de marketing acima escrito antes do enforcement existir — ver correção abaixo, RF41
 "Pendente")* O texto é copy de vitrine (`apps/billing/views.py::PLAN_HIGHLIGHTS`); o enforcement
@@ -508,11 +509,12 @@ disso).
 até bloquear) ou aviso de já bloqueado, conforme o caso.
 
 **`Plan.max_employees` ✅ *(implementado em 2026-08-04, `billing/migrations/0008`)*:** campo real
-em `Plan`, seedado (Individual=1, Profissional=3, Studio=6 — Individual era 0 até 2026-08-07, ver
-abaixo). Enforcement em `apps.billing.services.assert_can_add_employee` — bloqueia
+em `Plan`, seedado (Individual=1, Profissional=3, Studio=6, Studio Plus=`None` desde
+2026-08-10 — Individual era 0 até 2026-08-07, ver abaixo). Enforcement em
+`apps.billing.services.assert_can_add_employee` — bloqueia
 criar/reativar funcionário quando `funcionários_ativos >= plano.max_employees`
-(`employee_seats_used`); `max_employees=None` continua sem limite (reservado pra plano
-customizado); sem plano (trial) não há limite.
+(`employee_seats_used`); `max_employees=None` continua sem limite (usado pelo Studio Plus desde
+2026-08-10); sem plano (trial) não há limite.
 
 **Trava de downgrade ✅ *(implementado em 2026-08-07)*:** o enforcement acima só pegava na hora de
 *adicionar* funcionário — um tenant podia trocar pra um plano menor e ficar "acima do limite" sem
