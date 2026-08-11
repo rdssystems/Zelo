@@ -1,7 +1,8 @@
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 
-from .models import Announcement, AnnouncementRead, TenantNotification
+from .models import Announcement, AnnouncementRead, TenantNotification, TenantNotificationKind
 
 
 def create_announcement(*, title, message, created_by):
@@ -66,8 +67,22 @@ def unread_tenant_notification_count(tenant):
 def new_tenant_notifications_since(tenant, last_seen_id):
     """Usado pelo polling de toast (`agenda_toast_poll`) — não depende de
     `is_read` (o admin pode ver o toast sem "abrir" a notificação, e ela
-    continua não lida no sininho até ele marcar)."""
-    return TenantNotification.objects.for_tenant(tenant).filter(pk__gt=last_seen_id).order_by("pk")
+    continua não lida no sininho até ele marcar).
+
+    Alerta de aniversário vale só no dia em que foi criado — se ninguém
+    mandou a mensagem, ele fica `is_read=False` indefinidamente, e sem este
+    filtro voltaria a aparecer como toast (ex.: "Fulano faz aniversário
+    hoje") em qualquer login futuro que reset a sessão (watermark
+    `agenda_toast_last_id` é por sessão, não persistido no banco) — mesmo
+    com a data já passada. Outros tipos de notificação não têm essa validade
+    de "só hoje", continuam aparecendo normalmente."""
+    today = timezone.localdate()
+    return (
+        TenantNotification.objects.for_tenant(tenant)
+        .filter(pk__gt=last_seen_id)
+        .exclude(Q(kind=TenantNotificationKind.BIRTHDAY_ALERT) & ~Q(created_at__date=today))
+        .order_by("pk")
+    )
 
 
 def mark_tenant_notification_read(notification):

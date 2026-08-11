@@ -1394,6 +1394,55 @@ class BirthdayAlertTest(TestCase):
         response = self.client.get("/painel/clientes/aniversariantes/whatsapp/")
         self.assertNotContains(response, "ClienteOutroSalao")
 
+    def _make_stale_birthday_notification(self, client_name="Isabeth"):
+        """Simula uma notificação criada NO DIA do aniversário de um
+        cliente cujo aniversário já passou de verdade (não é hoje) — o
+        cenário exato do bug relatado: ninguém mandou a mensagem, a
+        notificação ficou pra trás sem nunca ser marcada lida."""
+        yesterday = self.today - datetime.timedelta(days=1)
+        client_ = Client.objects.create(
+            tenant=self.tenant, phone="11955550000", name=client_name,
+            birth_day=yesterday.day, birth_month=yesterday.month,
+        )
+        notification = TenantNotification.objects.create(
+            tenant=self.tenant, kind=TenantNotificationKind.BIRTHDAY_ALERT,
+            title="Aniversariante do dia! 🎂",
+            message=f"{client_name} faz aniversário hoje. Que tal mandar uma mensagem?",
+        )
+        TenantNotification.objects.filter(pk=notification.pk).update(
+            created_at=timezone.now() - datetime.timedelta(days=1)
+        )
+        return client_, notification
+
+    def test_stale_unread_notification_from_previous_day_is_closed_on_next_poll(self):
+        """Bug relatado pelo usuário: ninguém mandou a mensagem de um
+        aniversariante de um dia anterior, a notificação ficava `is_read=
+        False` pra sempre (inflava o sininho indefinidamente). Um poll
+        qualquer em outro dia agora fecha ela sozinha."""
+        self.tenant.birthday_alert_enabled = True
+        self.tenant.save(update_fields=["birthday_alert_enabled"])
+        _, notification = self._make_stale_birthday_notification()
+        self.assertFalse(notification.is_read)
+
+        ensure_birthday_notification(self.tenant)  # poll de "hoje" (aniversário já passou)
+
+        notification.refresh_from_db()
+        self.assertTrue(notification.is_read)
+
+    def test_toast_poll_does_not_resurface_stale_birthday_notification(self):
+        """Reprodução exata do bug: sessão nova (login), notificação de
+        aniversário de um dia anterior nunca enviada não pode voltar como
+        toast — mesmo que o watermark da sessão (`agenda_toast_last_id`)
+        esteja zerado."""
+        self.tenant.birthday_alert_enabled = True
+        self.tenant.save(update_fields=["birthday_alert_enabled"])
+        self._make_stale_birthday_notification(client_name="Isabeth")
+
+        self.client.force_login(self.admin)  # sessão nova, sem last_id salvo
+        response = self.client.get("/painel/avisos/toast/")
+        self.assertNotContains(response, "Isabeth")
+        self.assertNotContains(response, "Aniversariante do dia")
+
 
 class PackageDomainTest(TestCase):
     """Pacote de mensalidade — decisão do usuário em 2026-08-04: define quais

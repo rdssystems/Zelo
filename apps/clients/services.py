@@ -630,11 +630,22 @@ def ensure_birthday_notification(tenant):
     from apps.notifications.models import TenantNotification, TenantNotificationKind
     from apps.notifications.services import create_tenant_notification
 
+    today = timezone.localdate()
+
+    # Alerta de aniversário vale só no dia em que nasceu — se ninguém mandou
+    # a mensagem, `_close_birthday_notification_if_all_greeted` nunca roda
+    # pra ele e ficaria `is_read=False` pra sempre (inflando o sininho e
+    # voltando como toast em qualquer sessão nova — ver
+    # `apps.notifications.services.new_tenant_notifications_since`). Fecha
+    # aqui, a cada poll, qualquer alerta de dia anterior.
+    TenantNotification.objects.for_tenant(tenant).filter(
+        kind=TenantNotificationKind.BIRTHDAY_ALERT, is_read=False,
+    ).exclude(created_at__date=today).update(is_read=True, read_at=timezone.now())
+
     clients = list(pending_birthday_clients_today(tenant))
     if not clients:
         return None
 
-    today = timezone.localdate()
     already_created_today = TenantNotification.objects.for_tenant(tenant).filter(
         kind=TenantNotificationKind.BIRTHDAY_ALERT, created_at__date=today,
     ).exists()

@@ -1,13 +1,15 @@
+import datetime
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
+from django.utils import timezone
 
 from apps.employees.services import create_employee
 from apps.tenants.models import Tenant
 
 from . import services as notif_ops
-from .models import Announcement, AnnouncementRead
+from .models import Announcement, AnnouncementRead, TenantNotification
 
 User = get_user_model()
 
@@ -180,6 +182,29 @@ class TenantNotificationDomainTest(TestCase):
         self.assertEqual(since_zero, [first, second])
         since_first = list(notif_ops.new_tenant_notifications_since(self.tenant_a, first.pk))
         self.assertEqual(since_first, [second])
+
+    def test_new_since_watermark_excludes_birthday_alert_from_a_previous_day(self):
+        """Bug relatado pelo usuário: alerta de aniversário de um dia
+        anterior (nunca marcado lido porque ninguém mandou a mensagem) não
+        pode voltar a aparecer como toast numa sessão nova (watermark
+        zerado) — diferente dos outros tipos de notificação, que continuam
+        valendo independente da data."""
+        stale_birthday = notif_ops.create_tenant_notification(
+            self.tenant_a, kind="birthday_alert", title="Aniversariante do dia! 🎂", message="M",
+        )
+        yesterday = timezone.now() - datetime.timedelta(days=1)
+        TenantNotification.objects.filter(pk=stale_birthday.pk).update(created_at=yesterday)
+        today_birthday = notif_ops.create_tenant_notification(
+            self.tenant_a, kind="birthday_alert", title="Aniversariante do dia! 🎂", message="M2",
+        )
+        cancellation = notif_ops.create_tenant_notification(
+            self.tenant_a, kind="appointment_canceled_by_client", title="C", message="M3",
+        )
+
+        result = list(notif_ops.new_tenant_notifications_since(self.tenant_a, 0))
+        self.assertNotIn(stale_birthday, result)
+        self.assertIn(today_birthday, result)
+        self.assertIn(cancellation, result)
 
 
 class TenantNotificationPanelTest(TestCase):
