@@ -25,6 +25,8 @@ erDiagram
     EMPLOYEE ||--o{ WORKING_HOURS : tem
     EMPLOYEE ||--o{ EMPLOYEE_SERVICE : executa
     SERVICE ||--o{ EMPLOYEE_SERVICE : "é executado por"
+    SERVICE ||--o{ SERVICE_PRODUCT : "tem receita de"
+    PRODUCT ||--o{ SERVICE_PRODUCT : "é insumo de"
 
     CLIENT ||--o{ APPOINTMENT : agenda
     CLIENT ||--o{ CLIENT_CREDIT_TRANSACTION : "tem carteira"
@@ -71,6 +73,7 @@ erDiagram
 | client_inactive_days | int, default 60 | Configurações — limiar (dias sem atendimento concluído) pra `Client.is_inactive` |
 | whatsapp_cancel_redirect_enabled | bool, default True | ✅ *(2026-07-31)* Configurações (RF26c) — liga/desliga o redirecionamento do cliente pro WhatsApp do salão ao cancelar (RF06f) |
 | auto_confirm_appointments | bool, default False | ✅ *(2026-07-31)* Configurações (RF26d) — agendamento nasce `confirmed` em vez de `pending` (RF06i) |
+| weekly_report_email_enabled | bool, default True | ✅ *(2026-08-11, RF51)* Configurações — opt-out do e-mail semanal de resumo (`apps.reports.tasks.send_weekly_report_emails`) |
 | is_active | bool | desativado manualmente pelo superadmin |
 | created_at | datetime | |
 
@@ -282,6 +285,21 @@ sem tabela de join por usuário — só o(s) `tenant_admin`(s) daquele salão ve
 | commission_value | decimal, null | override específico deste serviço |
 | — unique_together | (employee, service) | |
 
+### `ServiceProduct` 🔒 (ficha técnica do serviço — receita de insumos, RF48)
+Insumo consumido automaticamente do estoque toda vez que um atendimento deste serviço é
+concluído (`apps.scheduling.services.complete_appointment`), sem cobrar o cliente — diferente da
+venda casada manual (`product_usage`, escolhida pelo admin ao fechar a comanda, que continua
+existindo em paralelo). Estoque insuficiente do insumo NÃO bloqueia a conclusão (decisão do
+usuário) — `Product.current_stock` fica negativo e um aviso é mostrado ao admin (toast, ver
+`apps.finance.views._cash_response`).
+
+| Campo | Tipo | Obs |
+|---|---|---|
+| service | FK Service, CASCADE | apagar o serviço apaga sua receita |
+| product | FK Product, PROTECT | mesmo padrão de todo FK de Product ligado a histórico/uso (`StockMovement.product`, `ComandaProductItem.product`) — não dá pra excluir um produto que está numa receita |
+| quantity | decimal | quantidade consumida por atendimento — valida unidade inteira quando `product.unit` é `un`/`par`/`cx` (mesma regra de `product_usage`) |
+| — unique_together | (service, product) | adicionar de novo o mesmo produto atualiza a quantidade em vez de duplicar a linha |
+
 ### `Client` 🔒 (cliente final, identificado por telefone — CRM)
 | Campo | Tipo | Obs |
 |---|---|---|
@@ -393,6 +411,7 @@ reatribuir os produtos antes de excluir a categoria.
 | current_stock | decimal | **derivado**, sempre recalculado via `StockMovement` |
 | min_stock_alert | decimal | |
 | tracks_batches | bool, default False | opt-in (RF44) — nem todo produto vence (ex. toalha) |
+| is_for_sale | bool, default True | RF48 — `False` = insumo de uso interno (some dos pickers "Vender produto"/"Nova Venda", filtro "Tipo" na tela de Estoque), continua com toda a engine de Estoque e pode ser usado numa receita de serviço (`ServiceProduct`) independente deste valor |
 | is_active | bool | |
 
 ### `StockMovement` 🔒
@@ -404,7 +423,7 @@ reatribuir os produtos antes de excluir a categoria.
 | quantity | decimal | |
 | unit_price | decimal | preço no momento do movimento |
 | total_value | decimal | `quantity * unit_price` |
-| reason | enum: purchase, sale, service_use, adjustment, loss | |
+| reason | enum: purchase, sale, service_use, recipe_use, adjustment, loss | `recipe_use` (RF48) = consumo automático da receita do serviço — NUNCA gera `CashTransaction`, diferente de `service_use` (venda casada manual, cobrada do cliente) |
 | supplier | FK Supplier, SET_NULL, null=True | fornecedor **desta compra específica** (RF43) — pode diferir do preferido em `Product.supplier` |
 | related_appointment | FK Appointment, null | |
 | created_by | FK User | |
@@ -524,10 +543,10 @@ só de "Vender produto" por comanda (por CLIENTE, não por serviço/atendimento)
 
 ## Entidades planejadas — Estoque profissional (ver `01-REQUISITOS.md` §4.1)
 
-`Supplier`, `ProductBatch`, `StockMovementBatch`, `PhysicalInventoryCount` e
-`PhysicalInventoryCountItem` (RF43-46) já foram implementadas — ver as entidades acima, na seção
-principal. Fica pendente só o RF47 (relatório de giro/curva ABC — sem model novo, adiado pra
-depois) e, fora deste plano, a ficha técnica por serviço (RF48).
+`Supplier`, `ProductBatch`, `StockMovementBatch`, `PhysicalInventoryCount`,
+`PhysicalInventoryCountItem` (RF43-46) e `ServiceProduct` (RF48, ficha técnica por serviço) já
+foram implementadas — ver as entidades acima, na seção principal. Fica pendente só o RF47
+(relatório de giro/curva ABC — sem model novo, adiado pra depois).
 
 ## Regras de cálculo (documentar no código também, não só aqui)
 

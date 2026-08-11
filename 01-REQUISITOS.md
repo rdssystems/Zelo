@@ -326,6 +326,16 @@ dois links coexistem, por instrução explícita do usuário).
   assuntos antes de fechar isso. Retomar antes de considerar RF37 totalmente encerrado.
 - RF38: Notificação automática por WhatsApp (confirmação e lembrete de agendamento) — API oficial
   Meta ou provedor tipo Twilio/Z-API.
+- RF51 ✅ *(implementado em 2026-08-11)*: Relatório semanal por e-mail — toda segunda-feira de
+  manhã (7h, horário de São Paulo), um e-mail HTML resume a semana anterior (segunda a domingo
+  fechados) de cada tenant ativo: saldo/entrada/saída (`apps.finance.services.period_summary`),
+  atendimentos concluídos, novos clientes e os 3 serviços que mais renderam
+  (`apps.reports.services.weekly_summary`, reaproveita as agregações do RF37). Enviado a todo
+  `tenant_admin` ativo do tenant (`apps.reports.tasks.send_weekly_report_emails`, primeira task
+  periódica do projeto — `CELERY_BEAT_SCHEDULE` em `config/settings.py`). **Decisão do usuário**:
+  opt-out — `Tenant.weekly_report_email_enabled` nasce `True`, desliga em Configurações. Falha ao
+  enviar pra um tenant não impede o envio pros demais (log + segue o loop). Anunciado como
+  atrativo na landing page ("Resumo semanal no seu e-mail").
 - RF39: Notificação de estoque baixo por e-mail/WhatsApp.
 - RF40: Avaliação do atendimento pelo cliente (nota + comentário) pós-serviço.
 - RF41: Múltiplos planos de assinatura com limites diferentes (nº de funcionários, etc.) — ver
@@ -368,10 +378,22 @@ entre si nem com o resto, ficam por último):
   só agregação de `StockMovement` num período: giro (saída no período), ranking por valor vendido
   com curva ABC (Pareto: A = 80% acumulado, B = próximos 15%, C = últimos 5%), e visão de
   produtos parados (zero saída no período).
-- RF48 *(fora deste plano, só registrado pra não esquecer — pedido explícito do usuário)*: ficha
-  técnica por serviço — um serviço (ex. "Coloração") ter uma receita pré-definida de produtos
-  consumidos automaticamente, em vez do admin escolher manualmente na hora de fechar a comanda
-  (como funciona hoje). Ainda não planejado em detalhe.
+- RF48 ✅ *(implementado em 2026-08-11)*: Ficha técnica por serviço — cada `Service` pode ter uma
+  receita de insumos (`apps/services/models.py::ServiceProduct`, produto + quantidade) consumida
+  **automaticamente** do estoque toda vez que um atendimento desse serviço é concluído
+  (`apps.scheduling.services.complete_appointment`), sem cobrar o cliente por isso — diferente da
+  venda casada manual (`product_usage`, escolhida pelo admin no fechamento da comanda, que
+  continua existindo do jeito que já funcionava). Decisões de negócio confirmadas com o usuário:
+  (1) sem model/app novo pra insumo — `Product.is_for_sale` (default `True`) marca um produto como
+  só de uso interno, continua usando toda a engine de Estoque (fornecedor, lote/validade, custo
+  médio, alerta de estoque baixo); a tela de Estoque ganhou um filtro "Tipo" (Todos/Para
+  venda/Insumo) na lista de Produtos em vez de uma aba/tela nova; (2) falta de insumo em estoque
+  NÃO bloqueia a conclusão do atendimento — `current_stock` fica negativo e um aviso não-bloqueante
+  (toast) pede pro admin atualizar o estoque; (3) o consumo aparece como nota informativa
+  ("Insumos: ...") na tela de fechar comanda, mas não é editável ali — a receita cadastrada no
+  serviço é a única fonte da verdade. Novo `MovementReason.RECIPE_USE` distingue esse consumo
+  automático (nunca gera `CashTransaction`) do `SERVICE_USE` já existente (venda casada, cobrada).
+  Painel em `/painel/servicos/<id>/receita/` (ícone "Receita" na lista de Serviços).
 
 ### 4.2 Planos, trial e checkout self-service (RF41 + parte do RF28/29 — implementado em
 2026-07-30, ver `03-MODELO-DE-DADOS.md`)
