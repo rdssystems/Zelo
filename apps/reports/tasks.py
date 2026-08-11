@@ -5,6 +5,7 @@ import datetime
 import logging
 
 from celery import shared_task
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
@@ -43,9 +44,9 @@ def _send_weekly_report_email(tenant, start, end):
         {"tenant": tenant, "start": start, "end": end, **summary},
     )
     message = EmailMultiAlternatives(
-        subject=f"Resumo da semana — {tenant.name}",
+        subject="Seu resumo semanal no Zellup",
         body=strip_tags(html),
-        from_email=None,
+        from_email=f"Zellup <{settings.DEFAULT_FROM_EMAIL}>",
         to=recipients,
     )
     message.attach_alternative(html, "text/html")

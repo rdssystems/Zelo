@@ -666,7 +666,8 @@ class WeeklyReportEmailTaskTest(TestCase):
         send_weekly_report_emails()
         self.assertEqual(len(mail.outbox), 1)
         self.assertEqual(mail.outbox[0].to, [self.admin.email])
-        self.assertIn(self.tenant.name, mail.outbox[0].subject)
+        self.assertEqual(mail.outbox[0].subject, "Seu resumo semanal no Zellup")
+        self.assertIn("Zellup <", mail.outbox[0].from_email)  # nome de exibição, não só o e-mail cru
         self.assertTrue(mail.outbox[0].alternatives)  # tem a versão HTML anexada
 
     def test_skips_tenant_with_report_disabled(self):
