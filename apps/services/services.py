@@ -9,7 +9,9 @@ from decimal import Decimal
 from django.core.exceptions import ValidationError
 from django.db.models import ProtectedError
 
-from .models import Service
+from apps.inventory.models import WHOLE_UNIT_CODES
+
+from .models import Service, ServiceProduct
 
 
 def _validate(name, duration_minutes, price):
@@ -79,3 +81,47 @@ def bookable_services(tenant):
         .filter(is_active=True, employee_links__employee__is_active=True)
         .distinct()
     )
+
+
+def _validate_recipe_item(service, product, quantity):
+    # Regra #1 do CLAUDE.md — isolamento multi-tenant é inegociável (mesma
+    # checagem que apps.scheduling.services.create_appointment faz pros
+    # FKs de um Appointment).
+    if product.tenant_id != service.tenant_id:
+        raise ValidationError({"product": "Produto não pertence a este tenant."})
+    quantity = Decimal(quantity)
+    if quantity <= 0:
+        raise ValidationError({"quantity": "A quantidade deve ser maior que zero."})
+    if product.unit in WHOLE_UNIT_CODES and quantity != quantity.to_integral_value():
+        raise ValidationError(
+            {
+                "quantity": (
+                    f"Quantidade de \"{product.name}\" deve ser um número inteiro "
+                    f"({product.get_unit_display()} não aceita fração)."
+                )
+            }
+        )
+    return quantity
+
+
+def add_recipe_item(*, service, product, quantity):
+    """RF48 — adiciona (ou atualiza a quantidade de) um insumo na receita do
+    serviço. Consumido automaticamente a cada atendimento concluído, sem
+    cobrar o cliente — ver apps.scheduling.services.complete_appointment."""
+    quantity = _validate_recipe_item(service, product, quantity)
+    item, _ = ServiceProduct.objects.update_or_create(
+        tenant=service.tenant, service=service, product=product,
+        defaults={"quantity": quantity},
+    )
+    return item
+
+
+def set_recipe_item_quantity(item, quantity):
+    quantity = _validate_recipe_item(item.service, item.product, quantity)
+    item.quantity = quantity
+    item.save(update_fields=["quantity"])
+    return item
+
+
+def remove_recipe_item(item):
+    item.delete()

@@ -1,3 +1,5 @@
+from decimal import Decimal, InvalidOperation
+
 from django.core.exceptions import ValidationError
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, render
@@ -8,10 +10,11 @@ from rest_framework.exceptions import ValidationError as DRFValidationError
 
 from apps.accounts.decorators import tenant_admin_required
 from apps.accounts.permissions import IsTenantAdminOrReadOnly, IsTenantMember
+from apps.inventory.models import Product
 
 from . import services as service_ops
 from .forms import ServiceForm
-from .models import Service
+from .models import Service, ServiceProduct
 from .serializers import ServiceSerializer
 
 # ---------------------------------------------------------------------------
@@ -228,3 +231,122 @@ def service_delete(request, pk):
         response.headers["HX-Reswap"] = "innerHTML"
         return response
     return _items_response(request)
+
+
+# ---------------------------------------------------------------------------
+# Receita do serviço (RF48) — insumo consumido automaticamente do estoque a
+# cada atendimento concluído, sem cobrar o cliente. Mesmo padrão de
+# add/editar quantidade/remover que apps.finance.views usa pra
+# ComandaProductItem, trocando cliente por serviço.
+# ---------------------------------------------------------------------------
+
+
+def _grouped_products_for_recipe(tenant):
+    """Igual a `apps.finance.views._grouped_products`, mas SEM filtro
+    `is_for_sale` — qualquer produto ativo (vendável ou insumo puro) pode
+    virar ingrediente de receita. Não é importado de lá pra evitar import
+    circular (apps.finance já importa de apps.services)."""
+    products = (
+        Product.objects.for_tenant(tenant)
+        .filter(is_active=True)
+        .select_related("category")
+        .order_by("name")
+    )
+    grouped = {}
+    uncategorized = []
+    for product in products:
+        if product.category_id:
+            grouped.setdefault(product.category, []).append(product)
+        else:
+            uncategorized.append(product)
+    categories_with_products = [
+        {"category": category, "products": items}
+        for category, items in sorted(grouped.items(), key=lambda row: row[0].name)
+    ]
+    return categories_with_products, uncategorized
+
+
+def _recipe_items_response(request, service):
+    items = render_to_string(
+        "painel/services/_recipe_items.html",
+        {"service": service, "recipe_items": service.recipe_items.select_related("product")},
+        request=request,
+    )
+    return HttpResponse(items)
+
+
+@tenant_admin_required
+def service_recipe(request, pk):
+    service = _get_service(request, pk)
+    return render(
+        request,
+        "painel/services/_recipe_modal.html",
+        {"service": service, "recipe_items": service.recipe_items.select_related("product")},
+    )
+
+
+@tenant_admin_required
+def service_recipe_product_picker(request, pk):
+    service = _get_service(request, pk)
+    categories_with_products, uncategorized_products = _grouped_products_for_recipe(request.tenant)
+    return render(
+        request,
+        "painel/services/_recipe_product_picker.html",
+        {
+            "service": service,
+            "categories_with_products": categories_with_products,
+            "uncategorized_products": uncategorized_products,
+        },
+    )
+
+
+@tenant_admin_required
+def service_recipe_item_add(request, pk):
+    """Diferente de `comanda_item_add` (que troca só a listinha por baixo do
+    picker, na página principal): aqui o picker TOMOU o `#modal-slot`
+    inteiro (não tem "por baixo"), então adicionar volta pro modal da
+    receita completo — mesma renderização de `service_recipe`."""
+    if request.method != "POST":
+        return HttpResponse(status=405)
+    service = _get_service(request, pk)
+    product = get_object_or_404(
+        Product.objects.for_tenant(request.tenant),
+        pk=request.POST.get("product_id"), is_active=True,
+    )
+    try:
+        service_ops.add_recipe_item(service=service, product=product, quantity=Decimal("1"))
+    except ValidationError:
+        return HttpResponse(status=409)
+    return render(
+        request,
+        "painel/services/_recipe_modal.html",
+        {"service": service, "recipe_items": service.recipe_items.select_related("product")},
+    )
+
+
+@tenant_admin_required
+def service_recipe_item_update(request, item_id):
+    if request.method != "POST":
+        return HttpResponse(status=405)
+    item = get_object_or_404(
+        ServiceProduct.objects.for_tenant(request.tenant).select_related("service"),
+        pk=item_id,
+    )
+    try:
+        quantity = Decimal(str(request.POST.get("quantity", "0")).strip().replace(",", "."))
+        service_ops.set_recipe_item_quantity(item, quantity)
+    except (ValidationError, InvalidOperation):
+        return HttpResponse(status=409)
+    return _recipe_items_response(request, item.service)
+
+
+@tenant_admin_required
+def service_recipe_item_remove(request, item_id):
+    if request.method != "POST":
+        return HttpResponse(status=405)
+    item = get_object_or_404(
+        ServiceProduct.objects.for_tenant(request.tenant).select_related("service"), pk=item_id
+    )
+    service = item.service
+    service_ops.remove_recipe_item(item)
+    return _recipe_items_response(request, service)

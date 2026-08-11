@@ -178,6 +178,9 @@ def _comanda_groups(tenant):
         Appointment.objects.for_tenant(tenant)
         .filter(status=AppointmentStatus.IN_PROGRESS)
         .select_related("client", "employee", "service", "package")
+        # RF48 — pré-carrega a receita do serviço pra prévia informativa
+        # "Insumos: ..." em _comandas.html, sem N+1.
+        .prefetch_related("service__recipe_items__product")
         .order_by("client_id", "date", "start_time")
     )
     clients_by_id = {}
@@ -246,10 +249,15 @@ def _period_context(request):
     }
 
 
-def _cash_response(request, prompt_preferences_for=None):
+def _cash_response(request, prompt_preferences_for=None, stock_warnings=None):
     """`prompt_preferences_for`: cliente recém-atendido — quando informado,
     em vez de só limpar o modal, abre o prompt "quer atualizar as
-    observações desse cliente?" (ver `comanda_finalize_group`)."""
+    observações desse cliente?" (ver `comanda_finalize_group`).
+
+    `stock_warnings` (RF48): mensagens de insumo que ficou negativo — vira
+    um toast avulso (mesmo mecanismo `hx-swap-oob="beforeend:#toast-slot"`
+    de `templates/painel/notifications/_toast_poll.html`), que NÃO se
+    auto-fecha (precisa de ação do admin)."""
     context = _period_context(request)
     items = render_to_string("painel/finance/_items.html", context, request=request)
     if prompt_preferences_for is not None:
@@ -261,7 +269,14 @@ def _cash_response(request, prompt_preferences_for=None):
         modal_reset = f'<div id="modal-slot" hx-swap-oob="true">{modal}</div>'
     else:
         modal_reset = '<div id="modal-slot" hx-swap-oob="true"></div>'
-    return HttpResponse(items + modal_reset)
+    toast = ""
+    if stock_warnings:
+        toast = render_to_string(
+            "painel/finance/_stock_warning_toast.html",
+            {"stock_warnings": stock_warnings},
+            request=request,
+        )
+    return HttpResponse(items + modal_reset + toast)
 
 
 @tenant_admin_required
@@ -437,7 +452,7 @@ def commission_pay(request, pk):
 def _grouped_products(tenant):
     products = (
         Product.objects.for_tenant(tenant)
-        .filter(is_active=True)
+        .filter(is_active=True, is_for_sale=True)
         .select_related("category")
         .order_by("name")
     )
@@ -479,7 +494,8 @@ def comanda_item_add(request, client_id):
         return HttpResponse(status=405)
     client = get_object_or_404(Client.objects.for_tenant(request.tenant), pk=client_id)
     product = get_object_or_404(
-        Product.objects.for_tenant(request.tenant), pk=request.POST.get("product_id"), is_active=True
+        Product.objects.for_tenant(request.tenant),
+        pk=request.POST.get("product_id"), is_active=True, is_for_sale=True,
     )
     finance_ops.add_comanda_product_item(client=client, product=product, created_by=request.user)
     return _cash_response(request)
@@ -538,6 +554,7 @@ def comanda_finalize_group(request):
         for item in pending_items
     ]
 
+    stock_warnings = []
     try:
         if appointments:
             # Produtos não pertencem a um serviço específico (um botão só pra
@@ -553,6 +570,7 @@ def comanda_finalize_group(request):
                 collect_prior_debt_amount=_parse_decimal(
                     request.POST.get("collect_prior_debt_amount"), field="collect_prior_debt_amount"
                 ),
+                stock_warnings=stock_warnings,
             )
         else:
             finance_ops.sell_products(
@@ -568,7 +586,11 @@ def comanda_finalize_group(request):
         item.delete()
     # Só pergunta sobre observações quando houve atendimento de verdade — uma
     # venda avulsa de produto (sem serviço) não tem esse contexto de CRM.
-    return _cash_response(request, prompt_preferences_for=client if appointments else None)
+    return _cash_response(
+        request,
+        prompt_preferences_for=client if appointments else None,
+        stock_warnings=stock_warnings,
+    )
 
 
 @tenant_admin_required

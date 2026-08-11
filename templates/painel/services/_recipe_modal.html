@@ -1,0 +1,34 @@
+<div class="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6" id="recipe-modal">
+  <div class="absolute inset-0 bg-inverse-surface/40 backdrop-blur-sm"
+       onclick="document.getElementById('modal-slot').innerHTML = ''"></div>
+  <div class="relative w-full max-w-lg bg-surface-container-lowest rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto">
+    <div class="h-3 w-full bg-primary-container"></div>
+    <div class="p-8">
+      <div class="flex justify-between items-start mb-2">
+        <div>
+          <h3 class="font-display text-display-mobile text-on-surface">Receita do serviço</h3>
+          <p class="text-on-surface-variant mt-1">"{{ service.name }}" — insumos abatidos do estoque sozinhos a cada atendimento concluído, sem cobrar o cliente.</p>
+        </div>
+        <button class="text-outline hover:text-on-surface transition-colors p-2 rounded-full hover:bg-surface-container"
+                onclick="document.getElementById('modal-slot').innerHTML = ''">
+          <span class="material-symbols-outlined">close</span>
+        </button>
+      </div>
+
+      <div class="mt-6">
+        {% include "painel/services/_recipe_items.html" %}
+      </div>
+
+      <div class="pt-6 flex justify-between items-center">
+        <button type="button"
+                hx-get="{% url 'services:recipe_product_picker' service.pk %}" hx-target="#modal-slot" hx-swap="innerHTML"
+                class="flex items-center gap-2 px-4 py-2 rounded-pill border border-primary text-primary text-sm font-semibold hover:bg-primary-container/20 transition-colors">
+          <span class="material-symbols-outlined text-[18px]">add</span>
+          Adicionar insumo
+        </button>
+        <button class="px-6 py-3 rounded-pill border border-outline text-on-surface-variant hover:bg-surface-container transition-colors" type="button"
+                onclick="document.getElementById('modal-slot').innerHTML = ''">Fechar</button>
+      </div>
+    </div>
+  </div>
+</div>

@@ -99,6 +99,14 @@
                  {% if form.tracks_batches.value %}checked{% endif %}/>
           <label class="text-on-surface" for="id_tracks_batches">Controla lote/validade (produto vence)</label>
         </div>
+        <div class="flex items-center gap-3">
+          <input class="h-5 w-5 rounded border-outline text-primary focus:ring-primary" id="id_is_for_sale" name="is_for_sale" type="checkbox"
+                 {% if form.is_for_sale.value %}checked{% endif %}/>
+          <label class="text-on-surface" for="id_is_for_sale">Vender ao cliente</label>
+        </div>
+        <p class="text-sm text-on-surface-variant -mt-4">
+          Desmarque para um insumo de uso interno (ex. tinta, luva) — some dos pickers de venda, mas continua no Estoque.
+        </p>
         {% if not product %}
         <p class="text-sm text-on-surface-variant">O estoque inicial começa em 0 — registre uma entrada depois de criar o produto.</p>
         {% endif %}

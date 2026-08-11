@@ -63,22 +63,31 @@
 
     {% for appointment in group.appointments %}
     <div class="flex items-center justify-between gap-4 py-3 border-t border-surface-variant first:border-t-0">
-      <p class="text-sm text-on-surface flex items-center gap-2 flex-wrap">
-        <span>{{ appointment.service.name }} · com {{ appointment.employee.full_name }} · {{ appointment.start_time|time:"H:i" }}</span>
-        {% if appointment.date != today %}
-        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-pill text-xs font-semibold
-          {% if appointment.date < today %}bg-error-container text-on-error-container{% else %}bg-primary-container/40 text-on-primary-container{% endif %}"
-          title="{% if appointment.date < today %}Comanda aberta em dia anterior{% else %}Atendimento antecipado — agendado para {{ appointment.date|date:'d/m/Y' }}{% endif %}">
-          <span class="material-symbols-outlined text-[14px]">event</span>{{ appointment.date|date:"d/m" }}
-        </span>
+      <div class="min-w-0">
+        <p class="text-sm text-on-surface flex items-center gap-2 flex-wrap">
+          <span>{{ appointment.service.name }} · com {{ appointment.employee.full_name }} · {{ appointment.start_time|time:"H:i" }}</span>
+          {% if appointment.date != today %}
+          <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-pill text-xs font-semibold
+            {% if appointment.date < today %}bg-error-container text-on-error-container{% else %}bg-primary-container/40 text-on-primary-container{% endif %}"
+            title="{% if appointment.date < today %}Comanda aberta em dia anterior{% else %}Atendimento antecipado — agendado para {{ appointment.date|date:'d/m/Y' }}{% endif %}">
+            <span class="material-symbols-outlined text-[14px]">event</span>{{ appointment.date|date:"d/m" }}
+          </span>
+          {% endif %}
+          {% if appointment.package_id %}
+          <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-pill text-xs font-semibold bg-secondary-container text-on-secondary-container"
+                title="Incluso no pacote {{ appointment.package.name }} — não cobra de novo aqui">
+            <span class="material-symbols-outlined text-[14px]">redeem</span>Mensalidade
+          </span>
+          {% endif %}
+        </p>
+        {% with recipe_items=appointment.service.recipe_items.all %}
+        {% if recipe_items %}
+        <p class="text-xs text-on-surface-variant/80 mt-0.5" title="Abatido do estoque sozinho ao concluir — não entra na conta do cliente.">
+          Insumos: {% for item in recipe_items %}{{ item.product.name }} ({{ item.quantity|stringformat:'s' }}{{ item.product.unit }}){% if not forloop.last %}, {% endif %}{% endfor %}
+        </p>
         {% endif %}
-        {% if appointment.package_id %}
-        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-pill text-xs font-semibold bg-secondary-container text-on-secondary-container"
-              title="Incluso no pacote {{ appointment.package.name }} — não cobra de novo aqui">
-          <span class="material-symbols-outlined text-[14px]">redeem</span>Mensalidade
-        </span>
-        {% endif %}
-      </p>
+        {% endwith %}
+      </div>
       <div class="flex items-center gap-2 shrink-0">
         {% if appointment.package_id %}
         <span class="text-sm text-on-surface-variant italic" title="Valor de tabela: R$ {{ appointment.price_at_booking }}">Incluso</span>

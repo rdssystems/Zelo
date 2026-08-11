@@ -10,11 +10,11 @@ from django.test import TestCase
 from apps.clients.models import Client
 from apps.employees.models import ScheduleException, WorkingHours
 from apps.employees.services import create_employee, link_service, set_working_hours
-from apps.services.services import create_service, delete_service, set_service_active
+from apps.services.services import add_recipe_item, create_service, delete_service, set_service_active
 from apps.tenants.models import Tenant
 
 from apps.finance.models import CashCategory, CashFlowType, CashTransaction, Commission, CommissionStatus
-from apps.inventory.models import Product
+from apps.inventory.models import MovementReason, Product, StockMovement
 from apps.inventory.services import create_product
 
 from .availability import get_available_slots, get_available_slots_for_day, is_slot_available
@@ -1133,6 +1133,142 @@ class CompleteAppointmentTest(TestCase):
         product_cash_txn = CashTransaction.objects.get(category=CashCategory.PRODUCT_SALE)
         self.assertEqual(product_cash_txn.amount, Decimal("15.00"))
         self.assertEqual(product_cash_txn.related_appointment, appointment)
+
+    def test_recipe_item_consumed_automatically_without_charging_client(self):
+        """RF48 — insumo cadastrado na receita do serviço é abatido sozinho,
+        sem gerar CashTransaction nem entrar no total cobrado do cliente
+        (diferente de product_usage, a venda casada manual)."""
+        insumo = create_product(
+            tenant=self.tenant, name="Tintura Loiro", unit="ml",
+            cost_price=Decimal("0.50"), sale_price=Decimal("0.00"), min_stock_alert=Decimal("10"),
+            is_for_sale=False,
+        )
+        from apps.inventory.services import register_stock_movement
+
+        register_stock_movement(
+            tenant=self.tenant, product=insumo, movement_type="in",
+            quantity=Decimal("100"), unit_price=Decimal("0.50"), reason="purchase",
+            created_by=self.admin,
+        )
+        add_recipe_item(service=self.service, product=insumo, quantity=Decimal("30"))
+        appointment = self._make_appointment()
+
+        commission = complete_appointment(
+            appointment=appointment, payment_method="cash", created_by=self.admin,
+        )
+
+        insumo.refresh_from_db()
+        self.assertEqual(insumo.current_stock, Decimal("70"))
+        movement = StockMovement.objects.get(product=insumo, reason=MovementReason.RECIPE_USE)
+        self.assertEqual(movement.quantity, Decimal("30"))
+        self.assertEqual(movement.related_appointment, appointment)
+        self.assertFalse(
+            CashTransaction.objects.filter(category=CashCategory.PRODUCT_SALE).exists()
+        )
+        # comissão e venda do serviço continuam intactas, sem influência do insumo
+        service_cash_txn = CashTransaction.objects.get(category=CashCategory.SERVICE_SALE)
+        self.assertEqual(service_cash_txn.amount, Decimal("100.00"))
+        self.assertEqual(commission.calculated_amount, Decimal("40.00"))
+
+    def test_recipe_insufficient_stock_does_not_block_and_returns_warning(self):
+        """Decisão do usuário: falta de insumo NÃO trava a conclusão — o
+        estoque fica negativo e um aviso é anexado em stock_warnings."""
+        insumo = create_product(
+            tenant=self.tenant, name="Tintura Loiro", unit="ml",
+            cost_price=Decimal("0.50"), sale_price=Decimal("0.00"), min_stock_alert=Decimal("10"),
+            is_for_sale=False,
+        )
+        add_recipe_item(service=self.service, product=insumo, quantity=Decimal("30"))
+        appointment = self._make_appointment()  # insumo continua com estoque 0
+
+        warnings = []
+        complete_appointment(
+            appointment=appointment, payment_method="cash", created_by=self.admin,
+            stock_warnings=warnings,
+        )
+
+        appointment.refresh_from_db()
+        self.assertEqual(appointment.status, AppointmentStatus.COMPLETED)
+        insumo.refresh_from_db()
+        self.assertEqual(insumo.current_stock, Decimal("-30"))
+        self.assertEqual(len(warnings), 1)
+        self.assertIn("Tintura Loiro", warnings[0])
+
+    def test_recipe_consumed_even_when_service_covered_by_package(self):
+        """O insumo é gasto de verdade mesmo quando o serviço em si não é
+        cobrado de novo por já estar coberto por um pacote de mensalidade."""
+        from apps.clients.services import assign_package_to_client, create_package
+
+        insumo = create_product(
+            tenant=self.tenant, name="Tintura Loiro", unit="ml",
+            cost_price=Decimal("0.50"), sale_price=Decimal("0.00"), min_stock_alert=Decimal("10"),
+            is_for_sale=False,
+        )
+        from apps.inventory.services import register_stock_movement
+
+        register_stock_movement(
+            tenant=self.tenant, product=insumo, movement_type="in",
+            quantity=Decimal("100"), unit_price=Decimal("0.50"), reason="purchase",
+            created_by=self.admin,
+        )
+        add_recipe_item(service=self.service, product=insumo, quantity=Decimal("30"))
+        package = create_package(
+            tenant=self.tenant, name="Corte Ilimitado", price=Decimal("150.00"),
+            service_ids=[self.service.pk], generates_commission=True, created_by=self.admin,
+        )
+        assign_package_to_client(
+            self.client_, package=package, payment_method="pix", created_by=self.admin,
+        )
+        appointment = self._make_appointment()
+        appointment.package = package
+        appointment.save(update_fields=["package"])
+
+        complete_appointment(appointment=appointment, payment_method="cash", created_by=self.admin)
+
+        insumo.refresh_from_db()
+        self.assertEqual(insumo.current_stock, Decimal("70"))
+        self.assertFalse(
+            CashTransaction.objects.filter(
+                related_appointment=appointment, category=CashCategory.SERVICE_SALE
+            ).exists()
+        )
+
+    def test_recipe_consumption_rolls_back_on_atomicity_failure(self):
+        """Mesma garantia do teste de atomicidade já existente, agora
+        cobrindo o novo loop de receita: se algo mais adiante falhar (aqui,
+        crédito maior que o total), o StockMovement do insumo TAMBÉM não
+        pode sobrar persistido."""
+        from apps.clients.services import add_client_credit
+
+        insumo = create_product(
+            tenant=self.tenant, name="Tintura Loiro", unit="ml",
+            cost_price=Decimal("0.50"), sale_price=Decimal("0.00"), min_stock_alert=Decimal("10"),
+            is_for_sale=False,
+        )
+        from apps.inventory.services import register_stock_movement
+
+        register_stock_movement(
+            tenant=self.tenant, product=insumo, movement_type="in",
+            quantity=Decimal("100"), unit_price=Decimal("0.50"), reason="purchase",
+            created_by=self.admin,
+        )
+        add_recipe_item(service=self.service, product=insumo, quantity=Decimal("30"))
+        add_client_credit(
+            self.client_, amount=Decimal("500"), payment_method="pix", created_by=self.admin
+        )
+        appointment = self._make_appointment()  # total = R$100
+
+        with self.assertRaises(ValidationError):
+            complete_appointment(
+                appointment=appointment, payment_method="cash", created_by=self.admin,
+                credit_amount=Decimal("150"),  # maior que o total — rejeitado depois do loop de receita
+            )
+
+        appointment.refresh_from_db()
+        self.assertEqual(appointment.status, AppointmentStatus.CONFIRMED)
+        insumo.refresh_from_db()
+        self.assertEqual(insumo.current_stock, Decimal("100"))  # nada consumido
+        self.assertFalse(StockMovement.objects.filter(reason=MovementReason.RECIPE_USE).exists())
 
     def test_cannot_complete_already_completed_appointment(self):
         appointment = self._make_appointment(status=AppointmentStatus.COMPLETED)

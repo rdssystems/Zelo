@@ -8,7 +8,7 @@ from rest_framework.test import APIClient
 from apps.tenants.models import Tenant
 
 from . import services as service_ops
-from .models import Service
+from .models import Service, ServiceProduct
 
 User = get_user_model()
 
@@ -395,6 +395,165 @@ class BookableServicesTest(TestCase):
 
         set_employee_active(self.employee, False)
         self.assertEqual(service_ops.bookable_services(self.tenant).count(), 0)
+
+
+class ServiceRecipeDomainTest(TestCase):
+    """RF48 — ficha técnica do serviço (`ServiceProduct`)."""
+
+    @classmethod
+    def setUpTestData(cls):
+        from apps.inventory.services import create_product
+
+        cls.tenant, cls.admin = make_tenant_with_admin("salao-a")
+        cls.service = service_ops.create_service(
+            tenant=cls.tenant, name="Coloração", duration_minutes=120, price=Decimal("300.00")
+        )
+        cls.insumo = create_product(
+            tenant=cls.tenant, name="Tintura Loiro", unit="ml",
+            cost_price=Decimal("0.50"), sale_price=Decimal("0.00"), min_stock_alert=Decimal("50"),
+            is_for_sale=False,
+        )
+
+    def test_add_recipe_item(self):
+        item = service_ops.add_recipe_item(
+            service=self.service, product=self.insumo, quantity=Decimal("30")
+        )
+        self.assertEqual(item.service, self.service)
+        self.assertEqual(item.product, self.insumo)
+        self.assertEqual(item.quantity, Decimal("30"))
+
+    def test_add_recipe_item_twice_updates_quantity_instead_of_duplicating(self):
+        service_ops.add_recipe_item(service=self.service, product=self.insumo, quantity=Decimal("30"))
+        service_ops.add_recipe_item(service=self.service, product=self.insumo, quantity=Decimal("45"))
+        self.assertEqual(ServiceProduct.objects.filter(service=self.service).count(), 1)
+        item = ServiceProduct.objects.get(service=self.service, product=self.insumo)
+        self.assertEqual(item.quantity, Decimal("45"))
+
+    def test_zero_quantity_rejected(self):
+        with self.assertRaises(ValidationError):
+            service_ops.add_recipe_item(
+                service=self.service, product=self.insumo, quantity=Decimal("0")
+            )
+
+    def test_fractional_quantity_rejected_for_whole_unit_product(self):
+        from apps.inventory.services import create_product
+
+        luva = create_product(
+            tenant=self.tenant, name="Luva", unit="un",
+            cost_price=Decimal("0.20"), sale_price=Decimal("0.00"), min_stock_alert=Decimal("20"),
+            is_for_sale=False,
+        )
+        with self.assertRaises(ValidationError):
+            service_ops.add_recipe_item(service=self.service, product=luva, quantity=Decimal("1.5"))
+
+    def test_cross_tenant_product_rejected(self):
+        """Regra #1 do CLAUDE.md — isolamento multi-tenant é inegociável."""
+        from apps.inventory.services import create_product
+
+        other_tenant, _ = make_tenant_with_admin("salao-b")
+        other_product = create_product(
+            tenant=other_tenant, name="Tintura de Outro Salão", unit="ml",
+            cost_price=Decimal("0.50"), sale_price=Decimal("0.00"), min_stock_alert=Decimal("10"),
+        )
+        with self.assertRaises(ValidationError):
+            service_ops.add_recipe_item(
+                service=self.service, product=other_product, quantity=Decimal("10")
+            )
+        self.assertFalse(ServiceProduct.objects.filter(service=self.service).exists())
+
+    def test_set_recipe_item_quantity(self):
+        item = service_ops.add_recipe_item(
+            service=self.service, product=self.insumo, quantity=Decimal("30")
+        )
+        service_ops.set_recipe_item_quantity(item, Decimal("50"))
+        item.refresh_from_db()
+        self.assertEqual(item.quantity, Decimal("50"))
+
+    def test_remove_recipe_item(self):
+        item = service_ops.add_recipe_item(
+            service=self.service, product=self.insumo, quantity=Decimal("30")
+        )
+        service_ops.remove_recipe_item(item)
+        self.assertFalse(ServiceProduct.objects.filter(pk=item.pk).exists())
+
+    def test_deleting_product_used_in_recipe_is_blocked(self):
+        from apps.inventory.services import delete_product
+
+        service_ops.add_recipe_item(service=self.service, product=self.insumo, quantity=Decimal("30"))
+        with self.assertRaises(ValidationError):
+            delete_product(self.insumo)
+
+    def test_deleting_service_deletes_its_recipe(self):
+        item = service_ops.add_recipe_item(
+            service=self.service, product=self.insumo, quantity=Decimal("30")
+        )
+        service_ops.delete_service(self.service)
+        self.assertFalse(ServiceProduct.objects.filter(pk=item.pk).exists())
+
+
+class ServiceRecipePanelTest(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        from apps.inventory.services import create_product
+
+        cls.tenant, cls.admin = make_tenant_with_admin("salao-a")
+        cls.service = service_ops.create_service(
+            tenant=cls.tenant, name="Coloração", duration_minutes=120, price=Decimal("300.00")
+        )
+        cls.insumo = create_product(
+            tenant=cls.tenant, name="Tintura Loiro", unit="ml",
+            cost_price=Decimal("0.50"), sale_price=Decimal("0.00"), min_stock_alert=Decimal("50"),
+            is_for_sale=False,
+        )
+
+    def test_recipe_modal_renders_empty_state(self):
+        self.client.force_login(self.admin)
+        response = self.client.get(f"/painel/servicos/{self.service.pk}/receita/")
+        self.assertContains(response, "Nenhum insumo cadastrado")
+
+    def test_product_picker_lists_insumo_and_sellable_products(self):
+        self.client.force_login(self.admin)
+        response = self.client.get(f"/painel/servicos/{self.service.pk}/receita/produtos/")
+        self.assertContains(response, "Tintura Loiro")
+
+    def test_add_item_via_picker(self):
+        self.client.force_login(self.admin)
+        response = self.client.post(
+            f"/painel/servicos/{self.service.pk}/receita/adicionar/",
+            {"product_id": self.insumo.pk},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(
+            ServiceProduct.objects.filter(service=self.service, product=self.insumo).exists()
+        )
+        self.assertContains(response, "Tintura Loiro")
+
+    def test_update_item_quantity(self):
+        item = service_ops.add_recipe_item(
+            service=self.service, product=self.insumo, quantity=Decimal("1")
+        )
+        self.client.force_login(self.admin)
+        response = self.client.post(
+            f"/painel/servicos/receita/{item.pk}/atualizar/", {"quantity": "45"}
+        )
+        self.assertEqual(response.status_code, 200)
+        item.refresh_from_db()
+        self.assertEqual(item.quantity, Decimal("45"))
+
+    def test_remove_item(self):
+        item = service_ops.add_recipe_item(
+            service=self.service, product=self.insumo, quantity=Decimal("30")
+        )
+        self.client.force_login(self.admin)
+        response = self.client.post(f"/painel/servicos/receita/{item.pk}/remover/")
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(ServiceProduct.objects.filter(pk=item.pk).exists())
+
+    def test_recipe_scoped_to_tenant(self):
+        other_tenant, other_admin = make_tenant_with_admin("salao-b")
+        self.client.force_login(other_admin)
+        response = self.client.get(f"/painel/servicos/{self.service.pk}/receita/")
+        self.assertEqual(response.status_code, 404)
 
 
 class ServiceListBookabilityWarningTest(TestCase):

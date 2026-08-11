@@ -29,6 +29,7 @@ class ProductForm(forms.Form):
     tracks_batches = forms.BooleanField(
         required=False, label="Controla lote/validade (produto vence)"
     )
+    is_for_sale = forms.BooleanField(required=False, initial=True, label="Vender ao cliente")
 
     def __init__(self, *args, tenant=None, cost_price_locked=False, **kwargs):
         super().__init__(*args, **kwargs)

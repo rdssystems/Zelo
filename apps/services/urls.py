@@ -20,4 +20,25 @@ urlpatterns = [
         name="delete_confirm",
     ),
     path("<int:pk>/excluir/", views.service_delete, name="delete"),
+    path("<int:pk>/receita/", views.service_recipe, name="recipe"),
+    path(
+        "<int:pk>/receita/produtos/",
+        views.service_recipe_product_picker,
+        name="recipe_product_picker",
+    ),
+    path(
+        "<int:pk>/receita/adicionar/",
+        views.service_recipe_item_add,
+        name="recipe_item_add",
+    ),
+    path(
+        "receita/<int:item_id>/atualizar/",
+        views.service_recipe_item_update,
+        name="recipe_item_update",
+    ),
+    path(
+        "receita/<int:item_id>/remover/",
+        views.service_recipe_item_remove,
+        name="recipe_item_remove",
+    ),
 ]

@@ -31,6 +31,10 @@
           {% endif %}
         </div>
         <div class="flex items-center gap-0 justify-end">
+          <button class="p-1 text-outline hover:text-primary transition-colors rounded-full hover:bg-surface-variant" title="Receita (insumos)"
+                  hx-get="{% url 'services:recipe' service.pk %}" hx-target="#modal-slot" hx-swap="innerHTML">
+            <span class="material-symbols-outlined text-[16px]">science</span>
+          </button>
           <button class="p-1 text-outline hover:text-primary transition-colors rounded-full hover:bg-surface-variant" title="Editar"
                   hx-get="{% url 'services:update' service.pk %}" hx-target="#modal-slot" hx-swap="innerHTML">
             <span class="material-symbols-outlined text-[16px]">edit</span>
@@ -77,6 +81,10 @@
         {% endif %}
       </div>
       <div class="col-span-1 flex justify-end gap-1">
+        <button class="p-2 text-outline hover:text-primary transition-colors rounded-full hover:bg-surface-variant" title="Receita (insumos)"
+                hx-get="{% url 'services:recipe' service.pk %}" hx-target="#modal-slot" hx-swap="innerHTML">
+          <span class="material-symbols-outlined">science</span>
+        </button>
         <button class="p-2 text-outline hover:text-primary transition-colors rounded-full hover:bg-surface-variant" title="Editar"
                 hx-get="{% url 'services:update' service.pk %}" hx-target="#modal-slot" hx-swap="innerHTML">
           <span class="material-symbols-outlined">edit</span>

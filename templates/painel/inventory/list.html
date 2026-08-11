@@ -46,7 +46,13 @@
     <option value="low_stock" {% if selected_situacao == "low_stock" %}selected{% endif %}>Estoque baixo</option>
     <option value="expiring_batches" {% if selected_situacao == "expiring_batches" %}selected{% endif %}>Lote vencendo</option>
   </select>
-  {% if selected_category or selected_situacao %}
+  <label class="text-sm text-on-surface-variant">Tipo</label>
+  <select class="bg-transparent border-0 border-b border-outline-variant text-on-surface focus:ring-0 focus:border-primary" name="tipo" onchange="this.form.submit()">
+    <option value="">Todos</option>
+    <option value="venda" {% if selected_tipo == "venda" %}selected{% endif %}>Para venda</option>
+    <option value="insumo" {% if selected_tipo == "insumo" %}selected{% endif %}>Insumo (uso interno)</option>
+  </select>
+  {% if selected_category or selected_situacao or selected_tipo %}
   <a class="text-sm text-primary hover:underline" href="{% url 'inventory:list' %}">Limpar filtros</a>
   {% endif %}
 </form>

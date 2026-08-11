@@ -16,6 +16,11 @@ class MovementReason(models.TextChoices):
     PURCHASE = "purchase", "Compra"
     SALE = "sale", "Venda"
     SERVICE_USE = "service_use", "Uso em serviço"
+    # RF48 — consumo automático da receita (ficha técnica) de um serviço,
+    # diferente de SERVICE_USE (venda casada manual, cobrada do cliente):
+    # este NUNCA gera CashTransaction. Mantido separado pra não misturar
+    # histórico cobrado com não-cobrado nos relatórios de estoque.
+    RECIPE_USE = "recipe_use", "Insumo de receita (automático)"
     ADJUSTMENT = "adjustment", "Ajuste"
     LOSS = "loss", "Perda"
 
@@ -126,6 +131,12 @@ class Product(TenantModel):
     # entrada de compra abre um ProductBatch e toda saída desconta por FEFO
     # (lote mais próximo do vencimento primeiro) — ver register_stock_movement.
     tracks_batches = models.BooleanField("controla lote/validade", default=False)
+    # RF48 — False = insumo de uso interno (ex. tinta, luva): some dos
+    # pickers de venda ("Vender produto"/"Nova Venda"), mas continua com
+    # toda a engine de Estoque (fornecedor, lote/validade, custo médio,
+    # alerta de estoque baixo) e pode ser usado numa receita de serviço
+    # (apps.services.models.ServiceProduct).
+    is_for_sale = models.BooleanField("vender ao cliente", default=True)
 
     class Meta:
         verbose_name = "produto"

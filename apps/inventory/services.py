@@ -43,7 +43,7 @@ def _validate_product(name, cost_price, sale_price, min_stock_alert):
 
 def create_product(
     *, tenant, name, unit, cost_price, sale_price, min_stock_alert,
-    sku="", category=None, supplier=None, tracks_batches=False,
+    sku="", category=None, supplier=None, tracks_batches=False, is_for_sale=True,
 ):
     """`category` é opcional aqui (a obrigatoriedade é imposta no
     formulário/serializer do painel — muitos testes de outros apps criam
@@ -60,13 +60,14 @@ def create_product(
         sale_price=sale_price,
         min_stock_alert=min_stock_alert,
         tracks_batches=bool(tracks_batches),
+        is_for_sale=bool(is_for_sale),
         current_stock=Decimal("0"),
     )
 
 
 def update_product(
     product, *, name, unit, cost_price, sale_price, min_stock_alert,
-    sku="", category=None, supplier=None, tracks_batches=False,
+    sku="", category=None, supplier=None, tracks_batches=False, is_for_sale=True,
 ):
     if product.has_purchase_history:
         # RF45 — trava de custo médio: depois da 1ª compra, cost_price só
@@ -83,10 +84,11 @@ def update_product(
     product.sale_price = sale_price
     product.min_stock_alert = min_stock_alert
     product.tracks_batches = bool(tracks_batches)
+    product.is_for_sale = bool(is_for_sale)
     product.save(
         update_fields=[
             "name", "sku", "category", "supplier", "unit",
-            "cost_price", "sale_price", "min_stock_alert", "tracks_batches",
+            "cost_price", "sale_price", "min_stock_alert", "tracks_batches", "is_for_sale",
         ]
     )
     return product
@@ -168,10 +170,12 @@ def delete_product(product):
     try:
         product.delete()
     except ProtectedError:
-        # StockMovement.product é PROTECT — ver apps/inventory/models.py
+        # StockMovement.product e ServiceProduct.product são PROTECT — ver
+        # apps/inventory/models.py e apps/services/models.py.
         raise ValidationError(
-            "Não é possível excluir: existem movimentações de estoque vinculadas a este "
-            "produto. Desative-o para que saia de uso, mantendo o histórico."
+            "Não é possível excluir: existem movimentações de estoque ou uma receita de "
+            "serviço vinculadas a este produto. Desative-o para que saia de uso, mantendo "
+            "o histórico."
         )
 
 
@@ -192,10 +196,15 @@ def _open_batch(*, tenant, product, quantity, unit_cost, supplier, batch_number,
     )
 
 
-def _consume_batches_fefo(*, movement, product, quantity):
+def _consume_batches_fefo(*, movement, product, quantity, allow_negative_stock=False):
     """Desconta primeiro o lote mais próximo do vencimento (FEFO) — uma
     única saída pode esgotar vários lotes seguidos. Cada consumo vira um
-    `StockMovementBatch` (rastro de auditoria de qual lote foi usado)."""
+    `StockMovementBatch` (rastro de auditoria de qual lote foi usado).
+
+    `allow_negative_stock` (RF48, consumo de receita): quando faltar saldo
+    nos lotes, consome o que existir e deixa o restante sem lote associado
+    em vez de travar — `Product.current_stock` já fica negativo de qualquer
+    forma nesse caso (ver `register_stock_movement`)."""
     remaining = quantity
     batches = ProductBatch.objects.filter(
         tenant=movement.tenant, product=product, quantity_remaining__gt=0
@@ -210,7 +219,7 @@ def _consume_batches_fefo(*, movement, product, quantity):
             tenant=movement.tenant, movement=movement, batch=batch, quantity=used
         )
         remaining -= used
-    if remaining > 0:
+    if remaining > 0 and not allow_negative_stock:
         raise ValidationError(
             f"Estoque insuficiente nos lotes cadastrados de \"{product.name}\" "
             f"(faltam {remaining} {product.unit} — verifique lotes vencidos ou zerados)."
@@ -256,6 +265,7 @@ def register_stock_movement(
     supplier=None,
     batch_number="",
     expiry_date=None,
+    allow_negative_stock=False,
 ):
     """Cria o `StockMovement` e recalcula `current_stock` — único caminho
     permitido para alterar o estoque (CLAUDE.md regra 2).
@@ -263,7 +273,14 @@ def register_stock_movement(
     Se `product.tracks_batches` (RF44): toda entrada de COMPRA abre um novo
     `ProductBatch` (exige `expiry_date`); toda saída desconta por FEFO entre
     os lotes com saldo. Outros tipos de entrada (ex. ajuste) não abrem lote —
-    só mexem em `current_stock` normalmente."""
+    só mexem em `current_stock` normalmente.
+
+    `allow_negative_stock` (RF48, consumo automático de receita de serviço —
+    decisão do usuário): quando `True`, uma saída maior que o estoque atual
+    NÃO é bloqueada — `current_stock` fica negativo em vez de levantar
+    `ValidationError`. Só o consumo automático de insumo
+    (`apps.scheduling.services.complete_appointment`) usa isso; venda manual,
+    compra e ajuste continuam sempre bloqueando estoque insuficiente."""
     if product.tenant_id != tenant.id:
         raise ValidationError("Produto não pertence a este tenant.")
     if movement_type not in MovementType.values:
@@ -278,7 +295,11 @@ def register_stock_movement(
     if unit_price < 0:
         raise ValidationError({"unit_price": "O preço unitário não pode ser negativo."})
 
-    if movement_type == MovementType.OUT and quantity > product.current_stock:
+    if (
+        movement_type == MovementType.OUT
+        and quantity > product.current_stock
+        and not allow_negative_stock
+    ):
         raise ValidationError(
             f"Estoque insuficiente: disponível {product.current_stock} {product.unit}."
         )
@@ -303,7 +324,10 @@ def register_stock_movement(
                 supplier=supplier, batch_number=batch_number, expiry_date=expiry_date,
             )
         elif movement_type == MovementType.OUT:
-            _consume_batches_fefo(movement=movement, product=product, quantity=quantity)
+            _consume_batches_fefo(
+                movement=movement, product=product, quantity=quantity,
+                allow_negative_stock=allow_negative_stock,
+            )
 
     update_fields = ["current_stock"]
     if movement_type == MovementType.IN and reason == MovementReason.PURCHASE:

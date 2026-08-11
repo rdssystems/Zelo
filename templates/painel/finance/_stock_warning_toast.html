@@ -1,0 +1,16 @@
+<div hx-swap-oob="beforeend:#toast-slot">
+  <div class="pointer-events-auto max-w-sm bg-surface-container-lowest border border-error/40 rounded-2xl shadow-2xl p-4 flex items-start gap-3"
+       x-data="{ show: true }" x-show="show"
+       x-transition:leave="transition ease-in duration-200" x-transition:leave-start="opacity-100 translate-y-0" x-transition:leave-end="opacity-0 translate-y-2">
+    <span class="material-symbols-outlined text-error shrink-0">warning</span>
+    <div class="flex-1 min-w-0">
+      <p class="font-semibold text-on-surface text-sm">Estoque de insumo ficou negativo</p>
+      {% for warning in stock_warnings %}
+      <p class="text-xs text-on-surface-variant mt-0.5">{{ warning }}</p>
+      {% endfor %}
+    </div>
+    <button class="text-outline hover:text-on-surface shrink-0" @click="show = false" aria-label="Fechar aviso">
+      <span class="material-symbols-outlined text-[18px]">close</span>
+    </button>
+  </div>
+</div>

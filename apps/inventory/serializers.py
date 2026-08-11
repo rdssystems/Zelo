@@ -41,6 +41,7 @@ class ProductSerializer(serializers.ModelSerializer):
             "current_stock",
             "min_stock_alert",
             "tracks_batches",
+            "is_for_sale",
             "is_active",
             "is_low_stock",
         ]

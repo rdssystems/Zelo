@@ -71,6 +71,7 @@ class ProductViewSet(viewsets.ModelViewSet):
             tracks_batches=data.get(
                 "tracks_batches", serializer.instance.tracks_batches
             ),
+            is_for_sale=data.get("is_for_sale", serializer.instance.is_for_sale),
         )
 
     def perform_destroy(self, instance):
@@ -176,6 +177,12 @@ def _filtered_products(request):
             "product_id", flat=True
         )
         products = products.filter(id__in=expiring_product_ids)
+    tipo = request.GET.get("tipo")
+    if tipo == "insumo":
+        # RF48 — produto de uso interno (não aparece nos pickers de venda).
+        products = products.filter(is_for_sale=False)
+    elif tipo == "venda":
+        products = products.filter(is_for_sale=True)
     return products
 
 
@@ -188,6 +195,7 @@ def _items_response(request):
             "categories": Category.objects.for_tenant(request.tenant),
             "selected_category": request.GET.get("category", ""),
             "selected_situacao": request.GET.get("situacao", ""),
+            "selected_tipo": request.GET.get("tipo", ""),
             **_stock_stats(request.tenant, products),
         },
         request=request,
@@ -207,6 +215,7 @@ def product_list(request):
             "categories": Category.objects.for_tenant(request.tenant),
             "selected_category": request.GET.get("category", ""),
             "selected_situacao": request.GET.get("situacao", ""),
+            "selected_tipo": request.GET.get("tipo", ""),
             "active_nav": "inventory",
             **_stock_stats(request.tenant, products),
         },
@@ -261,6 +270,7 @@ def product_update(request, pk):
                 "sale_price": product.sale_price,
                 "min_stock_alert": product.min_stock_alert,
                 "tracks_batches": product.tracks_batches,
+                "is_for_sale": product.is_for_sale,
             },
         )
     response = render(

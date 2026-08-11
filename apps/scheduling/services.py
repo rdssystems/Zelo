@@ -244,7 +244,7 @@ def mark_no_show(appointment):
 @transaction.atomic
 def complete_appointment(
     *, appointment, payment_method, created_by, product_usage=None, credit_amount=None,
-    debt_amount=None, collect_prior_debt_amount=None,
+    debt_amount=None, collect_prior_debt_amount=None, stock_warnings=None,
 ):
     """RF16 / regra 3 do CLAUDE.md — operação central do sistema. Concluir um
     atendimento é atômico (tudo ou nada):
@@ -285,9 +285,23 @@ def complete_appointment(
 
     `product_usage`: lista opcional de dicts
     `{"product": Product, "quantity": Decimal, "unit_price": Decimal}`.
+
+    RF48 — receita do serviço (`apps.services.models.ServiceProduct`): TODO
+    insumo cadastrado na receita é abatido do estoque automaticamente aqui,
+    sempre (inclusive quando `is_package_covered` — o insumo é gasto de
+    verdade mesmo que o serviço em si não seja recobrado), SEM gerar
+    `CashTransaction` nem entrar no `grand_total` — diferente de
+    `product_usage` (venda casada manual, cobrada do cliente). Estoque
+    insuficiente do insumo não bloqueia a conclusão (decisão do usuário):
+    `current_stock` fica negativo e um aviso é anexado em `stock_warnings`
+    (lista opcional passada pelo chamador — mutada in-place, não é
+    retornada, pra não mudar a assinatura de retorno da função).
     """
     from apps.clients.services import record_client_debt, settle_client_debt
     from apps.finance.models import PaymentMethod
+
+    if stock_warnings is None:
+        stock_warnings = []
 
     if appointment.status not in BLOCKING_STATUSES:
         raise ValidationError("Só é possível concluir agendamentos pendentes ou confirmados.")
@@ -344,6 +358,29 @@ def complete_appointment(
         item_total = quantity * unit_price
         total_products += item_total
         product_lines.append((product, movement, item_total))
+
+    # RF48 — consumo automático da receita do serviço, independente do loop
+    # de product_usage acima: não entra em total_products/grand_total, não
+    # gera CashTransaction, roda sempre (mesmo com is_package_covered).
+    for recipe_item in appointment.service.recipe_items.select_related("product"):
+        recipe_product = recipe_item.product
+        if recipe_item.quantity > recipe_product.current_stock:
+            stock_warnings.append(
+                f'Estoque de "{recipe_product.name}" ficou negativo depois deste '
+                f"atendimento — atualize o estoque antes que a contagem do sistema "
+                f"fique comprometida."
+            )
+        register_stock_movement(
+            tenant=appointment.tenant,
+            product=recipe_product,
+            movement_type=MovementType.OUT,
+            quantity=recipe_item.quantity,
+            unit_price=recipe_product.cost_price,
+            reason=MovementReason.RECIPE_USE,
+            created_by=created_by,
+            related_appointment=appointment,
+            allow_negative_stock=True,
+        )
 
     grand_total = payable_service_total + total_products
 
@@ -430,7 +467,7 @@ def complete_appointment(
 @transaction.atomic
 def complete_client_comanda(
     *, appointments, payment_method, created_by, product_usage_by_appointment=None, credit_amount=None,
-    debt_amount=None, collect_prior_debt_amount=None,
+    debt_amount=None, collect_prior_debt_amount=None, stock_warnings=None,
 ):
     """Fecha vários atendimentos "em atendimento" do MESMO cliente de uma vez
     só — ex.: cliente fez o corte e resolveu fazer manicure na hora, cada um
@@ -458,6 +495,9 @@ def complete_client_comanda(
     if len({a.client_id for a in appointments}) > 1:
         raise ValidationError("Todos os atendimentos da comanda devem ser do mesmo cliente.")
 
+    if stock_warnings is None:
+        stock_warnings = []
+
     product_usage_by_appointment = product_usage_by_appointment or {}
 
     if credit_amount is None and debt_amount is None and collect_prior_debt_amount is None:
@@ -471,6 +511,7 @@ def complete_client_comanda(
                 payment_method=payment_method,
                 created_by=created_by,
                 product_usage=product_usage_by_appointment.get(appointment.pk, []),
+                stock_warnings=stock_warnings,
             )
             for appointment in appointments
         ]
@@ -507,6 +548,7 @@ def complete_client_comanda(
                 product_usage=product_usage,
                 credit_amount=credit_for_this,
                 debt_amount=debt_for_this,
+                stock_warnings=stock_warnings,
                 collect_prior_debt_amount=(
                     collect_prior_debt_amount if appointment is appointments[0] else None
                 ),

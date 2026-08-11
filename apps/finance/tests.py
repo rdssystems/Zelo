@@ -755,6 +755,20 @@ class ComandaFinalizeTest(TestCase):
         response = self.client.get(f"/painel/caixa/comandas/cliente/{self.client_.pk}/produtos/")
         self.assertEqual(response.status_code, 404)
 
+    def test_product_picker_excludes_insumo_only_products(self):
+        """RF48 — produto marcado `is_for_sale=False` (insumo de receita) não
+        aparece pra vender ao cliente, só na receita do serviço."""
+        from apps.inventory.services import create_product
+
+        create_product(
+            tenant=self.tenant, name="Tintura Loiro", unit="ml",
+            cost_price=Decimal("2.00"), sale_price=Decimal("0.00"), min_stock_alert=Decimal("50"),
+            is_for_sale=False,
+        )
+        self.client.force_login(self.admin)
+        response = self.client.get(f"/painel/caixa/comandas/cliente/{self.client_.pk}/produtos/")
+        self.assertNotContains(response, "Tintura Loiro")
+
     def test_product_picker_x_data_brackets_are_balanced(self):
         self.client.force_login(self.admin)
         response = self.client.get(f"/painel/caixa/comandas/cliente/{self.client_.pk}/produtos/")

@@ -1,0 +1,27 @@
+{% load l10n %}
+<div id="service-recipe-items" class="space-y-2">
+  {% if not recipe_items %}
+  <p class="text-sm text-on-surface-variant italic py-6 text-center">
+    Nenhum insumo cadastrado — o serviço não abate nada do estoque sozinho ainda.
+  </p>
+  {% else %}
+  {% for item in recipe_items %}
+  <div class="flex items-center gap-3 bg-surface-container rounded-xl px-4 py-2">
+    <p class="flex-1 text-sm text-on-surface truncate">{{ item.product.name }}</p>
+    <form hx-post="{% url 'services:recipe_item_update' item.id %}" hx-target="#service-recipe-items" hx-swap="outerHTML" hx-trigger="change"
+          class="flex items-center gap-1.5">
+      <input type="number" name="quantity" value="{{ item.quantity|stringformat:'s' }}"
+             step="{% if item.is_whole_unit %}1{% else %}0.01{% endif %}"
+             min="{% if item.is_whole_unit %}1{% else %}0.01{% endif %}"
+             class="w-16 px-2 py-1 rounded-lg border border-outline-variant bg-transparent text-center text-sm focus:ring-0 focus:border-primary"/>
+      <span class="text-xs text-outline">{{ item.product.get_unit_display }}</span>
+    </form>
+    <button type="button"
+            hx-post="{% url 'services:recipe_item_remove' item.id %}" hx-target="#service-recipe-items" hx-swap="outerHTML"
+            class="text-outline hover:text-error transition-colors">
+      <span class="material-symbols-outlined text-[18px]">close</span>
+    </button>
+  </div>
+  {% endfor %}
+  {% endif %}
+</div>
