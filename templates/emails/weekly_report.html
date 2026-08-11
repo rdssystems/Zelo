@@ -1,0 +1,65 @@
+{% load l10n %}
+<div style="font-family: Arial, Helvetica, sans-serif; background-color: #fdfaf7; padding: 32px 16px; color: #1f1b17;">
+  <div style="max-width: 560px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #e5dcd3;">
+
+    <div style="background-color: #7d562d; padding: 24px 32px;">
+      <span style="color: #ffffff; font-size: 20px; font-weight: bold;">Zellup</span>
+    </div>
+
+    <div style="padding: 32px;">
+      <p style="font-size: 16px; margin: 0 0 4px;">Olá, {{ tenant.name }}!</p>
+      <p style="font-size: 14px; color: #594f45; margin: 0 0 24px;">
+        Resumo da semana de {{ start|date:"d/m" }} a {{ end|date:"d/m" }}.
+      </p>
+
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 24px;">
+        <tr>
+          <td style="background-color: #f7f1eb; border-radius: 12px; padding: 16px; text-align: center;" width="33%">
+            <div style="font-size: 20px; font-weight: bold; color: #7d562d;">R$ {{ balance|floatformat:2 }}</div>
+            <div style="font-size: 11px; color: #594f45; text-transform: uppercase; margin-top: 4px;">Saldo da semana</div>
+          </td>
+          <td width="8"></td>
+          <td style="background-color: #f7f1eb; border-radius: 12px; padding: 16px; text-align: center;" width="33%">
+            <div style="font-size: 20px; font-weight: bold; color: #7d562d;">{{ completed_appointments }}</div>
+            <div style="font-size: 11px; color: #594f45; text-transform: uppercase; margin-top: 4px;">Atendimentos</div>
+          </td>
+          <td width="8"></td>
+          <td style="background-color: #f7f1eb; border-radius: 12px; padding: 16px; text-align: center;" width="33%">
+            <div style="font-size: 20px; font-weight: bold; color: #7d562d;">{{ new_clients }}</div>
+            <div style="font-size: 11px; color: #594f45; text-transform: uppercase; margin-top: 4px;">Novos clientes</div>
+          </td>
+        </tr>
+      </table>
+
+      <p style="font-size: 13px; color: #594f45; margin: 0 0 24px;">
+        Entradas: R$ {{ revenue_in|floatformat:2 }} · Saídas: R$ {{ revenue_out|floatformat:2 }}
+      </p>
+
+      {% if top_services %}
+      <p style="font-size: 13px; font-weight: bold; text-transform: uppercase; color: #594f45; margin: 0 0 8px;">Serviços que mais renderam</p>
+      <ul style="font-size: 14px; margin: 0 0 24px; padding-left: 20px;">
+        {% for name, total in top_services %}
+        <li style="margin-bottom: 4px;">{{ name }} — R$ {{ total|floatformat:2 }}</li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+
+      {% if low_stock_count %}
+      <div style="background-color: #fdecec; border-radius: 12px; padding: 12px 16px; font-size: 13px; margin-bottom: 24px;">
+        ⚠️ {{ low_stock_count }} produto{{ low_stock_count|pluralize }} com estoque baixo — vale conferir a aba Estoque.
+      </div>
+      {% endif %}
+
+      <a href="https://zellup.com.br/painel/login/"
+         style="display: inline-block; background-color: #7d562d; color: #ffffff; text-decoration: none; padding: 12px 24px; border-radius: 24px; font-size: 14px; font-weight: bold;">
+        Ver painel completo
+      </a>
+
+      <p style="font-size: 12px; color: #594f45; margin-top: 32px; border-top: 1px solid #e5dcd3; padding-top: 16px;">
+        Você cuida dos seus clientes, a gente cuida do administrativo — esse resumo chega toda
+        segunda-feira. Pra não receber mais, desmarque em Configurações &gt; Relatório semanal, no
+        painel.
+      </p>
+    </div>
+  </div>
+</div>

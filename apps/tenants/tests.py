@@ -334,6 +334,33 @@ class TenantSettingsPanelTest(TestCase):
         self.tenant.refresh_from_db()
         self.assertTrue(self.tenant.whatsapp_cancel_redirect_enabled)
 
+    def test_weekly_report_email_checkbox_rendered_checked_by_default(self):
+        self.client.force_login(self.admin)
+        response = self.client.get("/painel/configuracoes/")
+        self.assertContains(response, "Receber relatório semanal por e-mail")
+        self.assertContains(
+            response,
+            '<input class="mt-0.5 rounded border-outline text-primary focus:ring-primary" '
+            'type="checkbox" name="weekly_report_email_enabled"\n             checked/>',
+        )
+
+    def test_weekly_report_email_defaults_true_and_can_be_turned_off(self):
+        self.assertTrue(self.tenant.weekly_report_email_enabled)
+        self.client.force_login(self.admin)
+        # checkbox ausente no payload = desmarcado
+        self.client.post("/painel/configuracoes/", self._valid_payload())
+        self.tenant.refresh_from_db()
+        self.assertFalse(self.tenant.weekly_report_email_enabled)
+
+    def test_weekly_report_email_stays_on_when_checkbox_sent(self):
+        self.client.force_login(self.admin)
+        self.client.post(
+            "/painel/configuracoes/",
+            self._valid_payload(weekly_report_email_enabled="on"),
+        )
+        self.tenant.refresh_from_db()
+        self.assertTrue(self.tenant.weekly_report_email_enabled)
+
     def test_birthday_alert_defaults_off_and_can_be_turned_on(self):
         self.assertFalse(self.tenant.birthday_alert_enabled)
         self.client.force_login(self.admin)

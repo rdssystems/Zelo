@@ -1,8 +1,11 @@
 import datetime
+import unittest.mock
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
+from django.core import mail
 from django.test import TestCase
+from django.utils import timezone
 
 from apps.clients.models import Client
 from apps.clients.services import add_client_credit
@@ -507,3 +510,203 @@ class ReportsPdfTest(TestCase):
         self.client.force_login(self.admin)
         response = self._post(["visao_geral", "faturamento", "dre"])
         self.assertNotIn(b"ServicoExclusivoB", response.content)
+
+
+class WeeklySummaryTest(TestCase):
+    """Agregação usada pelo e-mail semanal (`apps.reports.tasks.
+    send_weekly_report_emails`) — janela de período é sempre "esta semana"
+    (segunda a domingo de hoje) pra não depender de data fixa no teste."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.tenant, cls.admin = make_tenant_with_admin("salao-a")
+        cls.employee = create_employee(
+            tenant=cls.tenant, full_name="Ana Silva", email="ana@salao-a.com", password="Senha@123",
+            default_commission_type="percentage", default_commission_value=Decimal("40.00"),
+        )
+        cls.service = create_service(
+            tenant=cls.tenant, name="Corte", duration_minutes=60, price=Decimal("100.00")
+        )
+        cls.client_ = Client.objects.create(tenant=cls.tenant, phone="11999990000", name="Cliente Teste")
+        today = timezone.localdate()
+        cls.monday = today - datetime.timedelta(days=today.weekday())
+        cls.sunday = cls.monday + datetime.timedelta(days=6)
+
+    def _completed_appointment(self, date):
+        appointment = Appointment.objects.create(
+            tenant=self.tenant, client=self.client_, employee=self.employee, service=self.service,
+            date=date, start_time=datetime.time(9, 0), end_time=datetime.time(10, 0),
+            status=AppointmentStatus.IN_PROGRESS, price_at_booking=Decimal("100.00"),
+        )
+        complete_appointment(appointment=appointment, payment_method="cash", created_by=self.admin)
+        return appointment
+
+    def test_totals_reflect_only_appointments_within_period(self):
+        """`Appointment.date` decide `completed_appointments` (e `top_services`),
+        mas `revenue_in` vem de `period_summary`, que olha
+        `CashTransaction.created_at` (data do pagamento, não do serviço) —
+        mesmo eixo já usado no resto de `apps.reports`/Caixa. Como
+        `complete_appointment` sempre cria a `CashTransaction` "agora"
+        (`auto_now_add`), simular uma fora do período exige retroagir o
+        `created_at` dela manualmente, não só a data do agendamento."""
+        from apps.finance.models import CashTransaction
+        from apps.reports.services import weekly_summary
+
+        self._completed_appointment(self.monday)
+        outside = self._completed_appointment(self.sunday + datetime.timedelta(days=1))
+        CashTransaction.objects.filter(related_appointment=outside).update(
+            created_at=timezone.now() - datetime.timedelta(days=30)
+        )
+
+        summary = weekly_summary(self.tenant, self.monday, self.sunday)
+        self.assertEqual(summary["completed_appointments"], 1)  # date fora do período
+        self.assertEqual(summary["revenue_in"], Decimal("100.00"))
+        self.assertEqual(summary["balance"], Decimal("100.00"))
+
+    def test_counts_only_new_clients_within_period(self):
+        from apps.reports.services import weekly_summary
+
+        # cls.client_ (setUpTestData) também nasce "agora" — retroage pra não
+        # contaminar a contagem de "novos" desta janela.
+        Client.objects.filter(pk=self.client_.pk).update(
+            created_at=timezone.now() - datetime.timedelta(days=30)
+        )
+        Client.objects.create(tenant=self.tenant, phone="11911112222", name="Dentro do período")
+        outside = Client.objects.create(tenant=self.tenant, phone="11933334444", name="Fora do período")
+        Client.objects.filter(pk=outside.pk).update(
+            created_at=timezone.now() - datetime.timedelta(days=30)
+        )
+
+        summary = weekly_summary(self.tenant, self.monday, self.sunday)
+        self.assertEqual(summary["new_clients"], 1)
+
+    def test_top_services(self):
+        from apps.reports.services import weekly_summary
+
+        self._completed_appointment(self.monday)
+        summary = weekly_summary(self.tenant, self.monday, self.sunday)
+        self.assertEqual(summary["top_services"], [("Corte", 100.0)])
+
+    def test_low_stock_count(self):
+        from apps.reports.services import weekly_summary
+
+        create_product(
+            tenant=self.tenant, name="Xampu", unit="un",
+            cost_price=Decimal("5"), sale_price=Decimal("10"), min_stock_alert=Decimal("5"),
+        )
+        summary = weekly_summary(self.tenant, self.monday, self.sunday)
+        self.assertEqual(summary["low_stock_count"], 1)
+
+    def test_isolated_per_tenant(self):
+        from apps.reports.services import weekly_summary
+
+        other_tenant, other_admin = make_tenant_with_admin("salao-b")
+        other_employee = create_employee(
+            tenant=other_tenant, full_name="Beatriz", email="bia@salao-b.com", password="Senha@123",
+            default_commission_type="percentage", default_commission_value=Decimal("30"),
+        )
+        other_service = create_service(
+            tenant=other_tenant, name="Escova", duration_minutes=30, price=Decimal("50")
+        )
+        other_client = Client.objects.create(tenant=other_tenant, phone="11988887777", name="Cliente B")
+        appointment = Appointment.objects.create(
+            tenant=other_tenant, client=other_client, employee=other_employee, service=other_service,
+            date=self.monday, start_time=datetime.time(9, 0), end_time=datetime.time(9, 30),
+            status=AppointmentStatus.IN_PROGRESS, price_at_booking=Decimal("50.00"),
+        )
+        complete_appointment(appointment=appointment, payment_method="cash", created_by=other_admin)
+
+        summary = weekly_summary(self.tenant, self.monday, self.sunday)
+        self.assertEqual(summary["completed_appointments"], 0)
+        self.assertEqual(summary["revenue_in"], Decimal("0"))
+
+
+class WeeklyReportEmailTaskTest(TestCase):
+    """`apps.reports.tasks.send_weekly_report_emails` — RF de relatório
+    semanal por e-mail (decisão do usuário: opt-out, liga por padrão)."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.tenant, cls.admin = make_tenant_with_admin("salao-a")
+        cls.employee = create_employee(
+            tenant=cls.tenant, full_name="Ana Silva", email="ana@salao-a.com", password="Senha@123",
+            default_commission_type="percentage", default_commission_value=Decimal("40.00"),
+        )
+        cls.service = create_service(
+            tenant=cls.tenant, name="Corte", duration_minutes=60, price=Decimal("100.00")
+        )
+        cls.client_ = Client.objects.create(tenant=cls.tenant, phone="11999990000", name="Cliente Teste")
+
+    def _completed_appointment_last_week(self):
+        from apps.reports.tasks import _previous_week_bounds
+
+        start, _end = _previous_week_bounds()
+        appointment = Appointment.objects.create(
+            tenant=self.tenant, client=self.client_, employee=self.employee, service=self.service,
+            date=start, start_time=datetime.time(9, 0), end_time=datetime.time(10, 0),
+            status=AppointmentStatus.IN_PROGRESS, price_at_booking=Decimal("100.00"),
+        )
+        complete_appointment(appointment=appointment, payment_method="cash", created_by=self.admin)
+
+    def test_previous_week_bounds_is_monday_to_sunday_before_this_week(self):
+        from apps.reports.tasks import _previous_week_bounds
+
+        # quarta-feira, 2026-08-12
+        today = datetime.date(2026, 8, 12)
+        start, end = _previous_week_bounds(today)
+        self.assertEqual(start, datetime.date(2026, 8, 3))  # segunda anterior
+        self.assertEqual(end, datetime.date(2026, 8, 9))  # domingo anterior
+        self.assertEqual(start.weekday(), 0)
+        self.assertEqual(end.weekday(), 6)
+
+    def test_sends_email_to_tenant_admin(self):
+        from apps.reports.tasks import send_weekly_report_emails
+
+        self._completed_appointment_last_week()
+        send_weekly_report_emails()
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, [self.admin.email])
+        self.assertIn(self.tenant.name, mail.outbox[0].subject)
+        self.assertTrue(mail.outbox[0].alternatives)  # tem a versão HTML anexada
+
+    def test_skips_tenant_with_report_disabled(self):
+        from apps.reports.tasks import send_weekly_report_emails
+
+        self.tenant.weekly_report_email_enabled = False
+        self.tenant.save(update_fields=["weekly_report_email_enabled"])
+        send_weekly_report_emails()
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_skips_inactive_tenant(self):
+        from apps.reports.tasks import send_weekly_report_emails
+
+        self.tenant.is_active = False
+        self.tenant.save(update_fields=["is_active"])
+        send_weekly_report_emails()
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_skips_tenant_without_admin_silently(self):
+        Tenant.objects.create(name="Sem Admin", slug="sem-admin")
+        from apps.reports.tasks import send_weekly_report_emails
+
+        send_weekly_report_emails()  # não deve levantar exceção
+        self.assertEqual(len(mail.outbox), 1)  # só o tenant com admin recebeu
+
+    def test_one_tenant_failure_does_not_block_others(self):
+        from apps.reports import tasks as reports_tasks
+
+        other_tenant, _other_admin = make_tenant_with_admin("salao-b")
+        calls = []
+
+        def fake_send(tenant, start, end):
+            calls.append(tenant.pk)
+            if tenant.pk == self.tenant.pk:
+                raise Exception("boom")
+
+        with unittest.mock.patch.object(
+            reports_tasks, "_send_weekly_report_email", side_effect=fake_send
+        ):
+            with self.assertLogs("apps.reports.tasks", level="ERROR"):
+                reports_tasks.send_weekly_report_emails()
+
+        self.assertEqual(set(calls), {self.tenant.pk, other_tenant.pk})

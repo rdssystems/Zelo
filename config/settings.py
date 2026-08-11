@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 
 import environ
+from celery.schedules import crontab
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -193,6 +194,15 @@ REDIS_URL = env("REDIS_URL", default="redis://redis:6379/0")
 CELERY_BROKER_URL = REDIS_URL
 CELERY_RESULT_BACKEND = REDIS_URL
 CELERY_TIMEZONE = TIME_ZONE
+
+CELERY_BEAT_SCHEDULE = {
+    # Relatório semanal por e-mail (RF, decisão do usuário: opt-out) — toda
+    # segunda de manhã, ver apps.reports.tasks.send_weekly_report_emails.
+    "send-weekly-report-emails": {
+        "task": "apps.reports.tasks.send_weekly_report_emails",
+        "schedule": crontab(day_of_week=1, hour=7, minute=0),
+    },
+}
 
 CACHES = {
     "default": {

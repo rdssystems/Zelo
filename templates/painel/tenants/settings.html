@@ -248,6 +248,22 @@
   </div>
 
   <div class="bg-surface-container-lowest rounded-2xl shadow-[0_4px_40px_-10px_rgba(125,86,45,0.08)] border border-surface-container p-8">
+    <h3 class="text-label-caps uppercase text-outline mb-2">Relatório semanal</h3>
+    <p class="text-sm text-on-surface-variant mb-4">
+      Toda segunda-feira de manhã, um resumo da semana anterior (faturamento, atendimentos
+      concluídos, novos clientes) é enviado por e-mail pro(s) responsável(is) do salão.
+    </p>
+    <label class="flex items-start gap-3 text-sm text-on-surface-variant">
+      <input class="mt-0.5 rounded border-outline text-primary focus:ring-primary" type="checkbox" name="weekly_report_email_enabled"
+             {% if form.weekly_report_email_enabled.value %}checked{% endif %}/>
+      <span>
+        Receber relatório semanal por e-mail<br/>
+        <span class="text-xs">Marcado por padrão. Desmarque pra não receber mais.</span>
+      </span>
+    </label>
+  </div>
+
+  <div class="bg-surface-container-lowest rounded-2xl shadow-[0_4px_40px_-10px_rgba(125,86,45,0.08)] border border-surface-container p-8">
     <h3 class="text-label-caps uppercase text-outline mb-2">Mensalistas e engajamento</h3>
     <p class="text-sm text-on-surface-variant mb-6">
       Controla quando um cliente aparece como "vence em breve" ou "inativo" na lista de Clientes.

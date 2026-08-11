@@ -36,6 +36,7 @@ class TenantSettingsSerializer(serializers.ModelSerializer):
             "client_inactive_days",
             "whatsapp_cancel_redirect_enabled",
             "auto_confirm_appointments",
+            "weekly_report_email_enabled",
             "employee_can_create_appointments",
             "employee_can_confirm_appointments",
             "employee_can_start_appointments",

@@ -144,6 +144,12 @@ class Tenant(models.Model):
         "cliente novo — tanto no agendamento público quanto no cadastro manual pelo painel. "
         "Cliente já cadastrado sem aniversário não é bloqueado por causa disso.",
     )
+    weekly_report_email_enabled = models.BooleanField(
+        "receber relatório semanal por e-mail", default=True,
+        help_text="Toda segunda-feira de manhã, um e-mail com o resumo da semana anterior "
+        "(faturamento, atendimentos concluídos, novos clientes) é enviado pro(s) "
+        "responsável(is) do salão. Desmarque pra não receber.",
+    )
     # Autonomia do funcionário na própria agenda (decisão do usuário em
     # 2026-08-07) — desligado por padrão, o admin decide ativar em
     # Configurações. Cada ação só vale pro PRÓPRIO agendamento do

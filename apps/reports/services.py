@@ -183,3 +183,34 @@ def revenue_by_employee(tenant, start_date, end_date, limit=10):
         [row["employee__full_name"] for row in rows],
         [float(row["total"] or 0) for row in rows],
     )
+
+
+# ---------------------------------------------------------------------------
+# Relatório semanal por e-mail — ver apps.reports.tasks.send_weekly_report_emails
+# ---------------------------------------------------------------------------
+
+
+def weekly_summary(tenant, start_date, end_date):
+    """Resumo da semana (segunda a domingo) pro e-mail semanal — reaproveita
+    as agregações já usadas em Relatórios/DRE, só com janela de 7 dias em
+    vez de mês."""
+    from apps.finance.services import period_summary
+
+    cash = period_summary(tenant, start_date, end_date)
+    completed_appointments = Appointment.objects.for_tenant(tenant).filter(
+        status=AppointmentStatus.COMPLETED, date__range=(start_date, end_date)
+    ).count()
+    new_clients = Client.objects.for_tenant(tenant).filter(
+        created_at__date__range=(start_date, end_date)
+    ).count()
+    service_labels, service_totals = top_services(tenant, start_date, end_date, limit=3)
+    stock = stock_kpis(tenant)
+    return {
+        "revenue_in": cash["total_in"],
+        "revenue_out": cash["total_out"],
+        "balance": cash["balance"],
+        "completed_appointments": completed_appointments,
+        "new_clients": new_clients,
+        "top_services": list(zip(service_labels, service_totals)),
+        "low_stock_count": stock["low_stock_count"],
+    }
