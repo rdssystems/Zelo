@@ -44,6 +44,24 @@
       </ul>
       {% endif %}
 
+      {% if employees %}
+      <p style="font-size: 13px; font-weight: bold; text-transform: uppercase; color: #594f45; margin: 0 0 8px;">Funcionários</p>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 24px; font-size: 14px;">
+        <tr>
+          <td style="padding: 6px 0; border-bottom: 1px solid #e5dcd3; font-size: 11px; color: #594f45; text-transform: uppercase;">Nome</td>
+          <td style="padding: 6px 0; border-bottom: 1px solid #e5dcd3; font-size: 11px; color: #594f45; text-transform: uppercase; text-align: right;">Faturou</td>
+          <td style="padding: 6px 0; border-bottom: 1px solid #e5dcd3; font-size: 11px; color: #594f45; text-transform: uppercase; text-align: right;">Comissão</td>
+        </tr>
+        {% for row in employees %}
+        <tr>
+          <td style="padding: 8px 0; border-bottom: 1px solid #f7f1eb;">{{ row.name }}</td>
+          <td style="padding: 8px 0; border-bottom: 1px solid #f7f1eb; text-align: right;">R$ {{ row.revenue|floatformat:2 }}</td>
+          <td style="padding: 8px 0; border-bottom: 1px solid #f7f1eb; text-align: right; color: #7d562d; font-weight: bold;">R$ {{ row.commission|floatformat:2 }}</td>
+        </tr>
+        {% endfor %}
+      </table>
+      {% endif %}
+
       {% if low_stock_count %}
       <div style="background-color: #fdecec; border-radius: 12px; padding: 12px 16px; font-size: 13px; margin-bottom: 24px;">
         ⚠️ {{ low_stock_count }} produto{{ low_stock_count|pluralize }} com estoque baixo — vale conferir a aba Estoque.

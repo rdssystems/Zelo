@@ -620,6 +620,68 @@ class WeeklySummaryTest(TestCase):
         self.assertEqual(summary["completed_appointments"], 0)
         self.assertEqual(summary["revenue_in"], Decimal("0"))
 
+    def test_employees_summary_includes_revenue_and_commission(self):
+        from apps.reports.services import weekly_summary
+
+        self._completed_appointment(self.monday)  # Ana, comissão 40% de 100
+        summary = weekly_summary(self.tenant, self.monday, self.sunday)
+        self.assertEqual(
+            summary["employees"],
+            [{"name": "Ana Silva", "revenue": Decimal("100.00"), "commission": Decimal("40.00")}],
+        )
+
+    def test_employees_summary_sorted_by_revenue_desc_and_excludes_no_activity(self):
+        from apps.reports.services import weekly_summary
+
+        other_employee = create_employee(
+            tenant=self.tenant, full_name="Bruno Costa", email="bruno@salao-a.com", password="Senha@123",
+            default_commission_type="percentage", default_commission_value=Decimal("50.00"),
+        )
+        idle_employee = create_employee(
+            tenant=self.tenant, full_name="Sem Atendimento", email="idle@salao-a.com", password="Senha@123",
+            default_commission_type="percentage", default_commission_value=Decimal("20.00"),
+        )
+        self._completed_appointment(self.monday)  # Ana: R$100
+        appointment2 = Appointment.objects.create(
+            tenant=self.tenant, client=self.client_, employee=other_employee, service=self.service,
+            date=self.monday, start_time=datetime.time(11, 0), end_time=datetime.time(12, 0),
+            status=AppointmentStatus.IN_PROGRESS, price_at_booking=Decimal("200.00"),
+        )
+        complete_appointment(appointment=appointment2, payment_method="cash", created_by=self.admin)
+
+        summary = weekly_summary(self.tenant, self.monday, self.sunday)
+        self.assertEqual(
+            summary["employees"],
+            [
+                {"name": "Bruno Costa", "revenue": Decimal("200.00"), "commission": Decimal("100.00")},
+                {"name": "Ana Silva", "revenue": Decimal("100.00"), "commission": Decimal("40.00")},
+            ],
+        )
+        names = [row["name"] for row in summary["employees"]]
+        self.assertNotIn(idle_employee.full_name, names)
+
+    def test_employees_summary_isolated_per_tenant(self):
+        from apps.reports.services import weekly_summary
+
+        other_tenant, other_admin = make_tenant_with_admin("salao-b")
+        other_employee = create_employee(
+            tenant=other_tenant, full_name="Beatriz", email="bia@salao-b.com", password="Senha@123",
+            default_commission_type="percentage", default_commission_value=Decimal("30"),
+        )
+        other_service = create_service(
+            tenant=other_tenant, name="Escova", duration_minutes=30, price=Decimal("50")
+        )
+        other_client = Client.objects.create(tenant=other_tenant, phone="11988887777", name="Cliente B")
+        appointment = Appointment.objects.create(
+            tenant=other_tenant, client=other_client, employee=other_employee, service=other_service,
+            date=self.monday, start_time=datetime.time(9, 0), end_time=datetime.time(9, 30),
+            status=AppointmentStatus.IN_PROGRESS, price_at_booking=Decimal("50.00"),
+        )
+        complete_appointment(appointment=appointment, payment_method="cash", created_by=other_admin)
+
+        summary = weekly_summary(self.tenant, self.monday, self.sunday)
+        self.assertEqual(summary["employees"], [])
+
 
 class WeeklyReportEmailTaskTest(TestCase):
     """`apps.reports.tasks.send_weekly_report_emails` — RF de relatório

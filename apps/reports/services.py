@@ -190,6 +190,44 @@ def revenue_by_employee(tenant, start_date, end_date, limit=10):
 # ---------------------------------------------------------------------------
 
 
+def employees_weekly_summary(tenant, start_date, end_date):
+    """Faturamento gerado (`Appointment.price_at_booking`, mesmo eixo de
+    `revenue_by_employee`) e comissão (`Commission.calculated_amount`,
+    mesmo eixo de `commission_by_employee_this_month`) de cada funcionário
+    no período — pro e-mail semanal. Funcionário sem nenhum atendimento
+    concluído no período simplesmente não aparece (times de salão são
+    pequenos, sem necessidade de limitar quantidade)."""
+    revenue_by_name = {
+        row["employee__full_name"]: row["total"] or Decimal("0")
+        for row in (
+            Appointment.objects.for_tenant(tenant)
+            .filter(status=AppointmentStatus.COMPLETED, date__range=(start_date, end_date))
+            .values("employee__full_name")
+            .annotate(total=Sum("price_at_booking"))
+        )
+    }
+    commission_by_name = {
+        row["employee__full_name"]: row["total"] or Decimal("0")
+        for row in (
+            Commission.objects.for_tenant(tenant)
+            .filter(created_at__date__range=(start_date, end_date))
+            .values("employee__full_name")
+            .annotate(total=Sum("calculated_amount"))
+        )
+    }
+    names = sorted(set(revenue_by_name) | set(commission_by_name))
+    rows = [
+        {
+            "name": name,
+            "revenue": revenue_by_name.get(name, Decimal("0")),
+            "commission": commission_by_name.get(name, Decimal("0")),
+        }
+        for name in names
+    ]
+    rows.sort(key=lambda row: row["revenue"], reverse=True)
+    return rows
+
+
 def weekly_summary(tenant, start_date, end_date):
     """Resumo da semana (segunda a domingo) pro e-mail semanal — reaproveita
     as agregações já usadas em Relatórios/DRE, só com janela de 7 dias em
@@ -212,5 +250,6 @@ def weekly_summary(tenant, start_date, end_date):
         "completed_appointments": completed_appointments,
         "new_clients": new_clients,
         "top_services": list(zip(service_labels, service_totals)),
+        "employees": employees_weekly_summary(tenant, start_date, end_date),
         "low_stock_count": stock["low_stock_count"],
     }
